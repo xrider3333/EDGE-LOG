@@ -496,6 +496,15 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
           A.picks=det?det.querySelectorAll('tr[data-1apick]').length:0;
           var rs=q('#res-step-8 #eq-rs');A.boxH=rs?Math.round(rs.getBoundingClientRect().height):null;
           var hd=q('[data-1acfgbar]');A.barH=hd?Math.round(hd.getBoundingClientRect().height):null;
+          A.approx=det?det.querySelectorAll('rect[data-1aapprox]').length:0;
+          // CROSSHAIR: move a pointer to the middle of the chart column, read the line + readout, then leave and check they hide
+          var xb=q('[data-1axh]');A.xh=!!xb;
+          if(xb){try{var xr=xb.getBoundingClientRect(),hb0=xb.getBoundingClientRect().height,PE=w.PointerEvent||w.MouseEvent;
+            xb.dispatchEvent(new PE('pointermove',{clientX:xr.left+xr.width*0.5,clientY:xr.top+20,bubbles:true}));
+            var xl=xb.querySelector('[data-1axhline]'),xt=xb.querySelector('[data-1axhtip]');
+            A.xhLine=xl?xl.style.display:null;A.xhTip=xt?(xt.textContent||''):'';A.xhShown=xt?xt.style.display:null;
+            A.xhSameH=(Math.round(xb.getBoundingClientRect().height)===Math.round(hb0));
+            xb.dispatchEvent(new PE('pointerleave',{bubbles:false}));A.xhHidden=xt?xt.style.display:null;}catch(_xe){A.xhErr=String(_xe);}}
           r.a1=A;}
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
@@ -928,13 +937,31 @@ def _check_1a(nm, A, fixture):
             f.append('%s: the chart does not name the drawn config (%r)' % (nm, A.get('drawn')))
         if A.get('backVis') != 'visible':
             f.append('%s: the CHAMPION button is not showing while a 1E row is drawn' % nm)
-        if A.get('bars') or A.get('barsState') != 'alt':
-            f.append('%s: a 1E row has no trade list, so no daily bars and the "champion only" note (bars %s, state %r)' % (nm, A.get('bars'), A.get('barsState')))
+        if A.get('bars') or A.get('barsState') != 'approx' or (A.get('approx') or 0) < 20 or 'approx bars (curve steps)' not in (A.get('barsNote') or ''):
+            f.append('%s: a 1E row stores no per-trade sizes, so it must draw "approx bars (curve steps)" from its own curve (champion layers %s, approx rects %s, state %r, note %r)'
+                     % (nm, A.get('bars'), A.get('approx'), A.get('barsState'), A.get('barsNote')))
     if nm == 'a1-cfg-none':
         if A.get('alt') != 'tilt:0' or not A.get('noCurve'):
             f.append('%s: a row with no saved curve must say so instead of drawing (alt %r, noCurve %r)' % (nm, A.get('alt'), A.get('noCurve')))
         if not any('(no curve)' in t for t in (A.get('optText') or [])):
             f.append('%s: the picker does not mark the row with no curve' % nm)
+    if not A.get('noCurve'):
+        if not A.get('xh') or A.get('xhErr'):
+            f.append('%s: the 1A crosshair is missing (%r)' % (nm, A.get('xhErr')))
+        else:
+            tx = A.get('xhTip') or ''
+            if A.get('xhLine') != 'block' or A.get('xhShown') != 'block':
+                f.append('%s: hovering 1A did not show the crosshair line + readout' % nm)
+            for part in ('cum P&L', 'DD ', '%', '$'):
+                if part not in tx:
+                    f.append('%s: the crosshair readout lacks %r: %r' % (nm, part, tx[:160]))
+                    break
+            if not (('day ' in tx) or ('curve step' in tx)):
+                f.append('%s: the crosshair readout has no bar P&L: %r' % (nm, tx[:160]))
+            if not A.get('xhSameH'):
+                f.append('%s: showing the crosshair changed the chart height' % nm)
+            if A.get('xhHidden') != 'none':
+                f.append('%s: the crosshair readout stays up after the pointer leaves' % nm)
     if nm == 'a1-picks' and (A.get('picks') or 0) < 20:
         f.append('%s: only %s 1E ALL-table rows can be clicked into 1A' % (nm, A.get('picks')))
     return f
@@ -958,7 +985,8 @@ def _check_cfg_labels(nm, r, fixture):
     if want_ml is None or (nm == 'cfg-labels-base' and want_ml == champ_set):
         return ['%s: the fixture gives no usable base set (champion %s, ML base %s) - the case tests nothing' % (nm, champ_set, want_ml)]
     raw_re = re.compile(r'^#' + rid + r'\.(\d+) raw ' + dot + r' R(\d+)$')
-    ml_re = re.compile(r'^#' + rid + r'\.(\d+) (gate|tilt|hybrid|keel) ' + dot + r' \S')
+    # owner 11-23: every ML row carries its own variant number, #RUN.SET.N (N = stable place in the doc's gate/tilt/hybrid/keel blocks)
+    ml_re = re.compile(r'^#' + rid + r'\.(\d+)\.(\d+) (gate|tilt|hybrid|keel) ' + dot + r' \S')
     n_raw = n_ml = 0
     for key, txt in rows:
         if key.split(':')[0] == 'raw':
@@ -975,13 +1003,20 @@ def _check_cfg_labels(nm, r, fixture):
             n_ml += 1
             m = ml_re.match(txt)
             if not m:
-                f.append('%s: ML row %s reads %r, want "#%s.<set> <mode> . <detail>"' % (nm, key, txt, rid))
+                f.append('%s: ML row %s reads %r, want "#%s.<set>.<n> <mode> . <detail>"' % (nm, key, txt, rid))
             elif int(m.group(1)) != want_ml:
                 f.append('%s: ML row %r names set %s, but its gate was handed set %s%s'
                          % (nm, txt, m.group(1), want_ml,
                             (' (NOT the champion, set %s)' % champ_set) if want_ml != champ_set else ''))
     if n_raw < 5 or n_ml < 15:
         f.append('%s: only %d RAW and %d ML rows in the CONFIG column' % (nm, n_raw, n_ml))
+    # owner 11-23: no two rows of one run share a label
+    seen = {}
+    for key, txt in rows:
+        seen.setdefault(txt, []).append(key)
+    dup = dict((t, k) for t, k in seen.items() if len(k) > 1)
+    if dup:
+        f.append('%s: %d labels are shared by more than one row, e.g. %r' % (nm, len(dup), list(dup.items())[:2]))
     return f[:8]
 
 

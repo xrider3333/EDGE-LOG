@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.19';
+const VERSION='92.20';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4492,6 +4492,30 @@ window.cfgRowLabel=function(fam,run,cell,mode,detail){
 window.cfgRowLabelShort=function(run,cell,mode,detail){
   run=String(run==null?'':run).replace(/^#/,'');
   return ((run?('#'+run+((cell!=null&&cell!=='')?('.'+cell):'')):'')+(mode?(' '+mode):'')).trim()+((detail!=null&&String(detail).trim()!=='')?(' '+String.fromCharCode(183)+' '+String(detail).trim()):'');};
+// UNIQUE ML NUMBERS (owner 11-23): every GATE / TILT / HYBRID / KEEL row of a run sits on ONE base set (cfgMlBaseSetOf), so
+//   '#556.4 gate' alone named dozens of rows. Each ML row now carries a third part, #RUN.SET.N, N = the variant's STABLE place
+//   in the run document's own block order - gate_validate.candidates, then tilts, then hybrids (plain), then the hybrids
+//   resized to the no-gate book's contracts (HR), then to its drawdown (HD), then the keel - never a sort by net, so a
+//   number never moves when a table is re-sorted. RAW rows keep #RUN.SET. The item is found by identity, else by its
+//   saved fingerprint (a hydrated copy of the same doc). Old two-part references (paper legs' '#555.1 keel') are untouched:
+//   the ledger labels come from PAPER_LEG_PARAMS cells, not from this number.
+window.cfgMlNOf=function(GV,kind,item,variant){try{
+  if(!GV||!item||typeof item!=='object')return null;
+  const fp=o=>JSON.stringify([o.model,o.threshold,o.scheme,o.rule,o.cutoff,o.version,o.floor,o.max_size,o.n_trades,
+    o.full&&o.full.total_pnl,o.pre_pnl]);
+  const find=arr=>{arr=Array.isArray(arr)?arr:[];let i=arr.indexOf(item);if(i<0){const f=fp(item);i=arr.findIndex(x=>x&&typeof x==='object'&&fp(x)===f);}return i;};
+  const G=Array.isArray(GV.candidates)?GV.candidates.length:0,T=Array.isArray(GV.tilts)?GV.tilts.length:0,H=Array.isArray(GV.hybrids)?GV.hybrids.length:0;
+  const k=String(kind||'').toLowerCase(),v=String(variant||'').toLowerCase();
+  let i;
+  if(k==='gate'){i=find(GV.candidates);return i<0?null:i+1;}
+  if(k==='tilt'){i=find(GV.tilts);return i<0?null:G+i+1;}
+  if(k==='hybrid'||k==='hyb'||k==='hyb2'||k==='hyb3'){i=find(GV.hybrids);if(i<0)return null;
+    const off=(k==='hyb2'||v==='redeploy'||v==='hr')?H:((k==='hyb3'||v==='equaldd'||v==='hd')?2*H:0);return G+T+off+i+1;}
+  if(k==='keel'){const K=GV.keel;if(!K||K.error)return null;
+    if(Array.isArray(K)){i=find(K);return i<0?null:G+T+3*H+i+1;}return G+T+3*H+1;}
+  return null;}catch(e){return null;}};
+// the cell a row's label prints: '4' for a raw row, '4.17' for an ML row whose variant number is known
+window.cfgMlCell=function(cell,n){return (cell!=null&&cell!==''&&n!=null)?(String(cell)+'.'+n):cell;};
 // THE RUN'S SET NUMBER, where the run records one. Only api/paper_leg_params.py knows it (it
 //   is a rank over the whole saved grid by in-sample net, and the page never loads that grid),
 //   so this reads the same constant the LEDGER reads - PAPER_LEG_PARAMS - and returns null for
@@ -17646,26 +17670,82 @@ function _1aBarsDraw(g,D){try{
   g.innerHTML=h;g.setAttribute('data-1abarsn',String(days.length));
   if(note){note.textContent='daily P&L bars · '+days.length.toLocaleString()+' days · '+D.src;note.setAttribute('data-1abarsstate','ok');}
 }catch(e){console.warn('1A daily bars skipped',e);}}
-// after every render: draw from the cache, else read the cached blotter (or the COST AND LIMITS ask already out) once per run
+// after every render: draw from the cache, else the cached blotter, else the COST AND LIMITS ask already out, else (owner 11-23 #2)
+//   ask the PC runner for the champion trade list ONCE per run per page - the same get_blotter request and IndexedDB cache the
+//   TRADES tab uses, so a later TRADES click is instant. The note reads "loading bars" meanwhile and always ends on a reason.
+window._1aAsked=window._1aAsked||{};
+function _1aNote(rid,txt,state){document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>{const b=x.closest('[data-1abox]'),n=b?b.querySelector('[data-1abarsnote]'):null;
+  if(n&&n.getAttribute('data-1abarsstate')!=='ok'){n.textContent=txt;n.setAttribute('data-1abarsstate',state);}});}
+function _1aBlotPay(rid){let el=null;document.querySelectorAll('[data-eqblot]').forEach(e=>{if(el)return;try{const B=JSON.parse(decodeURIComponent(e.getAttribute('data-eqblot')||''));if(B&&String(B.run_id)===String(rid))el=B;}catch(_e){}});return el;}
 function _1aBarsFill(root){try{
   (root||document).querySelectorAll('g[data-1abars]').forEach(g=>{
-    const rid=g.getAttribute('data-1abars'),box=g.closest('[data-1abox]'),note=box?box.querySelector('[data-1abarsnote]'):null;
-    const C=window._1aDaily;
+    const rid=g.getAttribute('data-1abars'),C=window._1aDaily;
     if(C[rid]&&C[rid].days){_1aBarsDraw(g,C[rid]);return;}
-    const none=()=>{if(note&&note.getAttribute('data-1abarsstate')!=='ok'){note.textContent='no daily series on this run and no champion trade list in this browser - line only (▦ TRADES loads the trade list)';note.setAttribute('data-1abarsstate','none');}};
-    if(C[rid]&&C[rid].busy)return;
-    if(typeof _blotGet!=='function'){none();return;}
-    C[rid]={busy:true};
+    if(C[rid]&&C[rid].why){_1aNote(rid,C[rid].why,'none');
+      // a TRADES click since then may have cached the list: look again (IndexedDB only, never the runner twice)
+      if(typeof _blotGet==='function')_blotGet(rid).then(c=>{const days=(c&&c.rows)?_1aDailyFromRows(c.rows):[];
+        if(days.length){C[rid]={days:days,src:'the champion trade list, summed by exit date'+(c.capped?' (capped list)':'')};
+          document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>_1aBarsDraw(x,C[rid]));}}).catch(()=>{});
+      return;}
+    if(C[rid]&&C[rid].busy){_1aNote(rid,'loading bars ... (champion trade list)','wait');return;}
+    C[rid]={busy:true};_1aNote(rid,'loading bars ... (champion trade list)','wait');
     const fromRep=r=>(r&&r.rows&&r.rows.length)?r:null;
-    _blotGet(rid).then(c=>{if(c&&c.rows&&c.rows.length)return c;
-      if(window._rdInflight&&window._rdInflight[rid])return window._rdInflight[rid].then(fromRep).catch(()=>null);return null;})
-     .then(c=>{const days=c?_1aDailyFromRows(c.rows):[];
-       if(days.length){C[rid]={days:days,src:'the champion trade list, summed by exit date'+(c.capped?' (capped list)':'')};
-         document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>_1aBarsDraw(x,C[rid]));}
-       else{delete C[rid];document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>{const b=x.closest('[data-1abox]'),n=b?b.querySelector('[data-1abarsnote]'):null;
-         if(n){n.textContent='no daily series on this run and no champion trade list in this browser - line only (▦ TRADES loads the trade list)';n.setAttribute('data-1abarsstate','none');}});}})
-     .catch(()=>{delete C[rid];none();});});
+    const done=c=>{const days=c?_1aDailyFromRows(c.rows):[];
+      if(days.length){C[rid]={days:days,src:'the champion trade list, summed by exit date'+(c.capped?' (capped list)':'')};
+        document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>_1aBarsDraw(x,C[rid]));return;}
+      throw new Error('the trade list came back empty');};
+    const ask=()=>{const B=_1aBlotPay(rid);
+      if(!B||!B.strategy)throw new Error('this run carries no blotter request (older run doc)');
+      if(typeof _runCmd!=='function')throw new Error('no PC runner on this page');
+      if(window._1aAsked[rid])throw new Error('the PC runner did not return the trade list');
+      window._1aAsked[rid]=1;
+      return _runCmd('get_blotter',B,300000).then(r=>{if(r&&r.rows&&r.rows.length){
+        try{if(typeof _blotPut==='function')_blotPut(rid,{rows:r.rows,capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});}catch(_p){}
+        return r;}return null;});};
+    const cached=(typeof _blotGet==='function')?_blotGet(rid).catch(()=>null):Promise.resolve(null);
+    cached.then(c=>{if(c&&c.rows&&c.rows.length)return c;
+        if(window._rdInflight&&window._rdInflight[rid])return window._rdInflight[rid].then(fromRep).catch(()=>null).then(r=>r||ask());
+        return ask();})
+      .then(done)
+      .catch(e=>{const why='no bars: no daily series on this run and the champion trade list could not be loaded ('+String((e&&e.message)||e).slice(0,90)+') - line only';
+        C[rid]={why:why};_1aNote(rid,why,'none');});});
 }catch(e){console.warn('1A daily bars skipped',e);}}
+// CROSSHAIR (owner 11-23 #3) - see championEquityHtml. One vertical line across both panes + a readout; mouse, pen and touch.
+function _1aXhBind(root){try{
+  (root||document).querySelectorAll('[data-1axh]').forEach(box=>{
+    if(box._1axh)return;box._1axh=1;
+    let P=null;try{P=JSON.parse(decodeURIComponent(box.getAttribute('data-1axh')||''));}catch(e){return;}
+    if(!P||!Array.isArray(P.x)||P.x.length<2)return;
+    const ln=box.querySelector('[data-1axhline]'),tp=box.querySelector('[data-1axhtip]');if(!ln||!tp)return;
+    const sg=v=>{try{return ledgerSigned(v);}catch(e){return (v<0?'-$':'+$')+Math.abs(Math.round(v)).toLocaleString();}};
+    const usd=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+    const ds=ms=>{const t=new Date(ms);return t.toISOString().slice(0,10);};
+    let dayMap=null;
+    const dayOf=d=>{const D=window._1aDaily&&window._1aDaily[P.rid];if(!D||!D.days)return null;
+      if(!dayMap||dayMap._src!==D){dayMap={_src:D};D.days.forEach(x=>{dayMap[x.d]=x.v;});}return (d in dayMap)?dayMap[d]:0;};
+    const show=ev=>{const r=box.getBoundingClientRect();if(!r.width)return;
+      const fx=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));
+      let lo=0,hi=P.x.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(P.x[m]<fx)lo=m;else hi=m;}
+      const i=(Math.abs(P.x[lo]-fx)<=Math.abs(P.x[hi]-fx))?lo:hi;
+      ln.style.left=(P.x[i]*100).toFixed(3)+'%';ln.style.display='block';
+      const t=P.t[i],d=(t!=null)?ds(t):null;
+      let bar='';
+      if(P.alt){const st=i?(P.c[i]-P.c[i-1]):0;bar='curve step <b>'+sg(st)+'</b> <span style="color:var(--text5)">(approx)</span>';}
+      else{const v=d?dayOf(d):null;bar=(v==null)?'<span style="color:var(--text5)">day bar: no daily data</span>':('day <b>'+sg(v)+'</b>');}
+      tp.innerHTML='<div style="color:var(--text4)">'+(d?('~'+d):('point '+(i+1)))+'</div>'
+        +'<div>cum P&amp;L <b style="color:'+(P.c[i]>=0?'#1d9e75':'#e24b4a')+'">'+usd(P.c[i])+'</b></div>'
+        +'<div>'+bar+'</div>'
+        +'<div>DD <b style="color:#d6557a">'+(P.dp[i]?(P.dp[i].toFixed(1)+'%'):'0%')+'</b> &middot; <b style="color:#d6557a">'+usd(P.du[i])+'</b></div>';
+      tp.style.display='block';
+      const w=tp.offsetWidth||140,px=P.x[i]*r.width;
+      tp.style.left=Math.max(0,Math.min(r.width-w,(px>r.width*0.6)?(px-w-8):(px+8)))+'px';};
+    const hide=()=>{ln.style.display='none';tp.style.display='none';};
+    box.addEventListener('pointermove',show);box.addEventListener('pointerdown',show);
+    box.addEventListener('pointerleave',hide);box.addEventListener('pointercancel',hide);
+    box.addEventListener('touchmove',e=>{if(e.touches&&e.touches[0])show(e.touches[0]);},{passive:true});
+    box.addEventListener('touchend',()=>setTimeout(hide,1500),{passive:true});
+  });
+}catch(e){console.warn('1A crosshair skipped',e);}}
 // DD5 money: one decimal of a thousand ("$33.6k"), the precision the owner reads it at
 function _dd5Usd(v){const a=Math.abs(+v||0);return a>=1e6?('$'+(a/1e6).toFixed(2)+'M'):(a>=1000?('$'+(a/1000).toFixed(1)+'k'):('$'+Math.round(a)));}
 // The date of point i on a curve whose dates are known only at a few ANCHORS ([[index,'YYYY-MM-DD'],...]), placed by
@@ -27076,7 +27156,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         return window.cfgRowLabelShort(run,s?s.cell:null,'raw',rk);}
       const b=_doc?window.cfgMlBaseSetOf(_doc):null;
       const L=window.cfgPoolLetter(k);
-      return window.cfgRowLabelShort(run,(b?b.cell:window.cfgCellOfRun(run)),mode,lbl+((L==='HR'||L==='HD')?(' '+L):''));};
+      const _mn=window.cfgMlNOf(_doc&&(_doc.gate_validate||_doc.ml_gate),k,p._mlItem,null);
+      return window.cfgRowLabelShort(run,window.cfgMlCell((b?b.cell:window.cfgCellOfRun(run)),_mn),mode,lbl+((L==='HR'||L==='HD')?(' '+L):''));};
     const _mtxVisible=(pts)=>{const off=_mtxHidden();
       (pts||[]).forEach(p=>{if(p&&!p._cid){p._lbl0=String(p.label||'');const id=_mtxCfgId(p);p._cid=id||'-';if(id)p.label=id;}});
       const keep=(pts||[]).filter(p=>off.indexOf(p.pool)<0);
@@ -29439,10 +29520,25 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   the bottom of the plot - the LEDGER chart's own scale-per-axis idea. Champion only: a 1E row saved no trade list.
       const _ph=EH-pd-_hdT,_zOk=(z-_hdT)>=0.25*_ph&&(EH-pd-z)>=0.2*_ph;
       const _bz=_zOk?z:(EH-pd-0.14*_ph),_bUp=_zOk?(z-_hdT):(0.24*_ph),_bDn=_zOk?(EH-pd-z):(0.14*_ph);
-      const _barsG=(_o.rid&&timeOk&&!_o.alt)?(((!_zOk)?'<line x1="'+pd+'" y1="'+_bz.toFixed(1)+'" x2="'+(EW-pd)+'" y2="'+_bz.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.35"/>':'')
-        +'<g data-1abars="'+String(_o.rid).replace(/"/g,'')+'" data-t0="'+T0+'" data-t1="'+T1+'" data-px="'+pd+'" data-pw="'+(EW-2*pd)+'" data-z="'+_bz.toFixed(2)+'" data-up="'+Math.max(0,_bUp).toFixed(2)+'" data-dn="'+Math.max(0,_bDn).toFixed(2)+'"></g>'):'';
-      const _barsNote=!_o.rid?'':('<div data-1abarsnote="1" data-1abarsstate="'+(_o.alt?'alt':(timeOk?'wait':'none'))+'" style="position:absolute;left:6px;bottom:2px;max-width:62%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:7px;color:var(--text5);pointer-events:none;z-index:1">'
-        +(_o.alt?'daily bars: champion only - a 1E row saves no trade list':(timeOk?'daily bars: reading the champion trade list ...':'daily bars: this run saved no window dates - line only'))+'</div>');
+      // A 1E ROW (owner 11-23 #2): the run stores no per-trade sizes or keep flags for an ML row (only a size histogram), so its bars
+      //   are the steps of its OWN saved curve at that curve's resolution, placed where the chart places those points - labelled
+      //   "approx bars (curve steps)", never passed off as daily.
+      let _altBars='',_altN=0;
+      if(_o.alt&&_o.rid){const _n=_er.length,_li=Math.min(_lr,_n);
+        const _tF=i=>{if(!timeOk)return null;if(i<_li){const f=(_li>1)?(i/(_li-1)):0;return optS+f*(optE-optS);}const k=(_n-1-_li);const f=(k>0)?((i-_li)/k):0;return lbS+f*(lbE-lbS);};
+        const _xF=i=>timeOk?xAt(_tF(i)):(pd+(EW-2*pd)*(i/Math.max(1,_n-1)));
+        const st=[];for(let i=1;i<_n;i++){const v=_er[i]-_er[i-1];if(isFinite(v)&&Math.abs(v)>1e-9)st.push([_xF(i),v,_tF(i)]);}
+        const mx=Math.max.apply(null,st.map(a=>Math.abs(a[1])).concat([1e-9])),k=0.35*Math.max(_bUp,_bDn)/mx;
+        const bw=Math.max(0.35,Math.min(6,(EW-2*pd)/Math.max(1,_n)*0.7));
+        _altBars=st.map(a=>{const hh=Math.max(0.6,Math.min(a[1]>=0?_bUp:_bDn,Math.abs(a[1])*k)),yy=a[1]>=0?_bz-hh:_bz;
+          return '<rect x="'+(a[0]-bw/2).toFixed(2)+'" y="'+yy.toFixed(2)+'" width="'+bw.toFixed(2)+'" height="'+hh.toFixed(2)+'" fill="'+(a[1]>=0?'#1d9e75':'#e24b4a')+'" opacity="0.85" data-1abar="1" data-1aapprox="1" data-tip="'+(a[2]?('~'+_mdy(a[2])+': '):'')+'<b>'+fmtUsd(Math.round(a[1]))+'</b> curve step (approx)"/>';}).join('');
+        _altN=st.length;}
+      const _barsG=(_o.rid&&(timeOk||_o.alt))?(((!_zOk)?'<line x1="'+pd+'" y1="'+_bz.toFixed(1)+'" x2="'+(EW-pd)+'" y2="'+_bz.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.35"/>':'')
+        +(_o.alt?('<g data-1abarsalt="1">'+_altBars+'</g>')
+          :('<g data-1abars="'+String(_o.rid).replace(/"/g,'')+'" data-t0="'+T0+'" data-t1="'+T1+'" data-px="'+pd+'" data-pw="'+(EW-2*pd)+'" data-z="'+_bz.toFixed(2)+'" data-up="'+Math.max(0,_bUp).toFixed(2)+'" data-dn="'+Math.max(0,_bDn).toFixed(2)+'"></g>'))):'';
+      const _barsNote=!_o.rid?'':('<div data-1abarsnote="1" data-1abarsstate="'+(_o.alt?(_altN?'approx':'none'):(timeOk?'wait':'none'))+'" style="position:absolute;left:6px;bottom:2px;max-width:62%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:7px;color:var(--text5);pointer-events:none;z-index:1">'
+        +(_o.alt?(_altN?('approx bars (curve steps) &middot; '+_altN+' steps of this row&rsquo;s saved curve - the run stores no per-trade sizes for it'):'no bars: this row&rsquo;s saved curve has no steps')
+          :(timeOk?'loading bars ...':'no bars: this run saved no window dates - line only'))+'</div>');
       const _drawnTag=_o.alt?('<div data-1adrawn="1" style="position:absolute;right:6px;bottom:2px;max-width:45%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:8px;font-weight:700;color:var(--yellow);pointer-events:none;z-index:1">'+_o.alt+'</div>'):'';
       const svg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"'+(timeOk?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:T0,x1:T1,yt:'usd',y0:mn,y1:mx,px:pd,py:pd,pw:EW-2*pd,ph:EH-2*pd,yl:'equity'}))+'"':'')+'>'
         +wfBands
@@ -29500,17 +29596,25 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +'<div style="height:5px"></div>'
         +'<div style="position:relative;flex:1;min-height:0;font-size:8px"><span style="position:absolute;left:3px;top:0">'+(_isP?'0%':'$0')+'</span><span data-1addref="real" title="'+_ddTipR+'" style="position:absolute;left:1px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:#d6557a;padding:0 4px;border-radius:4px;z-index:2">'+_ddLab(ddMin)+'</span>'+(mcDD!=null?'<span data-1addref="mc" title="'+_ddTipM+'" style="position:absolute;left:1px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:#f5c842;padding:0 4px;border-radius:4px;z-index:2">'+_ddLab(mcDD)+'</span>':'')+'</div>'
         +'<div style="height:12px"></div></div>';
+      // CROSSHAIR (owner 11-23 #3): one vertical cursor across the P&L and DD panes plus a readout (date, cum P&L, that day's bar,
+      //   DD % and $), both absolute overlays with pointer-events:none so nothing moves; mouse, pen and touch (tap / drag) through
+      //   _1aXhBind. The payload is the drawn points: x as a fraction of the plot, the time the chart places them at, cum $, DD $/%.
+      const _xhPay=!_o.rid?'':encodeURIComponent(JSON.stringify({rid:String(_o.rid),alt:_o.alt?1:0,
+        x:eq.map((_,i)=>+(X(i)/EW).toFixed(5)),t:eq.map((_,i)=>timeOk?Math.round(tAt(i)):null),c:eq.map(v=>Math.round(v)),
+        du:ddSeriesU.map(v=>Math.round(v)),dp:ddSeriesP.map(v=>+v.toFixed(2))}));
+      const _xhEls=!_o.rid?'':('<div data-1axhline="1" style="position:absolute;top:0;bottom:12px;left:0;width:0;border-left:1px dashed var(--text3);opacity:.75;pointer-events:none;display:none;z-index:4"></div>'
+        +'<div data-1axhtip="1" style="position:absolute;top:14px;left:0;pointer-events:none;display:none;z-index:5;font-size:9px;line-height:1.35;padding:4px 7px;border-radius:6px;background:color-mix(in srgb,var(--bg1) 92%,transparent);border:1px solid var(--border);color:var(--text2);white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>');
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
       //   vertically), the date axis stays a fixed 12px strip at the bottom, and the y-labels scale
       //   by percent — so everything stays aligned at any height.
       return (bare?'':'<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below · ⛶ expands with live crosshair</div></div>')
         +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;min-height:120px;max-height:1400px;overflow:hidden;padding-bottom:3px;position:relative">'
-        +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
+        +'<div'+(_o.rid?(' data-1axh="'+_xhPay+'"'):'')+' style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative'+(_o.rid?';touch-action:pan-y':'')+'">'
         +'<div data-1abox="1" style="flex:3.2;min-height:0;position:relative">'+anno+svg+_barsNote+_drawnTag+'</div>'
         +'<div style="height:5px"></div>'
         +'<div style="flex:1;min-height:0;position:relative">'+ddSvg+_ddTg+'</div>'
-        +'<div style="height:12px">'+dateAxis+'</div></div>'
+        +'<div style="height:12px">'+dateAxis+'</div>'+_xhEls+'</div>'
         +yLabels+'</div>'+rsRow;
     };
     // Monthly P&L bars — derived from the FULL champion equity curve when available (covers
@@ -30329,7 +30433,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const p=_P(c);
           if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
           else
-            _scatterAcc.push({pool:'GATE',_cv:_cfg1aCurveOf(c),ddp:_ddPctOfCfg(c,mlt3),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+            _scatterAcc.push({pool:'GATE',_mlItem:(c.raw||null),_cv:_cfg1aCurveOf(c),ddp:_ddPctOfCfg(c,mlt3),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
               // SHARPE / SORTINO come from the SAME _shp / _srt the 2C table prints (engine
               //   per-block scalar first, sampled curve only as the older-run fallback), so a
               //   dot and its table cell can never disagree the way they did before: run 307
@@ -30509,7 +30613,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   which added a whole row of height to the header and pushed the table down. It rides
         //   inline after the name now as (SL) sliding / (ST) steps, hover for the full sentence.
         const _shAb=_TILT_SCHEME_AB;   // v73.34: shared with the §1A/2A chart legend, see global def
-        const _cmpCols=(list,kind)=>list.map(t=>({lbl:(kind==='keel'?('KEEL <span style="font-weight:400;color:var(--text5)">'+String(t.version||'')+'</span>'):String(t.model||''))+((kind==='hyb'||kind==='keel')?'':(' <span title="'+String(_shTip[t.scheme]||'').replace(/"/g,'&quot;')+'" style="font-weight:400;color:var(--text5);cursor:help">('+(_shAb[t.scheme]||String(t.scheme||'?').slice(0,2).toUpperCase())+')</span>')),
+        const _cmpCols=(list,kind)=>list.map(t=>({_src:t,lbl:(kind==='keel'?('KEEL <span style="font-weight:400;color:var(--text5)">'+String(t.version||'')+'</span>'):String(t.model||''))+((kind==='hyb'||kind==='keel')?'':(' <span title="'+String(_shTip[t.scheme]||'').replace(/"/g,'&quot;')+'" style="font-weight:400;color:var(--text5);cursor:help">('+(_shAb[t.scheme]||String(t.scheme||'?').slice(0,2).toUpperCase())+')</span>')),
             sub:'',
             col:_gateColor(String(t.model||''),1,60),
             _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,full:t.full,eq:t.equity,
@@ -30747,7 +30851,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({_cv:_cfg1aCurveOf(c),ddp:_ddPctOfCfg(c,mlt3),pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+                _scatterAcc.push({_mlItem:(c._src||null),_cv:_cfg1aCurveOf(c),ddp:_ddPctOfCfg(c,mlt3),pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
                   // SHARPE / SORTINO from the SAME _shrpE / _srtE the table above prints, so a
                   //   dot and its cell can never disagree. Scale-free - the sizing tabs never
                   //   move them. shDer/soDer flag the older-run curve fallback.
@@ -43076,7 +43180,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const _gsp=(_gis!=null&&_gwf!=null&&isFinite(_gis)&&isFinite(_gwf));
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
-                  CROWS.push({_lm:'gate',_lc:_lmlC,_lhow:(_lml?_lml.how:null),_lbase:_lml,_ld:_reCidOf('GATE',c,false),
+                  CROWS.push({_lm:'gate',_lc:_lmlC,_lmn:window.cfgMlNOf(GV,'gate',c,null),_lhow:(_lml?_lml.how:null),_lbase:_lml,_ld:_reCidOf('GATE',c,false),
                         n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
                         _cid:_reCidFull(RID,'GATE',c,isCh),_cidTip:_reCidTip('GATE',c,_reCidOf('GATE',c,isCh),isCh?'the gate this run chose':''),
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
@@ -43174,7 +43278,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
                 const _lL=window.cfgPoolLetter(tabNm);
-                CROWS.push({_lm:((tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hybrid')),_lc:_lmlC,_lhow:(_lml?_lml.how:null),_lbase:_lml,
+                CROWS.push({_lm:((tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hybrid')),_lc:_lmlC,_lmn:window.cfgMlNOf(GV,((tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hybrid')),x,mode),_lhow:(_lml?_lml.how:null),_lbase:_lml,
                       _ld:String(_reCidOf(tabNm,x,false)).replace(/[()]/g,'').replace(/\s+/g,' ').trim()+((_lL==='HR'||_lL==='HD')?(' '+_lL):''),
                       n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
                       _cid:_reCidFull(RID,tabNm,x,false),_cidTip:_reCidTip(tabNm,x,_reCidOf(tabNm,x,false),''),
@@ -43227,7 +43331,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // board 163: stamp the ONE LABEL on every row of this run, and keep it unique inside the run
               (function(){const cnt={},seen={};
                 CROWS.forEach(function(r){if(r._run!==RID||!r._lm)return;
-                  r._lbl=window.cfgRowLabel(_lfam,RID,r._lc,r._lm,r._ld);r._lblS=window.cfgRowLabelShort(RID,r._lc,r._lm,r._ld);
+                  const _lc3=(r._lm!=='raw')?window.cfgMlCell(r._lc,r._lmn):r._lc;
+                  r._lbl=window.cfgRowLabel(_lfam,RID,_lc3,r._lm,r._ld);r._lblS=window.cfgRowLabelShort(RID,_lc3,r._lm,r._ld);
                   r._lblTip='Configuration '+r._lbl+'. '+((r._lc==null)?('Run #'+RID+' saved no search grid this page could read, so the set number is left off rather than invented.')
                     :((r._lm==='raw')?((r._lhow==='grid')?('Set '+r._lc+' = row '+r._lc+' of run #'+RID+'’s saved search grid sorted by in-sample net, the number the ledger and paper boards print.')
                       :('Set '+r._lc+' = where this configuration’s in-sample net sorts among run #'+RID+'’s kept grid rows (it is not one of them) - the paper legs’ champion rule.'))
@@ -57069,6 +57174,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('tr[data-1apick]').forEach(tr=>{tr.onclick=(e)=>{if(e.target&&e.target.closest&&e.target.closest('a,button,input,select,[data-infopop]'))return;
         _1aSet((typeof augurRunSel!=='undefined'&&augurRunSel!=null)?String(augurRunSel):'',tr.getAttribute('data-1apick'),true);};});
       try{_1aBarsFill(content);}catch(_bfe){}
+      try{_1aXhBind(content);}catch(_xhe){}
       // 1A card TRADES tab → the standalone blotter modal (payload = the SAME data-eqblot the
       // expanded 1A reads; no chart expansion involved).
       content.querySelectorAll('[data-eqblotopen]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
