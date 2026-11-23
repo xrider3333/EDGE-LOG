@@ -270,6 +270,9 @@ CASES = [
                                'pre': "delete doc.points;delete doc.gate_validate.ungated_pre;delete doc.gate_validate.ungated_full;"
                                       "delete doc.best_pnl_pts;if(doc.validate)delete doc.validate.champion;"}),
     ('a1-ddpct', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': '[data-1abarsnote][data-1abarsstate="none"]'}),
+    # COMPACT PAST RUNS (owner 11-23): the same report drawn NORMAL and COMPACT (Settings density = prefs.density); see the dens- checks
+    ('dens-normal', {'prefs': {'repCols': '3'}, 'win': {}, 'dens': 'normal', 'pre': "prefs.density='normal';applyTheme();"}),
+    ('dens-compact', {'prefs': {'repCols': '3'}, 'win': {}, 'dens': 'compact', 'pre': "prefs.density='compact';applyTheme();"}),
     ('a1-ddusd', {'prefs': {'repCols': '3', 'dd1a': 'usd'}, 'win': {}, 'a1': 1}),
     ('a1-cfg-gate', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'gate:0'}}, 'win': {}, 'a1': 1}),
     ('a1-cfg-raw', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'raw:1'}}, 'win': {}, 'a1': 1}),
@@ -508,6 +511,17 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__, FIXX=__FIXX__;
             calls:(w.eval('window._rdCalls')||[]).map(function(c){return {a:c.a,readings:c.p&&c.p.readings,run_id:c.p&&c.p.run_id,family:c.p&&c.p.family,
               lockbox_from:c.p&&c.p.lockbox_from,strategy:c.p&&c.p.strategy};})};
         }
+        // COMPACT PAST RUNS: the run list row, the bar, the report frame and header, the C | N switch; then back to NORMAL
+        if(cfg.dens){try{var _dl=d.getElementById('res-listscroll'),_tr=_dl?_dl.querySelector('tr.arow'):null,_bar=d.querySelector('[data-rfbar]'),
+            _sw=d.querySelector('[data-rfbar] .lg-dens'),_ck=det?det.querySelector(':scope>[data-colskey]'):null,_ws=det?det.querySelector(':scope>[data-warnstrip]'):null;
+          r.dens={attr:d.documentElement.getAttribute('data-density'),rowH:_tr?Math.round(_tr.getBoundingClientRect().height*10)/10:null,
+            rowFs:_tr?parseFloat(w.getComputedStyle(_tr.querySelector('td:nth-child(3)')||_tr).fontSize):null,
+            barH:_bar?Math.round(_bar.getBoundingClientRect().height):null,detPad:det?w.getComputedStyle(det).paddingTop:null,
+            hdr:(det&&_ck)?Math.round(_ck.getBoundingClientRect().top-det.getBoundingClientRect().top):null,
+            warnPad:_ws?w.getComputedStyle(_ws).paddingTop:null,sw:d.documentElement.scrollWidth,vw:w.innerWidth,
+            switchOn:_sw?[].map.call(_sw.querySelectorAll('button.active'),function(b){return b.getAttribute('data-lgdensv');}):null};
+        }catch(e){r.dens={err:String(e&&e.stack?e.stack:e)};}
+          try{w.eval("prefs.density='normal';applyTheme();");}catch(e){}}
         // 1E CONFIG LABELS (board 169): every row of the ALL table as [its scatter key, its CONFIG cell]
         if(cfg.cfgRows){r.cfgRows=[];var CROWN=String.fromCodePoint(0x1F451);
           [].forEach.call(det?det.querySelectorAll('table'):[],function(tb){
@@ -1452,6 +1466,27 @@ def _attempt(chrome, root, alt_index, fixture):
 
     fails, notes, cases = [], [], data.get('cases') or {}
     inconclusive = []
+    # COMPACT PAST RUNS (owner 11-23): NORMAL keeps today's frame (14 px), COMPACT tightens the run row, the bar, the report frame and
+    #   header; nothing in the list drops under 10 px type; the page never scrolls sideways; the C | N switch lights the density in use
+    _dn, _dc = (cases.get('dens-normal') or {}).get('dens') or {}, (cases.get('dens-compact') or {}).get('dens') or {}
+    if _dn.get('err') or _dc.get('err') or not _dn or not _dc:
+        fails.append('dens: no density reading (%s / %s)' % (_dn.get('err'), _dc.get('err')))
+    else:
+        if _dn.get('attr') != 'normal' or _dc.get('attr') != 'compact':
+            fails.append('dens: data-density read %r / %r' % (_dn.get('attr'), _dc.get('attr')))
+        if _dn.get('detPad') != '14px':
+            fails.append('dens: NORMAL report frame padding changed (%s, expected 14px)' % _dn.get('detPad'))
+        if not ((_dc.get('rowH') or 99) < (_dn.get('rowH') or 0)):
+            fails.append('dens: a COMPACT run row is not shorter than NORMAL (%s vs %s)' % (_dc.get('rowH'), _dn.get('rowH')))
+        if (_dc.get('rowFs') or 0) < 10:
+            fails.append('dens: COMPACT run list type is under 10 px (%s)' % _dc.get('rowFs'))
+        if not ((_dc.get('hdr') or 999) < (_dn.get('hdr') or 0)):
+            fails.append('dens: the COMPACT report header is not shorter than NORMAL (%s vs %s)' % (_dc.get('hdr'), _dn.get('hdr')))
+        for tag, rr in (('normal', _dn), ('compact', _dc)):
+            if (rr.get('sw') or 0) > (rr.get('vw') or 0):
+                fails.append('dens %s: the page scrolls sideways (%s in %s)' % (tag, rr.get('sw'), rr.get('vw')))
+        if _dn.get('switchOn') != ['normal'] or _dc.get('switchOn') != ['compact']:
+            fails.append('dens: the C | N switch on PAST RUNS should light the density in use (%s / %s)' % (_dn.get('switchOn'), _dc.get('switchOn')))
     if len(cases) != len(CASES):
         fails.append('only %d of %d cases reported (why=%s)' % (len(cases), len(CASES), data.get('why')))
     for nm, r in cases.items():

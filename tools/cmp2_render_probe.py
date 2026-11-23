@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 177
+N_CASES = 178
 N_BLOCKS = None   # set after PROBE_HTML: its top-level case blocks (some report more than one case)
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -8824,6 +8824,60 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
           'no console errors':errAcc.length===0
         },{r:r,at:at,errs:errAcc.slice(0,2)});
       })();
+      // -- case a1_all_toggle (owner 11-23: "toggle ALL doesn't remove all the strategies selected. should be toggleable").
+      //    ALL with every chip lit turns them ALL OFF (an empty board with a hint, never a broken chart); ALL from anything
+      //    less turns every chip back on. Same on STRATEGY, RUNS and CONFIG. Click = add / drop one; hovers say what a click does.
+      __B(177)&&(function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function prefs(){try{return JSON.parse(w.eval("localStorage.getItem('augurPrefs')||'{}'"))||{};}catch(e){return {};}}
+        function famOf(ap){var rf=ap.resFilt;try{rf=(rf&&typeof rf==='object')?rf:(JSON.parse(rf||'{}')||{});}catch(e){rf={};}return rf.fam||[];}
+        function lit(sel){return [].filter.call(d.querySelectorAll(sel),function(b){return /color-mix/.test(b.getAttribute('style')||'');}).length;}
+        var old={id:'369',strategy:'TTMSQZ_3_0_ES30SSOF2.py',starred:false,multiplier:20,instrument:'NQ',timeframe:'5m',scope:'validate',
+          date_from:'2010-06-07',date_to:'2025-06-29',timestamp:'2025-02-01T00:00:00Z',
+          validate:{verdict:'PASS',windows:{optimize:['2010-06-07','2024-06-29'],wf_split:'2016-10-12',lockbox:['2024-06-29','2025-06-29']}}};
+        var wc=dfxWin([FIX],"window._keyRuns=[(function(x){x=__f(x);x._keyRun=true;return x;})("+JSON.stringify(old)+")];window._keyRunsState='ok';");
+        var P={c2Screen:'explore',resSrc:'cfg',resLvl:'all',resShow:'configs',c2Month:'all',c2Tbl:true,resCols:'key',resCfgRunAll:'1|',resCfgFam:[]};
+        var r={};
+        // STRATEGY: every chip lit -> ALL turns them all off
+        calls.push(doRender(P,wc));chk('all');
+        var all=d.querySelector('[data-refam=""]');r.allTipOn=all?(all.getAttribute('title')||'').slice(0,60):'';
+        r.famLit0=lit('[data-refam]:not([data-refam=""])');r.famN=d.querySelectorAll('[data-refam]:not([data-refam=""])').length;
+        if(all&&all.onclick){all.onclick({shiftKey:false});r.famOff=famOf(prefs());}
+        calls.push(doRender(Object.assign({},P,{resFilt:{fam:r.famOff||[]}}),wc));chk('none');
+        r.famLit1=lit('[data-refam]');var nb=d.querySelector('[data-renone]');r.noneTx=nb?dfxN(nb.textContent||''):'';
+        var all2=d.querySelector('[data-refam=""]');r.allTipOff=all2?(all2.getAttribute('title')||'').slice(0,40):'';
+        var ttm=d.querySelector('[data-refam="TTM"]');r.ttmTip=ttm?(ttm.getAttribute('title')||'').slice(0,20):'';
+        if(ttm&&ttm.onclick){ttm.onclick({shiftKey:false});r.famAdd=famOf(prefs());}
+        if(all2&&all2.onclick){all2.onclick({shiftKey:false});r.famBack=famOf(prefs());}
+        // RUNS: every run ticked -> ALL unticks them all; ALL again ticks them
+        calls.push(doRender(P,wc));chk('runs');
+        var ra=d.querySelector('[data-recfgall]');r.runAllOn=!!ra&&ra.hasAttribute('data-reallon');r.runTip=ra?(ra.getAttribute('title')||'').slice(0,40):'';
+        if(ra&&ra.onclick){ra.onclick();var ap=prefs();r.runNone=ap.resCfgRunNone;r.runList=ap.resCfgRun;}
+        calls.push(doRender(Object.assign({},P,{resCfgRunAll:null,resCfgRunNone:r.runNone,resCfgRun:[],resCfgAuto:''}),wc));chk('runsnone');
+        r.runLit=lit('[data-recfgrun]');var nb2=d.querySelector('[data-renone]');r.runNoneTx=nb2?dfxN(nb2.textContent||''):'';
+        var ra2=d.querySelector('[data-recfgall]');if(ra2&&ra2.onclick){ra2.onclick();var ap2=prefs();r.runBack=ap2.resCfgRunAll;r.runNone2=ap2.resCfgRunNone;}
+        // CONFIG: every stage on -> ALL turns them off; a chip click from there adds just that one
+        calls.push(doRender(P,wc));chk('cfg');
+        var ca=d.querySelector('[data-recfgfamall]');if(ca&&ca.onclick){ca.onclick();r.cfgOff=prefs().resCfgFam;}
+        calls.push(doRender(Object.assign({},P,{resCfgFam:r.cfgOff}),wc));chk('cfgnone');
+        r.cfgLit=lit('[data-recfgfam]');var nb3=d.querySelector('[data-renone]');r.cfgNoneTx=nb3?dfxN(nb3.textContent||''):'';
+        var raw=d.querySelector('[data-recfgfam="RAW"]');if(raw&&raw.onclick){raw.onclick({shiftKey:false});r.cfgAdd=prefs().resCfgFam;}
+        w.eval("window._keyRuns=[];window._keyRunsState='idle';");
+        dfxCase('a1_all_toggle',calls,{
+          'from ALL every strategy chip is lit and the ALL hover says a click turns them ALL OFF':r.famN>=2&&r.famLit0===r.famN&&/ALL OFF/.test(r.allTipOn),
+          'ALL with every strategy on = nothing picked':JSON.stringify(r.famOff)==='["__none__"]',
+          'nothing picked: no chip lit and the board says pick a strategy':r.famLit1===0&&/pick a strategy/.test(r.noneTx),
+          'from nothing picked the ALL hover says it turns every strategy on, a chip says add':/EVERY strategy on/.test(r.allTipOff)&&/^add TTM/.test(r.ttmTip),
+          'a chip click from nothing picked adds just that one':JSON.stringify(r.famAdd)==='["TTM"]',
+          'ALL from less than all turns every strategy back on':Array.isArray(r.famBack)&&r.famBack.length===0,
+          'RUNS: ALL is lit with every run ticked and its hover says UNTICK':r.runAllOn&&/UNTICK/.test(r.runTip),
+          'RUNS: ALL then = no run ticked, an empty board with a hint':r.runNone==='1|'&&Array.isArray(r.runList)&&r.runList.length===0&&r.runLit===0&&/pick a run/.test(r.runNoneTx),
+          'RUNS: ALL from nothing ticks every run again':r.runBack==='1|'&&r.runNone2==null,
+          'CONFIG: ALL with every stage on = nothing, chip click adds one':JSON.stringify(r.cfgOff)==='["__none__"]'&&r.cfgLit===0&&/CONFIG/.test(r.cfgNoneTx)&&JSON.stringify(r.cfgAdd)==='["RAW"]',
+          'no console errors':errAcc.length===0
+        },{r:r,errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     out.nBlocks=__IX;
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -11074,7 +11128,7 @@ def main(argv=None):
     DFX += ['e1_axis_outlier']
     DFX += ['d1_rail_all']
     DFX += ['i51_ddp_stored']
-    DFX += ['c163_cfg_labels', 'c164_key_runs', 's7_fam_runall']
+    DFX += ['c163_cfg_labels', 'c164_key_runs', 's7_fam_runall', 'a1_all_toggle']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

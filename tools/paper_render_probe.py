@@ -362,6 +362,15 @@ for _w in WIDTHS:
     for _v in WIDTH_VIEWS:
         CASES.append(('wid-%d-%s' % (_w, _v), {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fz', 'width': _w,
                                                  'ls': {'el_lg_view_nt8': _v}}))
+# COMPACT LEDGER (owner GO 11-23): Settings density COMPACT (prefs.density, data-density on <html>). Each width / view is drawn NORMAL and
+#   COMPACT in the same frame: compact never scrolls sideways, a phone keeps every row and calendar day exactly as tall as NORMAL (>= 40 px
+#   tap targets stay), the C | N switch shows on a laptop and not on a phone, and the 1366 chart toolbar holds the VIEW / SIZING bar.
+DENS_WIDTHS = (400, 1366)
+for _w in DENS_WIDTHS:
+    for _v in WIDTH_VIEWS:
+        for _dn in ('normal', 'compact'):
+            CASES.append(('dens-%d-%s-%s' % (_w, _v, _dn), {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fz', 'width': _w,
+                                                             'density': _dn, 'ls': {'el_lg_view_nt8': _v}}))
 
 # LEDGER step 9: the shared trade panel on NT8 PAPER. `tid` is a counted winner (NOISE #422, size 1.75, carries a reason, an exit reason and a
 # gate in the record), `tid2` a counted loser with a matched NinjaTrader fill (ORB #234, SHORT; the fixture builder injects the match), `otid`
@@ -1360,6 +1369,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           +"var LS=Object.assign({'el_lg_bars_p2':'0','el_lg_slines_p2':'1'},"+JSON.stringify(cfg.ls||{})+");for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
           +"var W="+JSON.stringify(win)+";for(var k in W)window[k]=W[k];"
           +(cfg.theme?("prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"):"")
+          +(cfg.density?("prefs.density="+JSON.stringify(cfg.density)+";applyTheme();"):"")
           +"activeTab='augur';augurSub="+JSON.stringify(cfg.sub)+";renderApp();return 'OK';"
           +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
         var ap=d.getElementById('app');
@@ -1639,6 +1649,18 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         if(cfg.s11==='fold'){try{r.s12f=s12Filters(d,w);}catch(e){r.s12f={err:String(e&&e.stack?e.stack:e)};}}
         if(cfg.s11==='mono'){try{r.s11m=s11Mono(d,w);}catch(e){r.s11m={err:String(e&&e.stack?e.stack:e)};}}
         if(cfg.theme){try{w.eval("prefs.theme="+(th0===undefined?"undefined":JSON.stringify(th0))+";applyTheme();");}catch(e){}}
+        // COMPACT LEDGER: what density drew, row / calendar heights, the C | N switch and the chart toolbar; then back to NORMAL
+        r.dens=null;
+        if(cfg.density){try{
+          var hs=function(sel){return [].filter.call(d.querySelectorAll(sel),function(x){return x.offsetParent;}).map(function(x){return Math.round(x.getBoundingClientRect().height);});};
+          var dn=d.querySelector('[data-p2sec="chart"] .lg-dens'),cw=d.querySelector('[data-p2sec="chart"]'),lb=cw&&cw.querySelector(':scope>.lgv-bar'),cr=cw&&cw.querySelector(':scope>.lg-chart-row');
+          r.dens={attr:d.documentElement.getAttribute('data-density'),rows:hs('[data-lglist-frame="nt8"] [data-lgtrade]'),cal:hs('.lg-cal-day'),
+            sw:d.documentElement.scrollWidth,vw:w.innerWidth,switchShown:!!(dn&&dn.offsetParent),
+            switchOn:dn?[].map.call(dn.querySelectorAll('button.active'),function(b){return b.getAttribute('data-lgdensv');}):[],
+            barH:lb?Math.round(lb.getBoundingClientRect().height):null,rowW:cr?Math.round(cr.getBoundingClientRect().width):null,
+            barR:lb?Math.round(lb.getBoundingClientRect().right):null,cardR:cw?Math.round(cw.getBoundingClientRect().right):null};
+        }catch(e){r.dens={err:String(e&&e.stack?e.stack:e)};}
+          try{w.eval("prefs.density='normal';applyTheme();");}catch(e){}}
         // the capped list: a calendar tap on a day older than the list reaches (it extends the list to that day, ticks its rows, scrolls to it)
         r.capint=null;
         if(nm==='cap'){try{
@@ -3691,6 +3713,40 @@ def run(alt_index=None, timeout=300):
                 bad = [(x['id'], x.get('vis')) for x in ((r.get('tl') or {}).get('rows') or []) if x.get('vis') != 5]
                 if bad or not (r.get('tl') or {}).get('rows'):
                     fails.append('%s: a phone row must be five cells (time, strategy, side, net, chart); got %s' % (nm, bad[:3] or 'no rows'))
+
+    # COMPACT LEDGER (owner GO 11-23): see DENS_WIDTHS
+    for w_px in DENS_WIDTHS:
+        for view in WIDTH_VIEWS:
+            rn = (cases.get('dens-%d-%s-normal' % (w_px, view)) or {}).get('dens') or {}
+            rc = (cases.get('dens-%d-%s-compact' % (w_px, view)) or {}).get('dens') or {}
+            nm = 'dens-%d-%s' % (w_px, view)
+            if rn.get('err') or rc.get('err') or not rc or not rn:
+                fails.append('%s: no density reading (%s / %s)' % (nm, rn.get('err'), rc.get('err')))
+                continue
+            if rc.get('attr') != 'compact' or rn.get('attr') != 'normal':
+                fails.append('%s: data-density read %r / %r, expected normal / compact' % (nm, rn.get('attr'), rc.get('attr')))
+            for tag, rr in (('normal', rn), ('compact', rc)):
+                if rr.get('vw') != w_px or (rr.get('sw') or 0) > w_px:
+                    fails.append('%s %s: the page scrolls sideways (scrollWidth %s in %s px)' % (nm, tag, rr.get('sw'), rr.get('vw')))
+            if not rc.get('rows'):
+                fails.append('%s: compact drew no trade rows' % nm)
+            if w_px <= 600:
+                if rc.get('rows') != rn.get('rows') or rc.get('cal') != rn.get('cal'):
+                    fails.append('%s: a phone in COMPACT must keep NORMAL\'s row and calendar heights (rows %s vs %s, cal %s vs %s)'
+                                 % (nm, rc.get('rows')[:4], rn.get('rows')[:4], (rc.get('cal') or [])[:4], (rn.get('cal') or [])[:4]))
+                if min(rc.get('cal') or [99]) < 40:
+                    fails.append('%s: a phone calendar day is under 40 px in COMPACT (%s)' % (nm, min(rc.get('cal') or [0])))
+                if rc.get('switchShown') or rn.get('switchShown'):
+                    fails.append('%s: the C | N switch shows on a phone' % nm)
+            else:
+                if not rc.get('switchShown') or rc.get('switchOn') != ['compact'] or rn.get('switchOn') != ['normal']:
+                    fails.append('%s: the C | N switch should show on a laptop and light the density in use (%s / %s)' % (nm, rn.get('switchOn'), rc.get('switchOn')))
+                if max(rc.get('rows') or [0]) > max(rn.get('rows') or [0]):
+                    fails.append('%s: a COMPACT trade row is taller than NORMAL (%s vs %s)' % (nm, max(rc.get('rows') or [0]), max(rn.get('rows') or [0])))
+                if min(rc.get('cal') or [0]) >= min(rn.get('cal') or [0]):
+                    fails.append('%s: COMPACT calendar days are not shorter than NORMAL (%s vs %s)' % (nm, min(rc.get('cal') or [0]), min(rn.get('cal') or [0])))
+                if rc.get('barR') is not None and rc.get('barR') > (rc.get('cardR') or 0) + 1:
+                    fails.append('%s: the COMPACT chart toolbar runs past its card (%s > %s)' % (nm, rc.get('barR'), rc.get('cardR')))
 
     # a board with no trades draws the frame with its empty message
     tl = (cases.get('empty') or {}).get('tl') or {}

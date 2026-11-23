@@ -1654,7 +1654,6 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-sw.on.rem::after{background:var(--text4);opacity:.7}
 .bka{font-size:10px}
 .bka .bka-t{font-size:10px}
-.bka .bka-leg{padding:2px 0}
 .bka[data-lglist] .bka-bval{font-size:10.5px}
 .bka .bka-s{font-size:10px;color:var(--text4)}
 [data-lglist-frame="wb"] .lg-tl-table,[data-lglist-frame="nt8"] .lg-tl-table{font-size:10px}
@@ -1808,6 +1807,54 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-uni [data-hmsec="chart"],.lg-uni .lg-cal-panel{background:var(--uc-card);border-radius:12px;padding:12px 14px;box-sizing:border-box}
 .lg-uni .lg-tl-table td{padding-top:6px;padding-bottom:6px}
 .lg-uni .lg-cal-day{min-height:46px}.lg-uni .lg-cal-day .d{font-size:9px}.lg-uni .lg-cal-day .m{font-size:10px}.lg-uni .lg-cal-day .n{font-size:8.5px}
+/* COMPACT LEDGER (owner GO 11-23, options A + B): Settings > APPEARANCE > COMPACT, or the C | N switch on the chart row, sets data-density on <html>.
+   NORMAL is untouched - every value below sits under [data-density="compact"], and a phone (under 741 px) keeps its tap-sized rows and controls. */
+:root{--lg-chart-h:260px;--lg-real-h:330px}
+[data-density="compact"]{--lg-chart-h:200px;--lg-real-h:240px}
+.lg-dens{flex:none}
+.lg-dens button{min-width:24px;padding:0 7px!important;letter-spacing:0!important}
+/* a phone keeps its rows as they are and reaches COMPACT through Settings: a 2-letter switch cannot be a 40 px tap target without growing the row */
+@media (max-width:600px){.lg-dens{display:none!important}}
+[data-density="compact"] .lg-uni .qb-chart-wrap,[data-density="compact"] .lg-uni [data-p2sec="chart"]{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:10px}
+[data-density="compact"] .lg-uni .qb-chart-wrap>*,[data-density="compact"] .lg-uni [data-p2sec="chart"]>*{flex:0 0 100%;min-width:0}
+[data-density="compact"] .lg-uni .qb-chart-wrap>.lgv-bar,[data-density="compact"] .lg-uni [data-p2sec="chart"]>.lgv-bar{flex:0 1 auto;margin:0 0 4px}
+[data-density="compact"] .lg-uni .qb-chart-wrap>.lg-chart-row,[data-density="compact"] .lg-uni [data-p2sec="chart"]>.lg-chart-row{flex:1 1 0;min-width:min(240px,100%);margin:0 0 4px}
+[data-density="compact"] .bka-ktab th,[data-density="compact"] .bka-ktab td{padding:2px 6px;font-size:10.5px}
+@media not all and (max-width:600px){
+  [data-density="compact"] .lg-tl-wrap{max-height:max(72vh,calc(100vh - 150px))}
+  [data-density="compact"] .lg-tl-bar{gap:4px;margin:0 0 4px}
+}
+@media not all and (max-width:740px){
+  [data-density="compact"] .lg-uni{--uc-h:22px}
+  [data-density="compact"] .lg-uni .lg-tl-dayhd{padding:8px 2px 3px}
+  [data-density="compact"] .lg-uni .lg-tl-table tr.lg-tl-dayhdrow .lg-tl-dayhd{padding:5px 8px 2px}
+  [data-density="compact"] .lg-uni .lg-tl-dayhd .lg-tl-daynet{font-size:15px;line-height:1}
+  [data-density="compact"] .hm-wrap.lg-uni .lg-tl-table td{padding-top:3px;padding-bottom:3px}
+  [data-density="compact"] .lg-uni .lg-cal-day{min-height:36px}
+  [data-density="compact"] .bka .bka-leg{padding:2px 0 2px 8px;margin:1px 0;min-height:20px}
+  [data-density="compact"] .bka-bhd{min-height:24px}
+}
+/* COMPACT PAST RUNS (owner 11-23, "same compact task for the past runs tab"): the run rail, its table and the report's outer frame and header.
+   NORMAL is untouched (the bar reads var(--pr-*) tokens that only COMPACT sets; the rest sits under [data-density="compact"]). Report section
+   internals (1A charts, 1E matrix) are not touched - only the spacing of their containers. */
+.pr-dens{height:var(--pr-ctl-h,23px);box-sizing:border-box;border-radius:7px}
+.pr-dens button{height:100%;padding:0 8px!important;font-size:9px;letter-spacing:0!important;min-width:24px}
+[data-density="compact"]{--pr-ctl-h:20px;--pr-ctl-pad:0 7px;--pr-bar-gap:4px;--pr-bar-m:4px 0 5px}
+[data-density="compact"] .hero-card:has(>#res-listscroll){padding:8px 10px!important}
+[data-density="compact"] #res-listscroll{--fsxs:10px}
+[data-density="compact"] #res-listscroll table.table{font-size:10px!important}
+[data-density="compact"] #res-listscroll table.table td{padding-top:2px!important;padding-bottom:2px!important;line-height:1.25}
+[data-density="compact"] #res-listscroll table.table th{padding-top:3px;padding-bottom:3px}
+[data-density="compact"] #res-listscroll .fhsel{padding:3px 6px}
+[data-density="compact"] #res-detail{padding:9px 11px!important}
+[data-density="compact"] #res-detail>div:first-child{margin-bottom:6px!important}
+[data-density="compact"] #res-detail>[data-warnstrip]{margin:0 0 6px!important;padding:4px 8px!important;gap:4px!important}
+[data-density="compact"] #res-detail>.lbl{margin-bottom:5px!important}
+[data-density="compact"] #res-detail>.lbl[style*="border-top"]{margin-top:12px!important;padding-top:9px!important}
+[data-density="compact"] #res-detail>[data-colskey]{margin-bottom:8px!important}
+@media (min-width:1100px){
+  [data-density="compact"] .hm-lside>.lg-frame-side>.lg-frame-side-in,[data-density="compact"] .lg-lside>.lg-frame-side>.lg-frame-side-in{padding:10px 10px 6px}
+}
 @media (min-width:1100px){
   .lg-uni.hm-lside>.lg-frame-top{align-items:stretch}
   .lg-uni.hm-lside>.lg-frame-top>[data-hmsec="chart"]{grid-row:1}
@@ -2160,7 +2207,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.23';
+const VERSION='92.24';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3781,6 +3828,9 @@ const LEDGER_NO_TRADES='No trades';
 function ledgerNum(v){if(v==null||v==='')return null;const n=+v;return isFinite(n)?n:null;}
 // COMPARE 'only raw shown' (owner 11-18): CONFIG starts on RAW - one row per run - until the owner picks another or ALL.
 function _resCfgFamPref(P){return Array.isArray(P&&P.resCfgFam)?P.resCfgFam.map(String):['RAW'];}
+// EXPLORE CHIP ROWS, ALL IS A TOGGLE (owner 11-23: "toggle ALL doesn't remove all the strategies selected. should be
+//   toggleable"). An empty pick still means ALL; a pick holding just RE_NONE means NOTHING picked - an empty board with a hint.
+const RE_NONE='__none__';
 // board 145-D (owner 11-22): ONE money format on the ledger / P&L pages - ledgerSigned, ledgerMoney, ledgerShortMoney, booksUsd and the
 // Webull board's qeMoney all print through elMoney (below): one sign rule (+ gain, - loss, none on zero), $ and thousands separators.
 function ledgerSigned(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;return elMoney(n,{signed:true});}
@@ -5000,10 +5050,20 @@ function ledgerTradePanelClose(id,why){
 function _lgPrefOn(k,dflt){try{const v=localStorage.getItem(k);return v==null?dflt:v==='1';}catch(e){return dflt;}}
 function _lgBarsOn(id){return _lgPrefOn('el_lg_bars_'+id,true);}
 function _lgSLinesOn(id){return _lgPrefOn('el_lg_slines_'+id,false);}
+// COMPACT LEDGER (owner GO 11-23): the chart heights are CSS tokens, so COMPACT (Settings > APPEARANCE) shortens them with no JS branch
+function _lgTokH(el,name,dflt){try{const v=parseFloat(getComputedStyle(el||document.documentElement).getPropertyValue(name));return v>0?v:dflt;}catch(e){return dflt;}}
+// the C | N density switch: the SAME Settings value (prefs.density), one click from the chart row. Both buttons always drawn, so it never reflows.
+function ledgerDensHtml(where){const c=(typeof prefs!=='undefined'&&prefs&&prefs.density==='compact');
+  return '<div class="hm-mode lg-dens'+(where==='pr'?' pr-dens':'')+'" data-lgdens role="group" aria-label="density">'
+    +'<button type="button" data-lgdensv="compact" aria-pressed="'+c+'" class="'+(c?'active':'')+'" title="'+(c?'COMPACT is on - shorter chart, tighter rows and headers, more trades on screen (Settings > APPEARANCE holds the same switch)':'COMPACT - click for a shorter chart and tighter rows, so more trades fit on screen (the same switch as Settings > APPEARANCE)')+'">C</button>'
+    +'<button type="button" data-lgdensv="normal" aria-pressed="'+(!c)+'" class="'+(!c?'active':'')+'" title="'+(!c?'NORMAL is on - the standard spacing (Settings > APPEARANCE holds the same switch)':'NORMAL - click for the standard spacing again (the same switch as Settings > APPEARANCE)')+'">N</button></div>';}
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-lgdensv]');if(!b)return;
+  const v=b.getAttribute('data-lgdensv');if(typeof prefs!=='undefined'&&(prefs.density||'normal')===v)return;
+  savePref('density',v);applyTheme();if(typeof renderApp==='function')renderApp();});
 function ledgerChartOptsHtml(id){const b=_lgBarsOn(id),l=_lgSLinesOn(id);
   return '<div class="hm-mode lg-chartopts" data-lgchartopts="'+id+'">'
     +'<button type="button" data-lgopt="bars" data-lgoptid="'+id+'" aria-pressed="'+b+'" class="'+(b?'active':'')+'" title="one stacked bar per day, split by strategy in its line colour">DAILY BARS</button>'
-    +'<button type="button" data-lgopt="slines" data-lgoptid="'+id+'" aria-pressed="'+l+'" class="'+(l?'active':'')+'" title="each strategy own running P&amp;L line">STRATEGY LINES</button></div>';}
+    +'<button type="button" data-lgopt="slines" data-lgoptid="'+id+'" aria-pressed="'+l+'" class="'+(l?'active':'')+'" title="each strategy own running P&amp;L line">STRATEGY LINES</button></div>'+ledgerDensHtml();}
 document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-lgopt]');if(!b)return;
   const id=b.getAttribute('data-lgoptid'),k=b.getAttribute('data-lgopt')==='bars'?('el_lg_bars_'+id):('el_lg_slines_'+id);
   const now=b.getAttribute('data-lgopt')==='bars'?_lgBarsOn(id):_lgSLinesOn(id);
@@ -5241,7 +5301,7 @@ function ledgerChartRender(wrap,o){
   wrap.classList.add('lg-chart');
   const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const draw=()=>{
-    const W=Math.max(240,Math.round(wrap.clientWidth||600)),H=o.height||(W<600?((o.phoneH&&(window.innerWidth||0)<=600)?o.phoneH:200):260);
+    const W=Math.max(240,Math.round(wrap.clientWidth||600)),H=o.height||(W<600?((o.phoneH&&(window.innerWidth||0)<=600)?o.phoneH:200):_lgTokH(wrap,'--lg-chart-h',260));
     wrap._lgW=W;
     const pts=o.pts&&o.pts.length?o.pts:[{v:0,date:null}],n=pts.length;
     // v91.91: o.stratLines === false hides every per-strategy line; o.dailyBars draws the stacked day bars
@@ -19215,7 +19275,7 @@ function _hmRenderDailyInto(wrapEl){
   // owner 11-17: a dollar axis on the left (DAY bars), the running total on the right (TOTAL), dates along the bottom, the total filled down to $0;
   // owner 11-21: drawn by the shared ledgerDailyChart (the PAPER boards' daily chart), so the width, readout strip, leave and axis-title fixes are one code
   const pts=[{v:0,date:null}].concat(days.map((d,i)=>({v:cum[i],date:d})));
-  ledgerDailyChart(wrapEl,pts,{id:'hm',attr:'hmdaily',gradId:'hm-daily-fill',aria:'REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||''),
+  ledgerDailyChart(wrapEl,pts,{id:'hm',attr:'hmdaily',gradId:'hm-daily-fill',height:_lgTokH(wrapEl,'--lg-real-h',330),aria:'REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||''),
     onHover:v=>_hmPaintBig(elMoney(v)),onLeave:()=>_hmRenderHeroDefault(c,0)});
 }
 function _hmRenderChartInto(root){
@@ -19228,7 +19288,7 @@ function _hmRenderChartInto(root){
   const startVal=ser.length?ser[0].v:0;
   const up=(endVal-startVal-(homeChartMode==='equity'?_hmRangeDeposits(homeRange):0))>=0;
   _hmRenderHeroDefault(endVal,startVal);
-  ledgerChartRender(wrapEl,{id:'hm',height:(wrapEl.clientWidth||900)<420?200:330,pts:ser,up:up,aria:'REAL '+(homeChartMode==='equity'?'account equity':'P&L')+', '+(_HM_RANGE_LABEL[homeRange]||''),
+  ledgerChartRender(wrapEl,{id:'hm',height:(wrapEl.clientWidth||900)<420?200:_lgTokH(wrapEl,'--lg-real-h',330),pts:ser,up:up,aria:'REAL '+(homeChartMode==='equity'?'account equity':'P&L')+', '+(_HM_RANGE_LABEL[homeRange]||''),
     lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser),
     // v91.70 (owner 11-21, same as NT8 PAPER): P&L view gets the % axis of the hover's own base (the account at the range start), only
     // while no deposit or withdrawal falls inside the range - then one base fits every point; equity view and a range with cash moves: none
@@ -20176,7 +20236,7 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
     chart:'<div class="hm-sec-chart" data-hmsec="chart">'
       +'<div class="lg-chart-row hm-chart-top"><div class="lg-chart-rowpills" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>'
       +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="daily" title="one bar per day plus the running total" class="'+(homeChartMode==='daily'?'active':'')+'">DAILY</button><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'
-      +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
+      +ledgerDensHtml()+'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
       +'<div id="hm-goal">'+_hmGoalHtml()+'</div></div>',
     stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',
     // r2 step 16 (item 28): no ? note (everything on the board is scoped to the account and range); the range goes in so DD5 / ROC know ALL / YTD
@@ -38817,6 +38877,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reFilt=(()=>{try{const raw=APREF.resFilt;
           if(raw&&typeof raw==='object'&&!Array.isArray(raw))return raw;
           const o=JSON.parse(raw||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
+        // ALL toggled off on the STRATEGY row (owner 11-23): fam holds just RE_NONE, so every family test fails
+        const _reFamNone=Array.isArray(_reFilt.fam)&&_reFilt.fam.indexOf(RE_NONE)>=0;
         // ── TIME SCOPE (owner ask 2026-08-19: "add a scope to add whats been run past week,
         //    month etc"). It narrows the WHOLE board — charts and tables together — to a recent
         //    stretch of work, and it always says how many rows it is holding back.
@@ -42364,6 +42426,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reFacetKeep=(st,rows)=>function(r){
           return _reFacets.every(function(f){const sel=_reFilt[f.k];
             if(!(sel&&sel.length))return true;
+            if(sel.indexOf(RE_NONE)>=0)return false;   // ALL toggled off: nothing on this rail is picked
             const here=rows.some(function(x){return sel.indexOf(f.val(st,x))>=0;});
             return here?(sel.indexOf(f.val(st,r))>=0):true;});};
         // CHAT SWEEPS builds no run rows (every one is filtered out below) but DOES build the
@@ -42978,7 +43041,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   a run that loads later joins on its own. Any run chip or KEEP ONE clears the stamp.
         const _reCfgRunAllOn=(function(){const _f=_reFilt.fam;
           return String(APREF.resCfgRunAll==null?'':APREF.resCfgRunAll)==='1|'+((_f&&_f.length)?_f.slice().sort().join('|'):'');})();
+        // ALL toggled off on the RUNS row (owner 11-23): stamped with the strategy pick, like resCfgRunAll
+        const _reCfgRunNoneOn=String(APREF.resCfgRunNone==null?'':APREF.resCfgRunNone)==='1|'+((_reFilt.fam&&_reFilt.fam.length)?_reFilt.fam.slice().sort().join('|'):'');
         const _reCfgIds=(function(){const raw=APREF.resCfgRun;
+          if(_reCfgRunNoneOn||_reFamNone)return [];
           if(_reCfgRunAllOn){const _sa=_reRunsOffered().shown.map(function(r){return String(r.id);});
             if(_sa.length){try{window._runFullCap=Math.max(8,_sa.length+2);}catch(e){}return _sa;}}
           let a=Array.isArray(raw)?raw.map(String):(raw!=null&&raw!==''?[String(raw)]:[]);
@@ -43050,7 +43116,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         _reCfgRunId=_reCfgIds.join(', #');
         if(_reShowCfg){
           const CROWS=[];let _cn=0;
-          if(!_reCfgIds.length){_reCfgMsg=(_reMonWin&&!_reCfgPick.length)
+          if(!_reCfgIds.length){_reCfgMsg=_reFamNone?'No strategy picked - pick a strategy on the STRATEGY row, or click ALL to show every one.'
+            :_reCfgRunNoneOn?'No run picked - pick a run on the RUNS row, or click ALL to tick every run offered.'
+            :(_reMonWin&&!_reCfgPick.length)
             // the month is now a real narrowing on this board, so an empty month must name
             //   ITSELF as the reason before any other - otherwise it reads as a broken board.
             ?('No Auto-Validate run ran in '+_reMonWin.nm+(_reCfgMonHeld?(' ('+_reCfgMonHeld+' run'+(_reCfgMonHeld===1?' carries':'s carry')+' no date at all and cannot be placed in a month)'):'')
@@ -43068,6 +43136,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             ?('No Auto-Validate run of '+_reFilt.fam.join(' or ')+' has configuration records to read. '
               +'Pick another strategy on the rail, or untick it to see every run.')
             :'No Auto-Validate run is in the list to read configurations from.'));}
+          if(_reCfgFam.indexOf(RE_NONE)>=0)_reCfgMsg=_reCfgMsg||'No configuration stage picked - pick one on the CONFIG row, or click ALL to show every stage.';
           // THE NAME A CONFIGURATION GOES BY ON ITS RUN REPORT (owner 2026-10-09: the rows of one run read "TILT ENGU-Q #326"
           //   four times over and could not be told apart, nor matched to Past Runs). Each config row carries the short label the
           //   run report heads that configuration's column with in its 1E tabs: RAW R2 = its walk-forward rank (the crowned one
@@ -44034,15 +44103,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   each, or every 1E candidate inside them. Only meaningful on AUTO VAL.
         // WHICH 1E FAMILIES the configs view draws. Its own control, so the STRATEGY rail
         //   can go on meaning the strategy. Nothing ticked means all six.
+        // owner 11-23: a stage chip is lit when nothing is narrowed (ALL) or when it is picked; its hover says what a click does
+        const _reCfgOn=function(k){return !_reCfgFam.length||_reCfgFam.indexOf(k)>=0;};
+        const _reCfgTip=function(k){return 'click: '+(_reCfgOn(k)?'drop':'add')+' '+k+'; shift-click: just '+k+'. ';};
         const _reCfgFamBtns=(!_reShowCfg)?'':_reCtl('','CONFIG','which 1E family the chart draws. Nothing ticked shows all of them.',
-           _reBtn('data-recfgfam="RAW"','RAW',(!_reCfgFam.length||_reCfgFam.indexOf('RAW')>=0),'the crown pool plus the robustness extras - the top configurations the search itself ranked',_TONE.heat)
-           +_reBtn('data-recfgfam="GATE"','GATE',(!_reCfgFam.length||_reCfgFam.indexOf('GATE')>=0),'skip-gate variants: a model refuses the weakest trades',_TONE.heat)
-           +_reBtn('data-recfgfam="TILT"','TILT',(!_reCfgFam.length||_reCfgFam.indexOf('TILT')>=0),'size tilts: every trade is taken, a model only sets the size',_TONE.heat)
-           +_reBtn('data-recfgfam="HYBRID"','HYBRID',(!_reCfgFam.length||_reCfgFam.indexOf('HYBRID')>=0),'gate first, then size the survivors - at one lot per trade',_TONE.heat)
-           +_reBtn('data-recfgfam="HYBRID \u267b"','HYBRID \u267b',(!_reCfgFam.length||_reCfgFam.indexOf('HYBRID \u267b')>=0),'the same hybrid, sized up until it spends the contracts the no-gate book would have',_TONE.heat)
-           +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',(!_reCfgFam.length||_reCfgFam.indexOf('HYBRID \u2193DD')>=0),'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
-           +_reBtn('data-recfgfam="KEEL"','KEEL',(!_reCfgFam.length||_reCfgFam.indexOf('KEEL')>=0),'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One per run, comparison only, never crowned.',_TONE.heat)
-           +_reBtn('data-recfgfamall="1"','ALL',!_reCfgFam.length,'every configuration stage on the board - every chip lights. Click a chip after this to drop just that one; ALL lights them all again.',_TONE.heat)
+           _reBtn('data-recfgfam="RAW"','RAW',_reCfgOn('RAW'),_reCfgTip('RAW')+'the crown pool plus the robustness extras - the top configurations the search itself ranked',_TONE.heat)
+           +_reBtn('data-recfgfam="GATE"','GATE',_reCfgOn('GATE'),_reCfgTip('GATE')+'skip-gate variants: a model refuses the weakest trades',_TONE.heat)
+           +_reBtn('data-recfgfam="TILT"','TILT',_reCfgOn('TILT'),_reCfgTip('TILT')+'size tilts: every trade is taken, a model only sets the size',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID"','HYBRID',_reCfgOn('HYBRID'),_reCfgTip('HYBRID')+'gate first, then size the survivors - at one lot per trade',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID \u267b"','HYBRID \u267b',_reCfgOn('HYBRID \u267b'),_reCfgTip('HYBRID \u267b')+'the same hybrid, sized up until it spends the contracts the no-gate book would have',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',_reCfgOn('HYBRID \u2193DD'),_reCfgTip('HYBRID \u2193DD')+'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
+           +_reBtn('data-recfgfam="KEEL"','KEEL',_reCfgOn('KEEL'),_reCfgTip('KEEL')+'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One per run, comparison only, never crowned.',_TONE.heat)
+           +_reBtn('data-recfgfamall="1"','ALL',!_reCfgFam.length,(!_reCfgFam.length)
+              ?'every stage is on: click to turn them ALL OFF (an empty board - then pick the stages you want). Click a stage chip to drop just that one; shift-click to keep just that one.'
+              :'click to turn EVERY configuration stage on. Click a stage chip to add or drop just that one; shift-click to keep just that one.',_TONE.heat)
           ,_TONE.heat);
         // SHOW is gone (owner 2026-10-20): ML CONFIGS is a chip on the one selector below, and the
         //   data-reshow handler stays alive so an old bookmark or pref still lands somewhere sane.
@@ -44115,9 +44189,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // a WATCHED run used to be told apart by sitting at the front of the row. The row is
               //   in one numeric order now, so it wears the same star the RUNBOARD gives it.
               const _st=(_reWatchIds.indexOf(id)>=0)?'\u2606':'';
-              return _reBtn('data-recfgrun="'+id+'"',_st+'#'+id,_reCfgIds.indexOf(id)>=0,tip+(_st?' \u2014 on your watch list':''),_TONE.rank);}).join('');
-            return _reBtn('data-recfgall="1"',(_avCut?('ALL · '+_av.length+' of '+_avAll.length):('ALL · '+_av.length)),(_on===_av.length&&_av.length>0),
-                'tick every run listed here - the whole 1E landscape for this strategy on one chart. '
+              return _reBtn('data-recfgrun="'+id+'"',_st+'#'+id,_reCfgIds.indexOf(id)>=0,tip+(_st?' \u2014 on your watch list':'')+' \u2014 click: '+(_reCfgIds.indexOf(id)>=0?'drop':'add')+' #'+id+'; shift-click: just #'+id,_TONE.rank);}).join('');
+            const _allLit=(_on===_av.length&&_av.length>0);
+            return _reBtn('data-recfgall="1"'+(_allLit?' data-reallon="1"':''),(_avCut?('ALL · '+_av.length+' of '+_avAll.length):('ALL · '+_av.length)),(_on===_av.length&&_av.length>0),
+                (_allLit?'every run is ticked: click to UNTICK them all (an empty board - then pick the runs you want). ':'tick every run listed here - the whole 1E landscape for this strategy on one chart. ')
                +'Each run is a separate fetch, so a big strategy fills in over a few seconds.'
                +(_avCut?(' This rail shows the newest '+_avTop.length+(_avOld.length?(' + '+_avOld.length+' older book/live run'+(_avOld.length===1?'':'s')):'')+' of the '+_avAll.length+' runs that match, so ALL means those '+_av.length+' - pick a strategy on the rail above to reach the other '+_avCut+'.'):''),_TONE.rank)
               +(_avKey?('<span data-rekeyruns="'+_avKey+'" title="'+_reEsc('Run'+(_avKey===1?'':'s')+' older than the newest '+((typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:75)+' loaded, offered because a BOOK leg or a live / paper leg is built on '+(_avKey===1?'it':'them')+' - fetched once by id: '+_av.filter(function(r){return r&&r._keyRun;}).map(function(r){return '#'+r.id;}).join(' ')+'.')+'" style="font-size:9px;color:var(--text5);margin:0 6px;align-self:center;cursor:help">+ '+_avKey+' older book/live run'+(_avKey===1?'':'s')+'</span>'):'')
@@ -44283,7 +44358,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   only in the records could not be picked and were never admitted to.
         Object.keys(_reRecFam).forEach(function(f){_reFamCnt[f]=(_reFamCnt[f]||0)+_reRecFam[f];});
         // one family ticked names itself; several name themselves together; none reads as ALL.
-        const _reFamPick=(_reFilt.fam||[]).slice();
+        const _reFamPick=(_reFilt.fam||[]).filter(function(f){return f!==RE_NONE;});
         // ISSUE 117, second half: the rail is built from the counts above, which follow the
         //   month - so a month holding none of the picked strategy's runs took that strategy's
         //   own chip off the rail while the pick stayed live, and the board told the reader to
@@ -44298,13 +44373,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   about the code, not the screen: once a strategy was ticked there was nothing on this rail
             //   to click to get back, and CLEAR, which does it, lives elsewhere and drops the month, the
             //   study and the range with it. The click handler has always read an empty value as ALL.
-            _reBtn('data-refam=""','ALL \u00b7 '+_reFamAll,!_reFamPick.length,
-              'show every strategy: all '+_reFamAll+' rows on this chip, and every strategy chip lights. Click one strategy after this to drop just that one; shift-click one to keep just that one. Click it to drop a strategy pick on its own - the month, the study and the range stay exactly as they are',_TONE.samp)
-            +(Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),(!_reFamPick.length||_reFamPick.indexOf(v)>=0),
+            _reBtn('data-refam=""','ALL \u00b7 '+_reFamAll,!_reFamPick.length&&!_reFamNone,
+              ((!_reFamPick.length&&!_reFamNone)
+                ?('every strategy is on: click to turn them ALL OFF (an empty board - then pick the strategies you want). ')
+                :('click to turn EVERY strategy on: all '+_reFamAll+' rows on this chip. '))
+              +'Click one strategy to add or drop just that one; shift-click one to keep just that one. The month, the study and the range stay exactly as they are',_TONE.samp)
+            +(Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),!_reFamNone&&(!_reFamPick.length||_reFamPick.indexOf(v)>=0),
               // sweep 7 #3: the hover says what the CLICK does. From ALL a click drops this one and keeps the rest;
               //   a ticked chip unticks; an unticked one is added. Shift-click is always 'just this one'.
-              ((!_reFamPick.length)?('drop '+_reEsc(v)+' (keep the rest)')
-               :(_reFamPick.indexOf(v)>=0)?((_reFamPick.length===1)?('drop '+_reEsc(v)+' - back to every strategy'):('drop '+_reEsc(v)+' (keep the rest of the pick)'))
+              (_reFamNone?('add '+_reEsc(v)+' to the pick')
+               :(!_reFamPick.length)?('drop '+_reEsc(v)+' (keep the rest)')
+               :(_reFamPick.indexOf(v)>=0)?((_reFamPick.length===1)?('drop '+_reEsc(v)+' - nothing picked, an empty board'):('drop '+_reEsc(v)+' (keep the rest of the pick)'))
                :('add '+_reEsc(v)+' to the pick'))
               +'. Shift-click: just '+_reEsc(v)+'. '+_reEsc(v)+': '+(_reFamCnt[v]||0)
                 +((_reSrc==='valid')?' Auto-Validate runs in Past Runs.'
@@ -44496,7 +44575,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_reStack('PARALLEL COORDINATES',_reParAll(_reItems))
             +_reStack('RADAR',_reRadAll(_reItems))
             +_reStack('LATTICE',_reLatAll(_reItems));};
-        const _reChartBody=(_reCfgStateOn?_reCfgState:
+        // ALL toggled off on a chip row (owner 11-23): an empty board that says what to pick, never a broken chart
+        const _reNoneMsg=_reFamNone?'Nothing picked on STRATEGY - pick a strategy on the rail, or click ALL to show every one.'
+          :(_reShowCfg&&_reCfgFam.indexOf(RE_NONE)>=0)?'Nothing picked on CONFIG - pick a configuration stage, or click ALL to show every stage.'
+          :(_reShowCfg&&_reCfgRunNoneOn)?'Nothing picked on RUNS - pick a run, or click ALL to tick every run offered.':'';
+        const _reChartBody=_reNoneMsg?('<div data-renone="1" style="border:1px dashed var(--border);padding:44px 20px;text-align:center;color:var(--text4);font-size:10.5px;line-height:1.9">'+_reEsc(_reNoneMsg)+'</div>'):(_reCfgStateOn?_reCfgState:
           (_reChartAllOn?_reAllCharts():
           (_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll))))));
         // the zoom redraws the WHOLE chart box, so on ALL it has to rebuild all four or the
@@ -53850,7 +53933,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // ONE SHAPE FOR EVERY CONTROL IN THIS BAR (owner 2026-11-13: the PAST RUNS filters are
         //   "scattered"). Declared here rather than beside the table below, because the family
         //   chips and the search box are built first and must come out the same height as GROUP.
-        const _ctlUni='height:23px;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:0 9px;font-size:9px;letter-spacing:.5px;border-radius:7px;border:1px solid var(--border);background:var(--bg1);color:var(--text3);cursor:pointer;font-variant-emoji:text;white-space:nowrap';
+        const _ctlUni='height:var(--pr-ctl-h,23px);box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:var(--pr-ctl-pad,0 9px);font-size:9px;letter-spacing:.5px;border-radius:7px;border:1px solid var(--border);background:var(--bg1);color:var(--text3);cursor:pointer;font-variant-emoji:text;white-space:nowrap';
         const _ctlOn=';background:var(--bg2);color:var(--text);border-color:color-mix(in srgb,var(--text4) 55%,var(--border))';
         const _famChipsFam=_famsAll.length>1?('<span style="display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap">'+_famsAll.map(f=>{const on=fFam===f;const col=stratColor(f);
           return '<span data-rffam="'+f+'" title="'+(on?'click to show ALL families':'show only '+f+' runs')+'" style="'+_ctlUni+';font-weight:700;'+(on?('border-color:'+col+';color:'+col+';background:color-mix(in srgb,'+col+' 14%,transparent);'):'')+'">'+(famNum(f)!=null?famNum(f)+' · ':'')+f+'</span>';}).join('')+'</span>'):'';
@@ -54087,8 +54170,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _rfArchLink=_nArch?('<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">&#9707; '+(fArch?'hide':'show')+' '+_nArch+' archived</span>'):'';
         const _rfClearLink=(_anyF||APREF.rfQ)?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">&#10005; clear filters</span>':'';
         const _rfNoteHtml=_rfNote?('<div style="font-size:9px;color:var(--text3);letter-spacing:.3px;padding:0 2px 8px">'+_c2TagEsc(_rfNote)+'</div>'):'';
-        const _rfBar=tail=>'<div style="display:flex;align-items:center;justify-content:flex-start;gap:6px;flex-wrap:wrap;margin:7px 0 9px">'
-          +_rfSearch+_famChips+_viewSeg+(tail||'')+_rfArchLink+_rfClearLink+'</div>'+_rfNoteHtml;
+        const _rfBar=tail=>'<div data-rfbar style="display:flex;align-items:center;justify-content:flex-start;gap:var(--pr-bar-gap,6px);flex-wrap:wrap;margin:var(--pr-bar-m,7px 0 9px)">'
+          +_rfSearch+_famChips+_viewSeg+(tail||'')+ledgerDensHtml('pr')+_rfArchLink+_rfClearLink+'</div>'+_rfNoteHtml;
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.34));
         // stack-mode list height caps to the VIEWPORT (was a flat 520px that left the lower half of a tall screen empty — owner: "screen can support it, still scrolls").
         const _vhCap=Math.max(520,Math.round((window.innerHeight||900)*0.82));
@@ -55153,21 +55236,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-resrc]').forEach(b=>{b.onclick=()=>{savePref('resSrc',b.dataset.resrc);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
-      content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{
+      content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=(ev)=>{
         const v=b.getAttribute('data-recfgfam');
         // board 167: an empty list is ALL and lights every chip, so a click from ALL drops just that
         //   family; ticking the last one back on collapses to ALL again (identical rows), and
         //   unticking the only lit chip goes back to ALL rather than to an empty board.
         const ALL=['RAW','GATE','TILT','HYBRID','HYBRID \u267b','HYBRID \u2193DD','KEEL'];
         const _c0=_resCfgFamPref(APREF);
-        const cur=_c0.length?_c0:ALL.slice();
+        // owner 11-23: shift-click = just this one; dropping the last lit chip leaves NOTHING picked (ALL turns them back on)
+        if(ev&&ev.shiftKey){savePref('resCfgFam',[v]);renderApp();return;}
+        const cur=(_c0.indexOf(RE_NONE)>=0)?[]:(_c0.length?_c0:ALL.slice());
         const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
-        savePref('resCfgFam',(ALL.every(t=>cur.indexOf(t)>=0)||!cur.length)?[]:cur);renderApp();};});
+        savePref('resCfgFam',!cur.length?[RE_NONE]:(ALL.every(t=>cur.indexOf(t)>=0)?[]:cur));renderApp();};});
       // W130 (owner 2026-11-13): CONFIG is a chip row in plain sight now, multi-select, with ALL
       //   to clear it. An empty list has always MEANT every stage - this says so with a chip
       //   instead of leaving the reader to work it out from nothing being lit.
       content.querySelectorAll('[data-recfgfamall]').forEach(b=>{b.onclick=()=>{
-        savePref('resCfgFam',[]);renderApp();};});
+        // ALL IS A TOGGLE (owner 11-23): every stage on -> none; anything less -> every stage
+        savePref('resCfgFam',_resCfgFamPref(APREF).length?[]:[RE_NONE]);renderApp();};});
       content.querySelectorAll('[data-reshow]').forEach(b=>{b.onclick=()=>{
         // THE OFFER MOVES THE SOURCE CHIP (review 2026-10-20, four lenses, 3/3 verifiers). This
         //   handler wrote resShow only, and since ONE SELECTOR landed nothing READS resShow - so
@@ -55237,15 +55323,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onclick=(ev)=>{
         const id=b.getAttribute('data-recfgrun');
         // sweep 7 #5: SHIFT-click = just this run, the same gesture the STRATEGY row takes
+        const _wasNoneR=String(APREF.resCfgRunNone==null?'':APREF.resCfgRunNone)==='1|'+_reFamKeyNow();
+        savePref('resCfgRunNone',null);
         if(ev&&ev.shiftKey){savePref('resCfgRunAll',null);savePref('resCfgAuto',_reFamKeyNow());
           savePref('resCfgRun',[id]);renderApp();return;}
         const cur=Array.isArray(APREF.resCfgRun)?APREF.resCfgRun.map(String)
           :((APREF.resCfgRun!=null&&APREF.resCfgRun!=='')?[String(APREF.resCfgRun)]:[]);
         // board 167: in the ALL state every offered chip is lit, so a click drops just that one
         if(_reRunAllNow())cur.splice(0,cur.length,..._reAvailRuns());
+        else if(_wasNoneR)cur.splice(0,cur.length);   // from NOTHING picked (ALL toggled off) a click starts a fresh pick
         savePref('resCfgRunAll',null);
         const i2=cur.indexOf(id);
-        if(i2>=0){if(cur.length>1)cur.splice(i2,1);}else cur.push(id);
+        if(i2>=0)cur.splice(i2,1);else cur.push(id);
+        // the last run dropped = NOTHING picked: an empty board with a hint (owner 11-23), not a refill
+        if(!cur.length){savePref('resCfgAuto',_reFamKeyNow());savePref('resCfgRunNone','1|'+_reFamKeyNow());savePref('resCfgRun',[]);renderApp();return;}
         // W130 #1: stamp the list with the strategy it was made under, so the auto-pick leaves
         //   it alone from here and a later strategy change still clears it.
         savePref('resCfgAuto',_reFamKeyNow());
@@ -55262,6 +55353,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _reRunAllNow=()=>String(APREF.resCfgRunAll==null?'':APREF.resCfgRunAll)==='1|'+_reFamKeyNow();
       // ALL when every run is already on leaves them all on (board 167) - KEEP ONE is the way down.
       content.querySelectorAll('[data-recfgall]').forEach(b=>{b.onclick=()=>{
+        // ALL IS A TOGGLE (owner 11-23): every run ticked -> untick them all; anything less -> tick every run offered
+        if(b.hasAttribute('data-reallon')){savePref('resCfgRunAll',null);savePref('resCfgAuto',_reFamKeyNow());
+          savePref('resCfgRunNone','1|'+_reFamKeyNow());savePref('resCfgRun',[]);renderApp();return;}
+        savePref('resCfgRunNone',null);
         const all=_reAvailRuns();savePref('resCfgAuto',_reFamKeyNow());
         if(all.length){savePref('resCfgRun',all);savePref('resCfgRunAll','1|'+_reFamKeyNow());}renderApp();};});
       content.querySelectorAll('[data-recfgnone]').forEach(b=>{b.onclick=()=>{
@@ -55276,7 +55371,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const okAll=all.filter(id=>!failIds.has(id));
         const pool=okAll.length?okAll:all;
         const newest=pool.reduce((best,id)=>((+id||0)>(+best||0))?id:best);
-        savePref('resCfgAuto',_reFamKeyNow());savePref('resCfgRunAll',null);
+        savePref('resCfgAuto',_reFamKeyNow());savePref('resCfgRunAll',null);savePref('resCfgRunNone',null);
         savePref('resCfgRun',[newest]);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
         let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
@@ -55374,24 +55469,27 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   switch it off without a word and freeze the run list. Remember whether the OLD pick had it on.
         const _oldFam=(Array.isArray(o.fam)&&o.fam.length)?o.fam.slice():[];
         const _runAllWas=String(APREF.resCfgRunAll==null?'':APREF.resCfgRunAll)==='1|'+_oldFam.slice().sort().join('|');
-        if(!v){delete o.fam;}                      // ALL clears the family filter
+        // ALL IS A TOGGLE (owner 11-23): every strategy on -> NOTHING picked (an empty board with a hint); anything less -> ALL
+        const _wasNone=Array.isArray(o.fam)&&o.fam.indexOf(RE_NONE)>=0;
+        if(!v){if(!(Array.isArray(o.fam)&&o.fam.length))o.fam=[RE_NONE];else delete o.fam;savePref('resFamFromAll',null);}
         else if(ev&&ev.shiftKey){                 // sweep 7 #5: SHIFT-click = just this strategy (the run row's KEEP ONE)
           o.fam=[v];savePref('resFamFromAll',null);}   // an explicit pick of one: the newest-5 rule, never runs ALL
         else{// board 167: nothing picked is ALL and lights every chip, so the first click from ALL drops
           //   just that strategy (ALL, then TTM = everything but TTM). Every chip back on collapses to
           //   ALL again - same rows as today, and a strategy that appears later joins on its own.
           const _offer=[...content.querySelectorAll('[data-refam]')].map(x=>x.dataset.refam).filter(Boolean);
-          const cur=(Array.isArray(o.fam)&&o.fam.length)?o.fam.slice():_offer.slice();
+          const cur=_wasNone?[]:((Array.isArray(o.fam)&&o.fam.length)?o.fam.slice():_offer.slice());
           const i=cur.indexOf(v);
           if(i>=0)cur.splice(i,1);else cur.push(v);   // tick and untick, so two families can share the chart
-          const _fromAll=!(Array.isArray(o.fam)&&o.fam.length)||String(APREF.resFamFromAll==null?'':APREF.resFamFromAll)===o.fam.slice().sort().join('|');
-          if(cur.length&&!_offer.every(x=>cur.indexOf(x)>=0))o.fam=cur;else delete o.fam;
+          const _fromAll=!_wasNone&&(!(Array.isArray(o.fam)&&o.fam.length)||String(APREF.resFamFromAll==null?'':APREF.resFamFromAll)===o.fam.slice().sort().join('|'));
+          // dropping the last lit strategy leaves NOTHING picked (owner 11-23); ALL turns them all back on
+          if(!cur.length)o.fam=[RE_NONE];else if(!_offer.every(x=>cur.indexOf(x)>=0))o.fam=cur;else delete o.fam;
           // remember a pick that grew out of ALL, so the run rail treats it as a filter, not a fetch
-          savePref('resFamFromAll',(_fromAll&&o.fam)?o.fam.slice().sort().join('|'):null);
+          savePref('resFamFromAll',(_fromAll&&o.fam&&o.fam[0]!==RE_NONE)?o.fam.slice().sort().join('|'):null);
           // sweep 7 #2: a click that DROPS a strategy narrows what runs ALL already covered, so ALL carries over to
           //   the new pick and a run that loads later still joins. Adding a strategy never carries it (that would
           //   fetch every run of the new strategy - the 1-3 strategy newest-5 rule decides those).
-          const _newFam=(Array.isArray(o.fam)&&o.fam.length)?o.fam:[];
+          const _newFam=(Array.isArray(o.fam)&&o.fam.length&&o.fam.indexOf(RE_NONE)<0)?o.fam:[];
           const _narrow=_newFam.length>0&&(!_oldFam.length||_newFam.every(x=>_oldFam.indexOf(x)>=0));
           if(_runAllWas&&_narrow)savePref('resCfgRunAll','1|'+_newFam.slice().sort().join('|'));}
         savePref('resFilt',JSON.stringify(o));renderApp();};});
