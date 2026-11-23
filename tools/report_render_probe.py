@@ -256,6 +256,22 @@ CASES = [
     ('cfg-labels-base', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'cfgRows': 1,
                          'pre': "(function(){var cs=((doc.selection||{}).candidates||[]).slice().sort(function(a,b){return (b.wf_oos_pnl||0)-(a.wf_oos_pnl||0);});"
                                 "var c=cs.filter(function(x){return !x.crowned;})[0];doc.gate_validate.ungated_pre.total_pnl=c.equity.final;})();"}),
+    # 1A CHAMPION EQUITY (owner 11-23, three asks). a1-ddpct: the drawdown pane defaults to DD % FROM PEAK (both reference labels in %),
+    # the % / $ switch reads pct, the config picker lists the 1E rows, the daily-bar layer is there and - with no daily series and no
+    # cached trade list in the probe browser - says "line only". a1-ddusd: the remembered $ choice puts the labels back in dollars.
+    # a1-cfg-gate / a1-cfg-raw: a 1E row drawn in 1A (its own curve, the DRAWN tag, the CHAMPION button visible, no daily bars).
+    # a1-cfg-none: a row whose curve was removed says so in a box the chart's own height. a1-picks: the 1E ALL table rows are clickable.
+    # a1-daily: the run document carries a daily series -> real bars are drawn. Every 1A case must keep the chart box the same height.
+    ('a1-ddpct', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': '[data-1abarsnote][data-1abarsstate="none"]'}),
+    ('a1-ddusd', {'prefs': {'repCols': '3', 'dd1a': 'usd'}, 'win': {}, 'a1': 1}),
+    ('a1-cfg-gate', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'gate:0'}}, 'win': {}, 'a1': 1}),
+    ('a1-cfg-raw', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'raw:1'}}, 'win': {}, 'a1': 1}),
+    ('a1-cfg-none', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'tilt:0'}}, 'win': {}, 'a1': 1,
+                     'pre': "(doc.gate_validate.tilts||[]).forEach(function(t){delete t.equity;});"}),
+    ('a1-picks', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'a1': 1}),
+    ('a1-daily', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': 'rect[data-1abar]',
+                  'pre': "(function(){var d0=Date.parse('2012-01-03T00:00:00Z'),D=[],P=[];for(var i=0;i<60;i++){var t=new Date(d0+i*86400000*60);"
+                         "D.push(t.toISOString().slice(0,10));P.push(i%3===0?-180:240);}doc.daily={d:D,p:P};})();"}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -466,6 +482,21 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
             if(hs[0]!=='FAMILY'||hs[1]!=='CONFIG')return;
             [].forEach.call(tb.querySelectorAll('tbody tr'),function(tr){var td=tr.querySelectorAll('td');
               if(td.length>1)r.cfgRows.push([tr.getAttribute('data-hlkey')||'',(td[1].textContent||'').split(CROWN).join('').replace(/ +/g,' ').trim()]);});});}
+        // 1A CHAMPION EQUITY (owner 11-23): the DD mode, its two reference labels, the daily-bar layer, the config picker, the drawn row
+        if(cfg.a1){var A={},q=function(x){return det?det.querySelector(x):null;};
+          var cur=q('[data-1addcur]');A.ddCur=cur?cur.getAttribute('data-1addcur'):null;
+          var rr=q('[data-1addref="real"]'),mc=q('[data-1addref="mc"]');A.real=rr?(rr.textContent||''):null;A.mc=mc?(mc.textContent||''):null;
+          A.bars=det?det.querySelectorAll('g[data-1abars]').length:0;A.barRects=det?det.querySelectorAll('rect[data-1abar]').length:0;
+          var bn=q('[data-1abarsnote]');A.barsState=bn?bn.getAttribute('data-1abarsstate'):null;A.barsNote=bn?(bn.textContent||''):'';
+          var sl=q('select[data-1acfg]');A.sel=!!sl;A.selVal=sl?sl.value:null;A.opts=sl?sl.options.length:0;
+          A.optText=sl?[].map.call(sl.options,function(o){return o.text;}):[];
+          var al=q('[data-1aalt]');A.alt=al?al.getAttribute('data-1aalt'):null;A.noCurve=!!q('[data-1anocurve]');
+          var dt=q('[data-1adrawn]');A.drawn=dt?(dt.textContent||''):null;
+          var bk=q('[data-1acfgbar] button[data-1aback]');A.backVis=bk?bk.style.visibility:null;
+          A.picks=det?det.querySelectorAll('tr[data-1apick]').length:0;
+          var rs=q('#res-step-8 #eq-rs');A.boxH=rs?Math.round(rs.getBoundingClientRect().height):null;
+          var hd=q('[data-1acfgbar]');A.barH=hd?Math.round(hd.getBoundingClientRect().height):null;
+          r.a1=A;}
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
       }catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
@@ -851,6 +882,62 @@ def _cfg_set_of(fixture, params, is_pnl):
     if is_pnl is not None:
         return 1 + len([x for x in g if (x.get('pnl') or 0) > is_pnl + 0.5])
     return None
+
+
+def _check_1a(nm, A, fixture):
+    """1A CHAMPION EQUITY (owner 11-23): DD % from peak by default with a % / $ switch, daily bars, any 1E row drawn in 1A."""
+    f, rid = [], str(fixture.get('id'))
+    pct = re.compile(r'^-~\d+(\.\d)?%$')
+    want_mode = 'usd' if nm == 'a1-ddusd' else 'pct'
+    if not A.get('noCurve') and A.get('ddCur') != want_mode:
+        f.append('%s: the 1A drawdown switch reads %r, want %r' % (nm, A.get('ddCur'), want_mode))
+    if not A.get('noCurve'):
+        real, mc = A.get('real') or '', A.get('mc')
+        if want_mode == 'pct':
+            if not pct.match(real):
+                f.append('%s: the realised drawdown label reads %r - want a DD %% from peak like -~4.2%%' % (nm, real))
+            if nm in ('a1-ddpct', 'a1-daily') and not (mc and pct.match(mc)):
+                f.append('%s: the Monte-Carlo P95 label reads %r - want it in %% too' % (nm, mc))
+        elif not real.startswith('-$'):
+            f.append('%s: $ mode but the realised drawdown label reads %r' % (nm, real))
+    if not A.get('sel') or (A.get('opts') or 0) < 20:
+        f.append('%s: the 1A config picker is missing or lists only %s rows' % (nm, A.get('opts')))
+    if A.get('boxH') is not None and A.get('boxH') != 250:
+        f.append('%s: the 1A chart box is %spx tall, want 250 - the page would jump when the view changes' % (nm, A.get('boxH')))
+    if nm in ('a1-ddpct', 'a1-ddusd', 'a1-picks', 'a1-daily'):
+        if A.get('alt') or A.get('selVal') not in ('',):
+            f.append('%s: no config was picked but 1A draws %r (select %r)' % (nm, A.get('alt'), A.get('selVal')))
+        if A.get('backVis') != 'hidden':
+            f.append('%s: the CHAMPION button should be in place but hidden while the champion is drawn (got %r)' % (nm, A.get('backVis')))
+        if A.get('bars') != 1:
+            f.append('%s: the champion chart carries %s daily-bar layers, want 1' % (nm, A.get('bars')))
+        bad = [t for t in (A.get('optText') or [])[1:] if not re.match(r'^(\U0001F451 )?#' + rid + r'\.\S+ (raw|gate|tilt|hybrid|keel) \u00b7 ', t)]
+        if bad:
+            f.append('%s: %d picker rows are not in the board-169 label format, e.g. %r' % (nm, len(bad), bad[:2]))
+    if nm == 'a1-ddpct' and (A.get('barsState') != 'none' or 'line only' not in (A.get('barsNote') or '')):
+        f.append('%s: with no daily series and no trade list the chart must say "line only" (state %r, note %r)' % (nm, A.get('barsState'), A.get('barsNote')))
+    if nm == 'a1-daily' and (A.get('barsState') != 'ok' or (A.get('barRects') or 0) < 50):
+        f.append('%s: the run carries a 60-day daily series but %s bars were drawn (state %r, note %r)' % (nm, A.get('barRects'), A.get('barsState'), A.get('barsNote')))
+    if nm in ('a1-cfg-gate', 'a1-cfg-raw'):
+        key = 'gate:0' if nm == 'a1-cfg-gate' else 'raw:1'
+        if A.get('alt') != key or A.get('selVal') != key:
+            f.append('%s: picked %s but 1A draws %r (select %r)' % (nm, key, A.get('alt'), A.get('selVal')))
+        if A.get('noCurve'):
+            f.append('%s: %s has a saved curve but 1A says it has none' % (nm, key))
+        if not (A.get('drawn') or '').startswith('DRAWN: #' + rid + '.'):
+            f.append('%s: the chart does not name the drawn config (%r)' % (nm, A.get('drawn')))
+        if A.get('backVis') != 'visible':
+            f.append('%s: the CHAMPION button is not showing while a 1E row is drawn' % nm)
+        if A.get('bars') or A.get('barsState') != 'alt':
+            f.append('%s: a 1E row has no trade list, so no daily bars and the "champion only" note (bars %s, state %r)' % (nm, A.get('bars'), A.get('barsState')))
+    if nm == 'a1-cfg-none':
+        if A.get('alt') != 'tilt:0' or not A.get('noCurve'):
+            f.append('%s: a row with no saved curve must say so instead of drawing (alt %r, noCurve %r)' % (nm, A.get('alt'), A.get('noCurve')))
+        if not any('(no curve)' in t for t in (A.get('optText') or [])):
+            f.append('%s: the picker does not mark the row with no curve' % nm)
+    if nm == 'a1-picks' and (A.get('picks') or 0) < 20:
+        f.append('%s: only %s 1E ALL-table rows can be clicked into 1A' % (nm, A.get('picks')))
+    return f
 
 
 def _check_cfg_labels(nm, r, fixture):
@@ -1282,6 +1369,8 @@ def _attempt(chrome, root, alt_index, fixture):
                                  % (nm, '; '.join(_inv)))
         if nm.startswith('cfg-labels'):
             fails.extend(_check_cfg_labels(nm, r, fixture))
+        if r.get('a1') is not None:
+            fails.extend(_check_1a(nm, r['a1'], fixture))
         if nm == 'funnel-1a' and (r.get('eqrTips') or 0):
             fails.append('%s: the EQUAL RISK hover is printed with the toggle OFF - the off state '
                          'must read exactly as it did before the toggle existed' % nm)

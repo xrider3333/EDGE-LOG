@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.18';
+const VERSION='92.19';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -17583,6 +17583,89 @@ const DD_PCT_LABEL='DD % from peak (start $100k)';
 //   ranking key - the dollars and ROC @ $30k are.
 const DD_PCT_NOTE='fixed contract size, so the same $ drop is a smaller % as the account grows; '
   +'rank by $ DD and ROC @ $30k';
+// ── 1A CHAMPION EQUITY, owner 11-23 (three asks) ───────────────────────────────────────────────
+//   (1) the drawdown pane reads DD % FROM PEAK by default (the house _ddPctPeakOf definition, the
+//       twin of the engine's dd_pct_peak), with a % / $ switch remembered per viewer (APREF.dd1a);
+//   (2) daily P&L bars under the curve, drawn the way the LEDGER daily chart draws them (green /
+//       red bars off the $0 line, #1d9e75 / #e24b4a, 0.85 opacity), from the run's own daily series
+//       when the document carries one, else the champion's trade list summed by exit date (the
+//       blotter this browser already caches for the run - TRADES / COST AND LIMITS / CONCENTRATION
+//       fetch it). Nothing is estimated off the thinned curve: no series and no trade list = the
+//       line only, and the chart says so in a corner note (absolute, so nothing moves);
+//   (3) any 1E MATRIX row can be drawn in 1A (APREF.cfg1a[run] = the row's 1E key). The curve is
+//       the one the row already saved - a RAW candidate's optimize-window curve plus its own lockbox
+//       continuation, a GATE / TILT / HYBRID / KEEL row's whole-run stretch curve split at the
+//       lockbox by its own trade counts. A row with no curve says so instead of drawing.
+function _cfg1aCurveOf(c){try{
+  if(!c)return null;
+  const s=c._s||null,r=c.raw||null,num=v=>(v!=null&&isFinite(+v))?+v:null;
+  let eq=null,lbq=null,lbN=null,fuN=null,isRaw=false;
+  if(s&&s.eq&&Array.isArray(s.eq.cum)){eq=s.eq.cum;lbN=num(s.lb&&s.lb.num_trades);fuN=num(s.full&&s.full.num_trades);}
+  else if(r&&r.equity&&Array.isArray(r.equity.cum)){eq=r.equity.cum;lbq=r.lb_equity||null;
+    isRaw=Array.isArray(r.equity.t)||!!r.lb_equity||(r.params!=null&&r.model==null);
+    lbN=num(r.lockbox&&r.lockbox.num_trades);fuN=num(r.full&&r.full.num_trades);}
+  else if(c.equity&&Array.isArray(c.equity.cum)){eq=c.equity.cum;lbq=c.lb_equity||null;isRaw=true;}
+  if(!eq||eq.length<3||eq.some(v=>v==null||!isFinite(+v)))return null;
+  eq=eq.map(Number);
+  if(isRaw){
+    if(lbq&&Array.isArray(lbq.cum)&&lbq.cum.length&&!lbq.cum.some(v=>v==null||!isFinite(+v))){
+      const base=(lbq.base!=null&&isFinite(+lbq.base))?+lbq.base:eq[eq.length-1],end=eq[eq.length-1];
+      return {cum:eq.concat(lbq.cum.map(v=>end+(+v-base))),li:eq.length,kind:'raw'};}
+    return {cum:eq,li:eq.length,kind:'raw',noLb:true};}
+  if(lbN!=null&&fuN!=null&&fuN>0&&lbN>=0&&lbN<=fuN)
+    return {cum:eq,li:Math.max(2,Math.min(eq.length,Math.round(eq.length*(1-lbN/fuN)))),kind:'stretch'};
+  return {cum:eq,li:eq.length,kind:'stretch',noLb:true};
+}catch(e){return null;}}
+// a run's own daily series, if the document carries one: {d:[dates],p:[$]} | [[date,$],...] | [{date|d, v|pnl}]
+function _1aDailyOfDoc(d){try{
+  const V=(d&&d.validate)||{},cands=[d&&d.daily,V.daily,d&&d.equity_daily,V.equity_daily];
+  for(const x of cands){if(!x)continue;let rows=[];
+    if(Array.isArray(x.d)&&Array.isArray(x.p))rows=x.d.map((dt,i)=>[dt,x.p[i]]);
+    else if(Array.isArray(x))rows=x.map(r=>Array.isArray(r)?[r[0],r[1]]:((r&&typeof r==='object')?[r.date||r.d,(r.v!=null?r.v:(r.pnl!=null?r.pnl:r.pnl_usd))]:null)).filter(Boolean);
+    const out=_1aDailyNorm(rows);if(out.length)return {days:out,src:'the run daily series'};}
+  return null;}catch(e){return null;}}
+function _1aDailyNorm(rows){const by={};
+  (rows||[]).forEach(r=>{const ds=String(r[0]||'').slice(0,10),v=+r[1];if(!/^\d{4}-\d\d-\d\d$/.test(ds)||!isFinite(v))return;by[ds]=(by[ds]||0)+v;});
+  return Object.keys(by).sort().map(k=>({d:k,t:Date.parse(k+'T00:00:00Z'),v:Math.round(by[k]*100)/100}));}
+// the champion's trade list (blotter rows: exit_time, pnl_usd) summed by EXIT date
+function _1aDailyFromRows(rows){return _1aDailyNorm((rows||[]).map(x=>[x&&x.exit_time,x&&x.pnl_usd]));}
+window._1aDaily=window._1aDaily||{};
+// draws the daily bars into one 1A host; the <g> carries the chart's own geometry (viewBox units)
+function _1aBarsDraw(g,D){try{
+  const T0=+g.getAttribute('data-t0'),T1=+g.getAttribute('data-t1'),px=+g.getAttribute('data-px'),pw=+g.getAttribute('data-pw'),
+        z=+g.getAttribute('data-z'),up=+g.getAttribute('data-up'),dn=+g.getAttribute('data-dn');
+  const box=g.closest('[data-1abox]'),note=box?box.querySelector('[data-1abarsnote]'):null;
+  const days=((D&&D.days)||[]).filter(x=>x.t>=T0-864e5&&x.t<=T1+864e5);
+  if(!days.length||!(T1>T0)){g.innerHTML='';if(note){note.textContent='daily bars: no trading days inside this chart window - line only';note.setAttribute('data-1abarsstate','none');}return;}
+  // the bars get their own scale (the LEDGER chart's DAY axis), sharing the curve's $0 line; the tallest bar takes 35% of the room above it
+  const mx=Math.max.apply(null,days.map(x=>Math.abs(x.v)))||1,k=0.35*Math.max(up,dn)/mx;
+  const slot=pw*864e5/(T1-T0),bw=Math.max(0.35,Math.min(6,slot*0.7));
+  const dl=s=>{try{return _hmFmtDateLong(s);}catch(e){return s;}},sg=v=>{try{return ledgerSigned(v);}catch(e){return (v<0?'-$':'+$')+Math.abs(Math.round(v));}};
+  let h='';days.forEach(x=>{const cx=px+pw*((x.t-T0)/(T1-T0)),hh=Math.max(0.6,Math.min(x.v>=0?up:dn,Math.abs(x.v)*k)),yy=x.v>=0?z-hh:z;
+    h+='<rect x="'+(cx-bw/2).toFixed(2)+'" y="'+yy.toFixed(2)+'" width="'+bw.toFixed(2)+'" height="'+hh.toFixed(2)+'"'+(bw>2?' rx="1.5"':'')+' fill="'+(x.v>=0?'#1d9e75':'#e24b4a')+'" opacity="0.85" data-1abar="1" data-tip="'+dl(x.d)+': <b>'+sg(x.v)+'</b> day"/>';});
+  g.innerHTML=h;g.setAttribute('data-1abarsn',String(days.length));
+  if(note){note.textContent='daily P&L bars · '+days.length.toLocaleString()+' days · '+D.src;note.setAttribute('data-1abarsstate','ok');}
+}catch(e){console.warn('1A daily bars skipped',e);}}
+// after every render: draw from the cache, else read the cached blotter (or the COST AND LIMITS ask already out) once per run
+function _1aBarsFill(root){try{
+  (root||document).querySelectorAll('g[data-1abars]').forEach(g=>{
+    const rid=g.getAttribute('data-1abars'),box=g.closest('[data-1abox]'),note=box?box.querySelector('[data-1abarsnote]'):null;
+    const C=window._1aDaily;
+    if(C[rid]&&C[rid].days){_1aBarsDraw(g,C[rid]);return;}
+    const none=()=>{if(note&&note.getAttribute('data-1abarsstate')!=='ok'){note.textContent='no daily series on this run and no champion trade list in this browser - line only (▦ TRADES loads the trade list)';note.setAttribute('data-1abarsstate','none');}};
+    if(C[rid]&&C[rid].busy)return;
+    if(typeof _blotGet!=='function'){none();return;}
+    C[rid]={busy:true};
+    const fromRep=r=>(r&&r.rows&&r.rows.length)?r:null;
+    _blotGet(rid).then(c=>{if(c&&c.rows&&c.rows.length)return c;
+      if(window._rdInflight&&window._rdInflight[rid])return window._rdInflight[rid].then(fromRep).catch(()=>null);return null;})
+     .then(c=>{const days=c?_1aDailyFromRows(c.rows):[];
+       if(days.length){C[rid]={days:days,src:'the champion trade list, summed by exit date'+(c.capped?' (capped list)':'')};
+         document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>_1aBarsDraw(x,C[rid]));}
+       else{delete C[rid];document.querySelectorAll('g[data-1abars="'+rid+'"]').forEach(x=>{const b=x.closest('[data-1abox]'),n=b?b.querySelector('[data-1abarsnote]'):null;
+         if(n){n.textContent='no daily series on this run and no champion trade list in this browser - line only (▦ TRADES loads the trade list)';n.setAttribute('data-1abarsstate','none');}});}})
+     .catch(()=>{delete C[rid];none();});});
+}catch(e){console.warn('1A daily bars skipped',e);}}
 // DD5 money: one decimal of a thousand ("$33.6k"), the precision the owner reads it at
 function _dd5Usd(v){const a=Math.abs(+v||0);return a>=1e6?('$'+(a/1e6).toFixed(2)+'M'):(a>=1000?('$'+(a/1000).toFixed(1)+'k'):('$'+Math.round(a)));}
 // The date of point i on a curve whose dates are known only at a few ANCHORS ([[index,'YYYY-MM-DD'],...]), placed by
@@ -25194,7 +25277,7 @@ function renderApp(){
         const _rp=(typeof _rawP==='function'?(_rawP(col)||{}):{}),
               _cm=(_rawBScope&&col&&col.raw&&col.raw.metrics)?col.raw.metrics:{};
         const _tr1=_n1(_rp.kept!=null?_rp.kept:_cm.num_trades),_wr1=_n1(_rp.wr!=null?_rp.wr:_cm.win_rate);
-        return {pool:'RAW',ddp:_ddPctOfCfg(col,mlt),label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,yrs:_rawYrsFor(col),
+        return {pool:'RAW',_cv:_cfg1aCurveOf(col),ddp:_ddPctOfCfg(col,mlt),label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,yrs:_rawYrsFor(col),
           // board 169: what the CONFIG label needs - this candidate's own params, in-sample net and walk-forward rank
           _rprm:col.params||null,_ris:(col.raw&&col.raw.is_pnl!=null)?+col.raw.is_pnl:null,_rrank:col.rank,
           pf:_n1(_rp.pf!=null?_rp.pf:_cm.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),
@@ -28042,7 +28125,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   candidates the scatter could not place.
       const trs=rows.map(x=>{const pc=_mtxPoolCol[String(x.pool||'')]||'var(--text3)';
         const _hk=String(x.key||'').replace(/"/g,'');
-        return '<tr'+(_hk?(' data-hlkey="'+_hk+'"'):'')+' style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)'+(x.crowned?';background:color-mix(in srgb,#f5c542 10%,transparent)':'')+'">'
+        return '<tr'+(_hk?(' data-hlkey="'+_hk+'" data-1apick="'+_hk+'" title="click to draw this config in the 1A chart"'):'')+' style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)'+(_hk?';cursor:pointer':'')+(x.crowned?';background:color-mix(in srgb,#f5c542 10%,transparent)':'')+'">'
           +'<td style="padding:1px 4px;white-space:nowrap"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+pc+';margin-right:5px"></span><span style="color:'+pc+';font-weight:700">'+String(x.pool||'')+'</span></td>'
           +'<td style="padding:1px 4px;white-space:nowrap;color:var(--text2)">'+(x.crowned?'&#128081; ':'')+String(x.label||'').replace(/"/g,'')+'</td>'
           +cols.map(c=>{const v=c.get(x);const ok=(v!=null&&isFinite(v));
@@ -29282,7 +29365,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     // Champion equity curve (walk-forward in-sample → lockbox holdout), with WF test-window
     //   bands + a lockbox region. Extracted so the MASTER panel and the Builder's validate card
     //   share ONE chart. Returns '' when there's no stored equity series.
-    const championEquityHtml=(V,mlt,folds,bare,wfo)=>{
+    // opt (owner 11-23, see _cfg1aCurveOf): {rid, ddMode:'pct'|'usd', alt:'<config label>' when a 1E row is drawn instead of the champion}
+    const championEquityHtml=(V,mlt,folds,bare,wfo,opt)=>{
+      const _o=opt||{};
       const lb=V.lockbox||{},W=V.windows||{optimize:['','']};
       // 1A DETAIL knob (report-side, visual only): down-sample a COPY of the curve for the line —
       //   never mutates V.equity, so the IN-SAMPLE/WF/LOCKBOX section-total math (runTotals) is untouched.
@@ -29320,7 +29405,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const _tip='<b>WF fold f'+f.fold+'</b>'+((_wf1&&_wf1.from&&_wf1.to)?(' · '+_mdy(+new Date(String(_wf1.from).slice(0,10)))+'→'+_mdy(+new Date(String(_wf1.to).slice(0,10)))):(optS?(' · '+_dAt(_f0)+'→'+_dAt(_f1)):''))+'<br>out-of-sample <b>'+fmtUsd(Math.round((+f.oos_pnl||0)*mlt))+'</b> · PF <b>'+(+f.oos_pf||0).toFixed(2)+'</b>'+(_wf1?(' · '+((+_wf1.tr>0)?((+_wf1.tr).toLocaleString()+' trades'):'no trades')):'');
           return '<rect x="'+_x0.toFixed(1)+'" y="0" width="'+Math.max(0,_x1-_x0).toFixed(1)+'" height="'+EH+'" fill="'+((i%2===0)?'rgba(96,165,250,.16)':'rgba(96,165,250,.30)')+'" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');
           wfNote='<span style="color:#60a5fa">▦ '+_fs.length+' walk-forward test windows</span>';}}
-      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+lbVerdict(lb,V,1).word+lbVerdictTip(lb,V)+(lb._warm?('<br>'+_lbWarmWhy(lb,mlt)):'');
+      const _lbTip=_o.alt?('<b>Lockbox stretch of this config</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>the curve this 1E row saved over the sealed stretch - the crown test (HELD / FAIL) belongs to the champion only'):'<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+lbVerdict(lb,V,1).word+lbVerdictTip(lb,V)+(lb._warm?('<br>'+_lbWarmWhy(lb,mlt)):'');
       // date ticks (M/D/YY) evenly spaced in TIME across [optS,lbE] — x is linear in time so they
       //   read chronologically and visibly compress the lockbox into the right end.
       let ticks='';
@@ -29333,7 +29418,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   matrix (1b): IN-SAMPLE (un-shaded) · WALK-FORWARD (blue) · LOCKBOX (purple).
       const _frac0=(_fs.length>=2)?((+_fs[0].train_bars||0)/((+_fs[0].train_bars||0)+_fs.reduce((s,x)=>s+(+x.test_bars||0),0))):0.4;
       const _xWarm=timeOk?xAt(optS+_frac0*(optE-optS)):(pd+(EW-2*pd)*_frac0);
-      const _annoArr=[{x:(pd+_xWarm)/2,t:'IS',c:'var(--text3)'},{x:(_xWarm+bx)/2,t:'WF',c:'#60a5fa'},{x:(bx+EW)/2,t:'LB <span style="color:'+(lb.pass?'#1d9e75':'#e24b4a')+'">'+(lb.pass?'✓':'✕')+'</span>',c:'#a78bfa'}];
+      const _annoArr=[{x:(pd+_xWarm)/2,t:'IS',c:'var(--text3)'},{x:(_xWarm+bx)/2,t:'WF',c:'#60a5fa'},{x:(bx+EW)/2,t:'LB'+(_o.alt?'':(' <span style="color:'+(lb.pass?'#1d9e75':'#e24b4a')+'">'+(lb.pass?'✓':'✕')+'</span>')),c:'#a78bfa'}];
       // v64.8 (owner): section labels abbreviated (IS / WF / LB) and drawn INSIDE the plot,
       //   pinned to the top of each region — no flow strip above the chart any more, so the
       //   chart hugs the title. (The 1A info popover spells the abbreviations out.)
@@ -29349,20 +29434,51 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       let _hwPk=eq[0],_hwI=0,hwLines='';const _hwSeg=(a,b)=>{const tr=Math.min.apply(null,eq.slice(a,b+1));if(_hwPk-tr>0.03*rg)hwLines+='<line x1="'+X(a).toFixed(1)+'" y1="'+Y(_hwPk).toFixed(1)+'" x2="'+X(b).toFixed(1)+'" y2="'+Y(_hwPk).toFixed(1)+'" stroke="#d6557a" stroke-width="1" opacity="0.7"/>';};
       for(let i=1;i<eq.length;i++){if(eq[i]>=_hwPk){if(i-1>_hwI)_hwSeg(_hwI,i);_hwPk=eq[i];_hwI=i;}}
       if(eq.length-1>_hwI)_hwSeg(_hwI,eq.length-1);
+      // DAILY P&L BARS (owner 11-23): an empty layer the after-render pass (_1aBarsFill) fills from the run's daily series or the
+      //   champion trade list. They share the curve's $0 line when there is room on both sides of it, else they sit in a band along
+      //   the bottom of the plot - the LEDGER chart's own scale-per-axis idea. Champion only: a 1E row saved no trade list.
+      const _ph=EH-pd-_hdT,_zOk=(z-_hdT)>=0.25*_ph&&(EH-pd-z)>=0.2*_ph;
+      const _bz=_zOk?z:(EH-pd-0.14*_ph),_bUp=_zOk?(z-_hdT):(0.24*_ph),_bDn=_zOk?(EH-pd-z):(0.14*_ph);
+      const _barsG=(_o.rid&&timeOk&&!_o.alt)?(((!_zOk)?'<line x1="'+pd+'" y1="'+_bz.toFixed(1)+'" x2="'+(EW-pd)+'" y2="'+_bz.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.35"/>':'')
+        +'<g data-1abars="'+String(_o.rid).replace(/"/g,'')+'" data-t0="'+T0+'" data-t1="'+T1+'" data-px="'+pd+'" data-pw="'+(EW-2*pd)+'" data-z="'+_bz.toFixed(2)+'" data-up="'+Math.max(0,_bUp).toFixed(2)+'" data-dn="'+Math.max(0,_bDn).toFixed(2)+'"></g>'):'';
+      const _barsNote=!_o.rid?'':('<div data-1abarsnote="1" data-1abarsstate="'+(_o.alt?'alt':(timeOk?'wait':'none'))+'" style="position:absolute;left:6px;bottom:2px;max-width:62%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:7px;color:var(--text5);pointer-events:none;z-index:1">'
+        +(_o.alt?'daily bars: champion only - a 1E row saves no trade list':(timeOk?'daily bars: reading the champion trade list ...':'daily bars: this run saved no window dates - line only'))+'</div>');
+      const _drawnTag=_o.alt?('<div data-1adrawn="1" style="position:absolute;right:6px;bottom:2px;max-width:45%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:8px;font-weight:700;color:var(--yellow);pointer-events:none;z-index:1">'+_o.alt+'</div>'):'';
       const svg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"'+(timeOk?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:T0,x1:T1,yt:'usd',y0:mn,y1:mx,px:pd,py:pd,pw:EW-2*pd,ph:EH-2*pd,yl:'equity'}))+'"':'')+'>'
         +wfBands
         +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.16)" style="cursor:pointer" data-tip="'+_lbTip+'"/>'
         +grid
+        +_barsG
         +hwLines
         +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
         +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
         +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
       // Fused DRAWDOWN pane — underwater area UNDER the equity, sharing the exact same x-axis.
-      let _ddPk=eq[0];const ddSeries=eq.map(v=>{if(v>_ddPk)_ddPk=v;return v-_ddPk;});
-      const ddMin=Math.min.apply(null,ddSeries)||-1,DDH=60;
+      let _ddPk=eq[0];const ddSeriesU=eq.map(v=>{if(v>_ddPk)_ddPk=v;return v-_ddPk;});
+      const ddMinU=Math.min.apply(null,ddSeriesU)||-1,DDH=60;
       // Monte-Carlo P95 drawdown (the sizing floor): if it's deeper than the realised drawdown,
       //   expand the pane's range so the dashed line still fits. (mc_p95 is points; ×mlt = $.)
-      const mcDD=(V.mc_p95!=null)?(+V.mc_p95)*mlt:null;
+      const mcDDU=(V.mc_p95!=null)?(+V.mc_p95)*mlt:null;
+      // DD % FROM PEAK (owner 11-23, the default): the fall from the running high of account + P&L, as a percent of that high -
+      //   _ddPctPeakOf, the page twin of the engine's dd_pct_peak (high-water mark starts AT the account, so a curve that never
+      //   makes a new high is read against the opening balance). The realised line is the worst point of the FULL-resolution
+      //   saved curve (GRAPH DETAIL thins only the drawn area); the Monte-Carlo P95 floor, a dollar figure, is stated as a percent
+      //   of the high the realised worst fell from. Both carry ~ (a thinned curve reads a little shallow, as everywhere else).
+      const _ddMode=(_o.ddMode==='usd')?'usd':'pct';
+      let _ddS=DD_PCT_START_USD;try{const _av=+(APREF&&APREF.rocAcct);if(isFinite(_av)&&_av>0)_ddS=_av;}catch(_e){}
+      let _pP=_ddS;const ddSeriesP=eq.map(v=>{const a=_ddS+v;if(a>_pP)_pP=a;return _pP>0?-((_pP-a)/_pP*100):0;});
+      const _pkF=_ddPctPeakOf(_er,1,_ddS);
+      const ddMinP=Math.min(Math.min.apply(null,ddSeriesP),(_pkF&&isFinite(_pkF.pct))?-_pkF.pct:0)||-0.01;
+      const mcDDP=(mcDDU!=null)?-(Math.abs(mcDDU)/(((_pkF&&_pkF.peakUsd>0)?_pkF.peakUsd:(_ddS+Math.max(0,...eq))))*100):null;
+      const _isP=(_ddMode==='pct');
+      const ddSeries=_isP?ddSeriesP:ddSeriesU,ddMin=_isP?ddMinP:ddMinU,mcDD=_isP?mcDDP:mcDDU;
+      const _ddLab=v=>_isP?(Math.abs(v)<1e-9?'0%':('-~'+Math.abs(v).toFixed(1)+'%')):fmtAx(v,1);
+      const _ddTipR=_isP?('realised worst DD % from peak: '+_ddPctTxt(_pkF)+' (account $'+Math.round(_ddS).toLocaleString()+' start) - '+DD_PCT_NOTE):'realised max drawdown';
+      const _ddTipM=_isP?('Monte-Carlo P95 drawdown floor '+fmtAx(mcDDU,1)+', as a percent of the high the realised worst fell from'):'Monte-Carlo P95 drawdown floor';
+      const _ddBtn=(k,l,t)=>'<button type="button" data-1addmode="'+k+'" title="'+t+'" style="font-size:8px;font-weight:700;line-height:1;padding:2px 5px;border-radius:4px;cursor:pointer;border:1px solid '+(k===_ddMode?'var(--text4)':'color-mix(in srgb,var(--border) 70%,transparent)')+';background:'+(k===_ddMode?'var(--bg3)':'var(--bg1)')+';color:'+(k===_ddMode?'var(--text)':'var(--text5)')+'">'+l+'</button>';
+      const _ddTg='<span data-1addcur="'+_ddMode+'" style="position:absolute;left:4px;bottom:3px;display:flex;gap:2px;z-index:3">'
+        +_ddBtn('pct','%','DD % FROM PEAK: the fall from the running high of the account ($'+Math.round(_ddS).toLocaleString()+' start) plus P&amp;L, as a percent of that high - the engine dd_pct_peak definition')
+        +_ddBtn('usd','$','drawdown in dollars below the running high')+'</span>';
       const ddFloor=Math.min(ddMin,(mcDD!=null?mcDD:ddMin))||-1,ddY=v=>2+(v/(ddFloor||-1))*(DDH-4);
       const ddArea='M '+X(0).toFixed(1)+' 2 '+ddSeries.map((v,i)=>'L '+X(i).toFixed(1)+' '+ddY(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
       // two horizontal reference lines: the realised MAX drawdown (ddMin) and the Monte-Carlo P95
@@ -29382,7 +29498,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +'<span style="position:absolute;left:1px;top:calc('+(Y(_eqEnd)/EH*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+_endCol+';padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(_eqEnd)+'</span>'
         +'</div>'
         +'<div style="height:5px"></div>'
-        +'<div style="position:relative;flex:1;min-height:0;font-size:8px"><span style="position:absolute;left:3px;top:0">$0</span><span title="realised max drawdown" style="position:absolute;left:1px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:#d6557a;padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(ddMin,1)+'</span>'+(mcDD!=null?'<span title="Monte-Carlo P95 drawdown floor" style="position:absolute;left:1px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:#f5c842;padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(mcDD,1)+'</span>':'')+'</div>'
+        +'<div style="position:relative;flex:1;min-height:0;font-size:8px"><span style="position:absolute;left:3px;top:0">'+(_isP?'0%':'$0')+'</span><span data-1addref="real" title="'+_ddTipR+'" style="position:absolute;left:1px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:#d6557a;padding:0 4px;border-radius:4px;z-index:2">'+_ddLab(ddMin)+'</span>'+(mcDD!=null?'<span data-1addref="mc" title="'+_ddTipM+'" style="position:absolute;left:1px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:#f5c842;padding:0 4px;border-radius:4px;z-index:2">'+_ddLab(mcDD)+'</span>':'')+'</div>'
         +'<div style="height:12px"></div></div>';
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
@@ -29391,9 +29507,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       return (bare?'':'<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below · ⛶ expands with live crosshair</div></div>')
         +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;min-height:120px;max-height:1400px;overflow:hidden;padding-bottom:3px;position:relative">'
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
-        +'<div style="flex:3.2;min-height:0;position:relative">'+anno+svg+'</div>'
+        +'<div data-1abox="1" style="flex:3.2;min-height:0;position:relative">'+anno+svg+_barsNote+_drawnTag+'</div>'
         +'<div style="height:5px"></div>'
-        +'<div style="flex:1;min-height:0">'+ddSvg+'</div>'
+        +'<div style="flex:1;min-height:0;position:relative">'+ddSvg+_ddTg+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>'+rsRow;
     };
@@ -30213,7 +30329,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const p=_P(c);
           if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
           else
-            _scatterAcc.push({pool:'GATE',ddp:_ddPctOfCfg(c,mlt3),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+            _scatterAcc.push({pool:'GATE',_cv:_cfg1aCurveOf(c),ddp:_ddPctOfCfg(c,mlt3),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
               // SHARPE / SORTINO come from the SAME _shp / _srt the 2C table prints (engine
               //   per-block scalar first, sampled curve only as the older-run fallback), so a
               //   dot and its table cell can never disagree the way they did before: run 307
@@ -30631,7 +30747,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({ddp:_ddPctOfCfg(c,mlt3),pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+                _scatterAcc.push({_cv:_cfg1aCurveOf(c),ddp:_ddPctOfCfg(c,mlt3),pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
                   // SHARPE / SORTINO from the SAME _shrpE / _srtE the table above prints, so a
                   //   dot and its cell can never disagree. Scale-free - the sizing tabs never
                   //   move them. shDer/soDer flag the older-run curve fallback.
@@ -31503,7 +31619,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='',_distInner='',_barsInner='';
       // v70.5: the 1A card splits into the CHART (what the 1A / 2A tab swaps) and the REST
       //   (1B monthly, 1C walk-forward, 1D stress) which stays on screen either way.
-      let _eqChart='',_eqRest='',_eqcInfo='';
+      let _eqChart='',_eqRest='',_eqcInfo='',_eq1aArgs=null;
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
         // v64.21: runs saved BEFORE the 2026-07-22 runner fix never carried the scope tag —
@@ -31525,8 +31641,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _cardSty=_card;
         _eqChart=''
-          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:none">'+(_eqcInfo=_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run')))+'</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
-          +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_vLbWarm(d),mlt,d.top10_results,1,_wfOosOf(d,mlt))+'</div>';
+          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:none">'+(_eqcInfo=_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run')))+'</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span><!--1ACFG--></div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_vLbWarm(d),mlt,d.top10_results,1,_wfOosOf(d,mlt),{rid:String(d.id),ddMode:APREF.dd1a})+'</div>';
+        // owner 11-23: what the 1A config picker needs once the 1E rows exist (see _eq1aSwap), and the run's own daily series when it carries one
+        _eq1aArgs={V:_vLbWarm(d),folds:d.top10_results,eqxA:_eqxA};try{const _dd0=_1aDailyOfDoc(d);if(_dd0)window._1aDaily[String(d.id)]=_dd0;}catch(_e1){}
         _eqRest=''
           +runSeriesPanelHtml(d)   // owner 11-22 board 131/132: WF P&L CURVE | DAILY + SIZING (series/wf)
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
@@ -32297,6 +32415,35 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         _mtxDropN=(+((_selParts&&_selParts.scatterDrop)||0))+(+((_gvP&&_gvP.scatterDrop)||0));
         _mtxScatter=mtxScatterHtml(_mtxScatterPts);
         _mtxBars=mtxBarsHtml(_mtxScatterPts);
+        // ── 1A CONFIG PICKER (owner 11-23) ─ any 1E MATRIX row can be drawn in 1A instead of the champion: a compact select in
+        //   the chart's control row (every row by its board-169 label, '#556.4 keel · KEEL v12'), a click on a 1E ALL-table row
+        //   does the same, and a one-click CHAMPION button brings the champion back. Remembered per viewer and per run
+        //   (APREF.cfg1a). The row's OWN saved curve is drawn (_cfg1aCurveOf); a row with none says so in a box the size of the
+        //   chart. The button is always there (hidden while the champion is drawn) so nothing moves when it appears.
+        try{if(_eqChart&&_eq1aArgs){const _i8=_eqChart.indexOf('<div id="res-step-8"');if(_i8>=0){
+          const _rid=String(d.id),_cmap=(APREF.cfg1a&&typeof APREF.cfg1a==='object')?APREF.cfg1a:{},_sel=String(_cmap[_rid]||'');
+          const _esc1=t=>String(t==null?'':t).replace(/&(?![a-z#0-9]+;)/gi,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+          const _pts=(_mtxScatterPts||[]).filter(p=>p&&p.key);
+          const _lab=p=>String((p._cid&&p._cid!=='-')?p._cid:(p._lbl0||p.label||p.key)).replace(/<[^>]*>/g,'').trim();
+          let _pick=_sel?(_pts.filter(p=>p.key===_sel)[0]||null):null;
+          if(_pick&&_pick.crowned&&String(_pick.pool)==='RAW')_pick=null;   // the crowned RAW row IS the champion
+          const _opts='<option value=""'+(_pick?'':' selected')+'>&#128081; CHAMPION &middot; whole run</option>'
+            +_pts.map(p=>'<option value="'+_esc1(p.key)+'"'+(_pick===p?' selected':'')+'>'+(p.crowned?'&#128081; ':'')+_esc1(_lab(p))+(p._cv?'':' (no curve)')+'</option>').join('');
+          const _pkr='<span data-1acfgbar="1" style="margin-left:auto;display:flex;align-items:center;gap:5px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">DRAWN</span>'
+            +'<select data-1acfg="'+_esc1(_rid)+'" title="draw any 1E MATRIX row in this chart, from the curve that row saved - clicking a row of the 1E ALL table does the same" style="width:210px;font-size:8px;padding:1px 3px;background:var(--bg1);color:'+(_pick?'var(--yellow)':'var(--text2)')+';border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:5px">'+_opts+'</select>'
+            +'<button type="button" data-1aback="'+_esc1(_rid)+'" title="draw the champion again" style="visibility:'+(_pick?'visible':'hidden')+';font-size:8px;font-weight:700;padding:1px 6px;border-radius:5px;cursor:pointer;border:1px solid var(--yellow);background:var(--bg1);color:var(--yellow)">&#8617; CHAMPION</button></span>';
+          let _body=_eqChart.slice(_i8);
+          if(_pick){const _cv=_pick._cv,_nm=_esc1(_lab(_pick));
+            if(_cv&&Array.isArray(_cv.cum)&&_cv.cum.length>2){
+              const _V1=Object.assign({},_eq1aArgs.V,{equity:_cv.cum,lb_idx:_cv.li,mc_p95:null});
+              _body='<div id="res-step-8" style="scroll-margin-top:64px" data-1aalt="'+_esc1(_pick.key)+'">'+championEquityHtml(_V1,mlt,_eq1aArgs.folds,1,null,{rid:_rid,ddMode:APREF.dd1a,alt:'DRAWN: '+_nm+(_cv.noLb?' &middot; no lockbox curve saved':'')})+'</div>';}
+            else _body='<div id="res-step-8" style="scroll-margin-top:64px" data-1aalt="'+_esc1(_pick.key)+'"><div id="eq-rs" data-1anocurve="1" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;height:250px;min-height:120px;overflow:hidden;border-radius:8px;background:var(--bg1);font-size:9px;color:var(--text4);text-align:center;padding:0 16px;box-sizing:border-box">'
+              +'<div><b style="color:var(--yellow)">'+_nm+'</b> saved no equity curve, so there is nothing to draw for it.</div>'
+              +'<button type="button" data-1aback="'+_esc1(_rid)+'" style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:5px;cursor:pointer;border:1px solid var(--yellow);background:var(--bg2);color:var(--yellow)">&#8617; BACK TO CHAMPION</button></div>'
+              +((typeof rsRow==='string')?rsRow:'')+'</div>';}
+          const _new=_eqChart.slice(0,_i8).replace('<!--1ACFG-->',_pkr)+_body;
+          if(_new!==_eqChart){if(_panelEquity)_panelEquity=_panelEquity.split(_eqChart).join(_new);_eqInner=_new+_eqRest;_eqChart=_new;}}}}
+        catch(_c1e){console.warn('1A config picker skipped',_c1e);}
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
         //   tabs"): one builder, two cards, each with its own remembered tab.
         const _mkCfg=function(prefKey,attr,fallback,showScatter){
@@ -56912,6 +57059,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
       }
       content.querySelectorAll('[data-eqtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('eqTab',b.getAttribute('data-eqtab'));renderApp();};});
+      // owner 11-23, 1A: the DD % / $ switch (per viewer), the config picker + CHAMPION button + a click on a 1E ALL-table row (per viewer,
+      //   per run; a row click also brings the 1A card to its CHAMPION tab so the swap is seen), and the daily-bar layer fill.
+      content.querySelectorAll('[data-1addmode]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('dd1a',b.getAttribute('data-1addmode')==='usd'?'usd':'pct');renderApp();};});
+      const _1aSet=(rid,key,toTab)=>{if(!rid)return;const m=Object.assign({},(APREF.cfg1a&&typeof APREF.cfg1a==='object')?APREF.cfg1a:{});
+        if(key)m[rid]=key;else delete m[rid];savePref('cfg1a',m);if(toTab&&APREF.eqTab&&APREF.eqTab!=='chart')savePref('eqTab','chart');renderApp();};
+      content.querySelectorAll('select[data-1acfg]').forEach(sl=>{sl.onclick=e=>e.stopPropagation();sl.onchange=()=>_1aSet(sl.getAttribute('data-1acfg'),sl.value,false);});
+      content.querySelectorAll('[data-1aback]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();_1aSet(b.getAttribute('data-1aback'),'',false);};});
+      content.querySelectorAll('tr[data-1apick]').forEach(tr=>{tr.onclick=(e)=>{if(e.target&&e.target.closest&&e.target.closest('a,button,input,select,[data-infopop]'))return;
+        _1aSet((typeof augurRunSel!=='undefined'&&augurRunSel!=null)?String(augurRunSel):'',tr.getAttribute('data-1apick'),true);};});
+      try{_1aBarsFill(content);}catch(_bfe){}
       // 1A card TRADES tab → the standalone blotter modal (payload = the SAME data-eqblot the
       // expanded 1A reads; no chart expansion involved).
       content.querySelectorAll('[data-eqblotopen]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
