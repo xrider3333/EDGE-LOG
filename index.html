@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.08';
+const VERSION='92.09';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8163,10 +8163,11 @@ function _bkaTrMiss(id,tried){const M=window._bkaTrMissLog||(window._bkaTrMissLo
   try{console.info('book_asif_trades: no doc for leg '+id+' (tried '+tried.map(x=>'book_asif_trades_'+x).join(', ')+') - its as-if rows stay empty');}catch(e){}}
 function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=window._bkaTr||(window._bkaTr={});
   // R5 (11-22): the cache is per stamp - book_asif.generated_at and the leg's built_at. A new stamp (the daily series moved on) reads the
-  // trades again; the old rows stay on screen until the new ones land. A failed read AND a missing doc ('none') are asked again after 60 s.
+  // trades again; the old rows stay on screen until the new ones land. A failed read ('err') is asked again after 60 s; a missing doc ('none')
+  // waits for the stamp change above (sweep 5 #1: a 60 s retry of a doc that is not there only burns reads).
   const _D=window._bookAsif,_L=bkaLeg(id),g=(_D&&_D.generated_at)||null,ba=(_L&&_L.built_at)||null,c=C[id];
   if(c){const stale=c.st!=='loading'&&((c.g&&g&&c.g!==g)||(c.ba&&ba&&c.ba!==ba));
-    const retry=(c.st==='err'||c.st==='none')&&Date.now()-(c.errAt||0)>60000;   // (sweep 3 #7) + R5
+    const retry=c.st==='err'&&Date.now()-(c.errAt||0)>60000;   // (sweep 3 #7) + R5; sweep 5 #1: 'none' is not retried
     if(!stale&&!retry)return c;}
   try{if(typeof db==='undefined'||!db||typeof auth==='undefined'||!auth||!auth.currentUser)return c||null;}catch(e){return c||null;}
   const keep=!!(c&&c.st==='ok');
@@ -8362,7 +8363,8 @@ function bkaKpiTableHtml(spec){
   const head='<tr><th class="bka-krl" scope="col"></th>'+cols.map(c=>'<th scope="col" data-bkakcol="'+esc(c.key)+'"'+(c.sh?' title="'+esc(c.label)+' - SHADOW, as-if, never the account'+((spec.shadows.find(s=>s.id===c.id)||{}).fixedNoStop?'. No stop distance in its as-if data: no stop, fixed size':'')+'"':'')+'>'
     +(c.sh?bkaSwatchHtml(c.id)+' ':'')+'<span class="bka-kh">'+esc(c.label)+'</span>'
     // ledgerfix5 D: under RISK n % a shadow with no risk figure says so on the column itself (never a silent fixed number)
-    +((c.sh&&(spec.shadows.find(s=>s.id===c.id)||{}).fixedNoStop)?' <small class="lgv-nostop" data-bkaknostop="'+esc(c.id)+'">fixed (no stop)</small>':'')+'</th>').join('')+'</tr>';
+    +((c.sh&&(spec.shadows.find(s=>s.id===c.id)||{}).fixedNoStop)?' <small class="lgv-nostop" data-bkaknostop="'+esc(c.id)+'">fixed (no stop)</small>':'')
+    +(c.sh?bkaMissHtml(c.id,(spec.shadows.find(s=>s.id===c.id)||{}).missDays,'data-bkakmiss'):'')+'</th>').join('')+'</tr>';   // sweep 5 #6
   const body=rows.map(r=>'<tr data-bkakrow="'+r[0]+'"><th scope="row" class="bka-krl">'+r[1]+'</th>'+cols.map(c=>{const cl=cmp(r,c);
     return '<td class="'+(c.wi?'bka-kwi':'')+cl+'" data-bkakcell="'+esc(c.key)+'"'+(r[0]==='net'?' data-bkaknet="'+c.k.net+'"':'')+'>'+r[2](c.k,c)+mark(cl)+'</td>';}).join('')+'</tr>').join('');
   const tip='Over the chart range. LIVE = the account (the counted legs). WHAT-IF = LIVE + every shadow leg switched on. Each shadow column = that leg alone, as-if (simulated, never the account). '
@@ -8380,6 +8382,10 @@ function bkaKpiTableHtml(spec){
 function bkaSizedOf(board){const S=board==='qb'?window._lgvShQbSized:window._lgvShP2Sized;return Array.isArray(S)?S:null;}
 // ledgerfix5 D: is a switched-on shadow left at its fixed size under RISK n % (no risk figure: no risk_usd / q.risk_usd, no stop)?
 function bkaSizedFixed(board,id){const S=bkaSizedOf(board);if(!S)return false;const x=S.find(q=>q&&String(q.id)===String(id));return !!(x&&x.fixed);}
+// sweep 5 #6: the days a by-trade sized shadow counted at $0 because its trades were not cached for that day (lgvScaleShadows missDays)
+function bkaSizedMiss(board,id){const S=bkaSizedOf(board);if(!S)return [];const x=S.find(q=>q&&String(q.id)===String(id));return (x&&Array.isArray(x.missDays))?x.missDays.slice():[];}
+function bkaMissHtml(id,days,attr){if(!days||!days.length)return '';const e=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  return ' <small class="lgv-nostop" '+attr+'="'+e(id)+'" data-missn="'+days.length+'" title="'+e('Not sized (no trades loaded for the day, counted $0): '+days.slice().sort().join(', '))+'">'+days.length+' day'+(days.length===1?'':'s')+' not sized</small>';}
 function bkaSizedNet(board,id,from,to){const S=bkaSizedOf(board);if(!S)return null;const x=S.find(q=>q&&String(q.id)===String(id));if(!x)return null;
   let net=0,n=0;Object.keys(x.days||{}).forEach(d=>{if((from&&d<from)||(to&&d>to))return;net+=+x.days[d].p||0;n+=+x.days[d].n||0;});
   return {net:Math.round(net*100)/100,n:n};}
@@ -8454,7 +8460,8 @@ function lgvScaleShadows(shadows,liveByDay,o){o=o||{};liveByDay=liveByDay||{};
     const byT=tr.some(r=>r.r!=null&&+r.r>0);
     const rk=(!byT&&s.stopRisk!=null&&isFinite(+s.stopRisk)&&+s.stopRisk>0)?+s.stopRisk:null;
     const x=Object.assign({},s,{days:(rk||byT)?{}:Object.assign({},s.days||{}),units:{},risk:rk,fixed:!rk&&!byT,noStop:!rk&&!byT,raw:s.days});
-    if(byT){const T={};tr.forEach((r,j)=>{(T[r.d]||(T[r.d]=[])).push(Object.assign({j:r.i!=null?r.i:j},r));});x._tr=T;x.tU={};x.tFix={};x.riskN=0;x.fixN=0;x.byTrade=true;x._step=tStep;}
+    if(byT){const T={};tr.forEach((r,j)=>{(T[r.d]||(T[r.d]=[])).push(Object.assign({j:r.i!=null?r.i:j},r));});x._tr=T;x.tU={};x.tFix={};x.riskN=0;x.fixN=0;x.byTrade=true;x._step=tStep;
+      x._cap=(W&&W.stock&&o.stockCap!==undefined)?o.stockCap:(o.tradeCap!=null?o.tradeCap:o.cap);}   // sweep 5 #4: a stock leg's own cap
     return x;});
   let real=0;
   Array.from(D).sort().forEach(d=>{const eq=(+o.start||0)+real;let add=+liveByDay[d]||0;
@@ -8463,12 +8470,12 @@ function lgvScaleShadows(shadows,liveByDay,o){o=o||{};liveByDay=liveByDay||{};
       if(s.byTrade){const L=s._tr[d];if(!L||!L.length){s.days[d]={p:0,n:0,miss:true};(s.missDays||(s.missDays=[])).push(d);return;}   // R5: no trades cached for the day - $0, never the unsized 1-lot $
         let p=0,n=0;L.forEach(t=>{const pu=+t.pnl/+t.qty;
           if(!(t.r!=null&&+t.r>0)){s.tFix[t.j]=true;s.fixN++;p+=+t.pnl;n++;return;}
-          s.riskN++;const c=lgvUnits(eq,o.pct,+t.r,s._step,o.tradeCap!=null?o.tradeCap:o.cap);s.tU[t.j]=c;if(c>0){p+=pu*c;n++;}});
+          s.riskN++;const c=lgvUnits(eq,o.pct,+t.r,s._step,s._cap);s.tU[t.j]=c;if(c>0){p+=pu*c;n++;}});
         p=Math.round(p*100)/100;s.days[d]={p:p,n:n};add+=p;return;}
       const c=lgvUnits(eq,o.pct,s.risk,o.step,o.cap);
       const p=Math.round((+r.p||0)*c*100)/100;s.days[d]={p:p,n:c>0?(+r.n||0):0};s.units[d]=c;add+=p;});
     real+=add;});
-  out.forEach(s=>{delete s.raw;delete s._tr;delete s._step;});return out;}
+  out.forEach(s=>{delete s.raw;delete s._tr;delete s._step;delete s._cap;});return out;}
 // the switched-on SHADOW legs of a board as day maps in [from, to]: the Books panel as-if legs (skip(id) = live here, or drawn as a forward
 // leg) plus `extra` (Webull: the box's own shadow legs switched on, already {id, name, style, days}); each keeps its v91.79 colour
 function lgvShadowLegs(board,from,to,skip,extra){const out=[],seen={};
@@ -8484,7 +8491,7 @@ function lgvDaysTotal(shadows,from,to){let s=0;(shadows||[]).forEach(x=>Object.k
 function lgvKpiSized(spec,sized,Z){if(!spec)return spec;
   if(Z&&Z.size&&Z.size!=='fixed')spec.sizing={word:lgvSizeWord(Z.size),riskN:+Z.riskN||0,fixN:+Z.fixN||0,shFixed:(Array.isArray(sized)?sized:[]).filter(x=>x&&x.fixed).map(x=>x.id)};
   if(!Array.isArray(sized)||!sized.length)return spec;
-  (spec.shadows||[]).forEach(s=>{const m=sized.find(x=>x.id===s.id);if(m){s.days=m.days;s.perTrade=null;if(m.fixed)s.fixedNoStop=true;}});return spec;}
+  (spec.shadows||[]).forEach(s=>{const m=sized.find(x=>x.id===s.id);if(m){s.days=m.days;s.perTrade=null;if(m.fixed)s.fixedNoStop=true;s.missDays=Array.isArray(m.missDays)?m.missDays.slice():null;}});return spec;}
 function lgvDayL(days){const d=Object.keys(days||{}).sort();return {d:d,p:d.map(x=>+days[x].p||0),n:d.map(x=>+days[x].n||0)};}
 // THE CHART. C = a board chart {pts: [{v, date}] (pts[0] = the range start), lines, comps}. Every shadow becomes a dashed line in its own colour;
 // whatif: the solid total = LIVE + every shadow (it IS the what-if total, so no extra line), else one what-if total line rides on top as in
@@ -8609,6 +8616,7 @@ function bkaPanelHtml(ctx){
       (Q?' <span class="lg-sr bka-qsh" data-bkaqsh="'+(+Q.shares||0)+'">'+esc(qTxt)+'</span>':'')
       +(L.stale?' <span class="bka-stale" title="data ends '+esc(String(L.data_end||''))+'">&#9888;</span>':''),
       (app&&isOn&&bkaSizedFixed(board,id)?'<small class="lgv-nostop" data-bkanostop="'+esc(id)+'" title="no risk figure in its as-if data: kept at its fixed size under the RISK % sizing">fixed (no stop)</small> ':'')   // ledgerfix5 D
+      +(app&&isOn?(h=>h?h.slice(1)+' ':'')(bkaMissHtml(id,bkaSizedMiss(board,id),'data-bkamiss')):'')   // sweep 5 #6: N days not sized (hover = dates)
       +'<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'"'+(_fz?' data-bkasized="1"':'')+'>'+(f.n?ledgerSigned(f.net):'&mdash;')+'</span>',   // v91.92 E3: no trades = an em dash
       '<span class="lg-sw bka-shsw'+(isOn?' on':'')+rem(isOn)+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>',bkaSwatchHtml(id));};
   // board 154 (owner GO 11-22) STRATEGY FIRST: a row of book chips ([20] [25] [30] [35] [40] [50] [#463]); under it EACH strategy (leg id)
@@ -10943,10 +10951,17 @@ async function saveInlineField(inp){
   const field=inp.dataset.field,id=inp.dataset.id,val=inp.value;
   if(!id||!field)return;
   if(val===inp.defaultValue)return;   // (sweep 3 #13) a blur with nothing changed writes nothing
-  inp.defaultValue=val;
-  inp.style.opacity='.5';
-  try{await updateTrade(id,{[field]:val});}catch(e){console.error(e);}
-  inp.style.opacity='1';
+  await _inlineWrite(inp,val,()=>updateTrade(id,{[field]:val}));
+}
+// sweep 5 #3: an inline edit's "last saved" value (defaultValue) moves only AFTER the write lands. A failed write keeps the old value (so the
+// next blur tries again), restores the opacity and says so on the box (red outline + title). The same value already in flight is not sent twice.
+async function _inlineWrite(el,val,write){
+  if(el._inlPend===val)return;
+  el._inlPend=val;el.style.opacity='.5';
+  try{await write();el.defaultValue=val;if(el._inlErr){el._inlErr=false;el.title=el._inlTitle||'';el.style.outline='';}}
+  catch(e){console.error(e);if(!el._inlErr)el._inlTitle=el.title;el._inlErr=true;
+    el.title='Not saved - '+((e&&e.message)||'write failed')+'. Leave the box again to retry.';el.style.outline='1px solid var(--red)';}
+  finally{if(el._inlPend===val)el._inlPend=undefined;el.style.opacity='1';}
 }
 async function revertImport(histIdx){
   const entry=uploadHistory[histIdx];
@@ -21509,7 +21524,7 @@ function renderApp(){
       else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
       else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
       if(!cutoff)return tds;
-      const cs=cutoff.toISOString().slice(0,10);
+      const cs=_localYmd(cutoff);
       return tds.filter(t=>t.date>=cs);
     };
     const tfTrades=_filterByTF(bScope(trades));
@@ -21722,7 +21737,7 @@ function renderApp(){
           else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
           else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
           else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
-          const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
+          const cutStr=cutoff?_localYmd(cutoff):null;
           const filtTr=cutStr?bScope(trades).filter(t=>t.date>=cutStr):bScope(trades);
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
           ensureSPYData();
@@ -21917,7 +21932,7 @@ function renderApp(){
           else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
           else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
           else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
-          const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
+          const cutStr=cutoff?_localYmd(cutoff):null;
           const filtTr=cutStr?bScope(trades).filter(t=>t.date>=cutStr):bScope(trades);
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
           ensureSPYData();
@@ -22417,8 +22432,8 @@ function renderApp(){
           <!-- INLINE TIMEFRAME -->
           <td><button type="button" class="tf-btn" data-tid="${t.id}" data-tfkey="trd-${t.id}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${tfLabel(t.timeframe)}</button></td>
           <td style="padding:3px 6px">
-            ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink chart-link" data-url="${t.chartUrl}" style="margin-right:4px">📈</a>`:''}
-            <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
+            ${t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" style="margin-right:4px">📈</a>`:''}
+            <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${_hmEsc(t.chartUrl||'Paste chart URL')}"/>
           </td>
           
           
@@ -22435,7 +22450,7 @@ function renderApp(){
             </div>
           </td>
           <td style="max-width:190px;padding:3px 6px">
-            <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsm);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
+            <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsm);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
           ${ex}
           <td><button class="edit-btn" data-id="${t.id}">&#9998;</button></td>
@@ -22539,10 +22554,7 @@ function renderApp(){
           // (sweep 3 #13) write only on a change - a blur with the same tags cost a write every time
           const was=(inp.defaultValue||'').split(',').map(t=>t.trim()).filter(Boolean);
           if(tags.join(',')===was.join(','))return;
-          inp.defaultValue=inp.value;
-          inp.style.opacity='.5';
-          await updateTrade(id,{tags});
-          inp.style.opacity='1';
+          await _inlineWrite(inp,inp.value,()=>updateTrade(id,{tags}));   // sweep 5 #3: saved value moves after the write
         };
         inp.onblur=save;
         inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}};
@@ -22553,10 +22565,7 @@ function renderApp(){
         const save=async()=>{
           const id=inp.dataset.id;
           if(inp.value===inp.defaultValue)return;   // (sweep 3 #13) unchanged notes: no write
-          inp.defaultValue=inp.value;
-          inp.style.opacity='.5';
-          await updateTrade(id,{notes:inp.value});
-          inp.style.opacity='1';
+          const v=inp.value;await _inlineWrite(inp,v,()=>updateTrade(id,{notes:v}));   // sweep 5 #3: saved value moves after the write
         };
         inp.onblur=save;
         inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}};
@@ -50912,7 +50921,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _lgvShP2Raw=_lgvEffP2==='whatif'?_lgvShP2Mem:[];
       const _lgvShP2=(()=>{if(!_lgvSizedP2||!_lgvShP2Raw.length)return _lgvShP2Raw;
         const lb={};_pt.forEach(t=>{if(!_bookSet.has(legOf(t))||t.open===true)return;const d=_closeDay(t);if(!d||(_lgvSizedP2.cut&&d<_lgvSizedP2.cut))return;lb[d]=(lb[d]||0)+(+t.pnl_usd||0);});
-        return lgvScaleShadows(_lgvShP2Raw,lb,{pct:_lgvPctP2,start:_lgvSizedP2.start,step:0.1,cap:10,tradeStep:0.1,tradeCap:10,trades:s=>bkaShadowRaw(s,{qqq:false})});})();
+        return lgvScaleShadows(_lgvShP2Raw,lb,{pct:_lgvPctP2,start:_lgvSizedP2.start,step:0.1,cap:10,tradeStep:0.1,tradeCap:10,stockStep:0.01,stockCap:1000,trades:s=>bkaShadowRaw(s,{qqq:false})});})();   // sweep 5 #4: stock legs in 0.01 units (as Webull), not 0.1 contracts capped at 10
       const _lgvRowsP2=_lgvEffP2!=='whatif'?[]:[].concat(..._lgvShP2.map(s=>Object.keys(s.days).filter(d=>(!_pcwFrom||d>=_pcwFrom)&&(+s.days[d].p||+s.days[d].n)).map(d=>{
         const ms=Date.parse(d+'T20:00:00Z'),sec=isFinite(ms)?Math.round(ms/1000):0;
         return {id:'lgv_'+s.id+'_'+d,leg:'LGV_'+s.id,strategy:s.name,close_day:d,exitIso:d+'T16:00:00-04:00',entryIso:d+'T16:00:00-04:00',entryTime:sec,exitTime:sec,
@@ -51258,7 +51267,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const en=String(r.et||'').replace('T',' ').slice(0,16),ex=String(r.xt||'').replace('T',' ').slice(0,16),a=_nyEp(en),b=_nyEp(ex);
               const sd=String(r.side||'').toLowerCase(),sg=sd==='long'?1:(sd==='short'?-1:0);
               const pts=(!r.stock&&sg&&r.ep!=null&&r.xp!=null&&isFinite(+r.ep)&&isFinite(+r.xp))?Math.round((+r.xp-+r.ep)*sg*100)/100:null;
-              const w=r.stock?'sh':(ins.indexOf('ES')===0?'ES':(ins.indexOf('NQ')===0||!ins?'NQ':ins));
+              const w=r.fu?'units':(r.stock?'sh':(ins.indexOf('ES')===0?'ES':(ins.indexOf('NQ')===0||!ins?'NQ':ins)));
               out.push({id:'SH|'+s.id+'|'+r.i,date:en.slice(0,10),exitDate:r.d,entryTime:en.slice(11,16)+':00',exitTime:ex.slice(11,16)+':00',
                 type:sg>0?'LONG':(sg<0?'SHORT':''),pnl:r.pnl,pnl_usd:r.pnl,points:pts,strategy:s.name,size:r.qty,bw:1,entry_px:r.ep,exit_px:r.xp,
                 durationSecs:(a>0&&b>=a)?(b-a):null,_raw:{leg:'SH_'+s.id,side:sg,entryTime:a,exitTime:b,entry_px:r.ep,exit_px:r.xp,pnl_pts:pts,pnl_usd:r.pnl},
@@ -51283,7 +51292,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const srt=L=>{if(!dayOn&&shM.length)L.sort((a,b)=>{const x=_psKey(a._raw),y=_psKey(b._raw);
             const c=(typeof x==='string'||typeof y==='string')?String(x).localeCompare(String(y)):(x-y);return _psDir==='asc'?c:-c;});return L;};
           const closedR=matched.filter(r=>!r._open),closedM=srt(closedR.concat(shM));
-          const shown=srt(cap(closedR,dayOn).concat(shM.slice(-300)));
+          // sweep 5 #2: the 300 kept are the NEWEST by close day then close time (as Webull's qbShPinned), never the tail of leg order
+          const shNew=shM.length>300?shM.slice().sort((a,b)=>String(a._cd||'').localeCompare(String(b._cd||''))||String(a._ex||'').localeCompare(String(b._ex||''))).slice(-300):shM;
+          const shown=srt(cap(closedR,dayOn).concat(shNew));
           let ord=shown;
           if(dayOn){ord=ledgerByClose(shown);if(!dayAsc)ord.reverse();}
           return {view:view,tbl:tbl,dayOn:dayOn,dayAsc:dayAsc,fams:fams,chip:chip,query:query,listed:listed,closedAll:closedAll,closedM:closedM,
