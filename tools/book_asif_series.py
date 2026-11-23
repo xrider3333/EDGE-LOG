@@ -117,7 +117,7 @@ LEG_SPECS = {
     "ENGUQ335":  {"run": 335},
     "NOISE422":  {"run": 422},
     "ORB234":    {"run": 234, "note": "book seat = run #547 walk-forward of the #234 exit; the #234 champion is replayed"},
-    "TTMx3":     {"run": 369, "weight": 3.0, "note": "3 ES, the #369 seat"},
+    "TTMx3":     {"run": 459, "weight": 3.0, "note": "3 ES, the #459 seat (#369 VOID: same-bar stop bug, board 180)"},
     "NOISE406":  {"run": 406},
     "NOISE304":  {"run": 304},
     "NOISE398":  {"run": 398, "params_run": 528,
