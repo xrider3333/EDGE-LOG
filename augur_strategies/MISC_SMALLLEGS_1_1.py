@@ -18,9 +18,9 @@ the rule (then 1.1 = 1.0 trade for trade).
   reads the latest VIX row dated BEFORE T (never T itself); VIX rows dated on a CME-holiday session (US
   holidays on which CME runs a short session and NYSE is shut - 23 such rows, 2022-05-30 on) are DROPPED before
   the read; rows after the last bar's session date are dropped on load (lockbox-honest). Missing prior VIX (no
-  row, the last usable row older than 7 calendar days, or the file absent on this machine) -> the day trades
+  row, the last usable row older than 7 calendar days,) -> the day trades
   as 1.0 (no skip); those trade days are counted in the result ('vix_missing_days'), the skipped trade days in
-  'vix_skip_days'. NEEDS THE VIX SIDE FILE: the desktop runner holds NQ / ES masters only - run on the Razer.
+  'vix_skip_days'. NEEDS THE VIX SIDE FILE (absent or wrong sha = the run RAISES): the desktop runner holds NQ / ES masters only - run on the Razer.
 
 -- Below: the 1.0 docstring, unchanged ----------------------------------------------------
 MISC SMALLLEGS 1.0 - three small NQ day legs traded together: PREFADE 09:30-10:00 + ERFLIP 12:00-15:55 + LATE30 15:00-15:30.
@@ -527,11 +527,11 @@ def _cme_holiday_days(years):
 
 def _load_vix(last_day, path=None, sha=None):
     """(day numbers, closes) of the pinned CBOE file, rows after `last_day` and CME-holiday rows dropped.
-    Empty arrays when the file is not on this machine (every day then trades as 1.0, counted as missing)."""
+    RAISES when the file is not on this machine (MANAGER 11-23: a silent fall-back to 1.0 is a false result)."""
     path = path or _VIX_PATH
     sha = sha or _VIX_SHA
     if not os.path.exists(path):
-        return np.zeros(0, np.int64), np.zeros(0, np.float64)
+        raise FileNotFoundError("MISC_SMALLLEGS_1_1: VIX file %s is not on this machine - refusing to run as 1.0" % path)
     st = os.stat(path)
     key = (path, st.st_mtime_ns, st.st_size, int(last_day))
     hit = _VIX_MEMO.get(key)

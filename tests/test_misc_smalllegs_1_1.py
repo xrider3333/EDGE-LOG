@@ -106,3 +106,9 @@ def test_cme_holiday_rows(mods):
         assert _dn(s) in hol
     for s in ("1995-01-16", "2024-11-29", "2024-12-24", "2024-03-29"):   # MLK pre-1998 traded; early closes; Good Friday shut
         assert _dn(s) not in hol
+
+
+def test_missing_vix_file_raises(mods, tmp_path):
+    m1 = mods[1] if isinstance(mods, (tuple, list)) else mods
+    with pytest.raises(FileNotFoundError):
+        m1._load_vix(800000, path=str(tmp_path / 'nope.csv'))
