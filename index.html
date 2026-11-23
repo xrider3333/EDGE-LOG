@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.09';
+const VERSION='92.10';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4424,6 +4424,50 @@ window.ledgerModeWord=function(variant,txt){const v=String(variant==null?'':vari
 // none = what stands for .CFG when the run's set number is not known (' set ?' for a paper leg, ' champ' for a book leg's champion)
 window.ledgerCfgLabel=function(fam,run,cell,mode,none){run=String(run==null?'':run).replace(/^#/,'');
   return String(fam||'?')+(run?(' #'+run+((cell!=null&&cell!=='')?('.'+cell):(none==null?' set ?':none))):'')+(mode?(' '+mode):'');};
+// v92.1x ONE LABEL SITE-WIDE (owner 11-22, board 163): COMPARE / EXPLORE / every chart hover names a configuration the way the
+//   ledger does - FAMILY #RUN.CFG MODE · detail ('NOISE #555.1 tilt · logistic ST', 'NOISE #545.3 raw · R2').
+//   .CFG IS THE SAME NUMBER THE LEDGER PRINTS: the row's rank in the run's saved search grid (doc.points) by in-sample net,
+//   1 = best - the rule api/paper_leg_params.py and tools/check_paper_leg_params.py use. A RAW candidate whose values are
+//   not on a kept grid row (a grid thinned to 150 trials) takes where its own in-sample net sorts among the kept rows
+//   (1 + the rows that beat it by more than half a point) - the paper legs' 'champion' rule. A GATE / TILT / HYBRID / KEEL
+//   row is an overlay on the run's crowned champion, so it carries the champion's .CFG; the MODE word and the detail
+//   (model, size shape, cut-off, version, pool letter) tell overlays of one run apart.
+window.CFG_NOT_PARAM={total_pnl:1,num_trades:1,win_rate:1,profit_factor:1,wins:1,losses:1,avg_pnl:1,max_drawdown:1,fold:1,train_bars:1,test_bars:1,
+  pnl:1,dd:1,trades:1,pf:1,wr:1,sharpe:1,sortino:1,n:1,asset:1,phantom_safe:1,sess_from:1,sess_to:1};
+window._cfgGridMemo=window._cfgGridMemo||(typeof WeakMap==='function'?new WeakMap():null);
+window.cfgGridOf=function(doc){
+  if(!doc||!Array.isArray(doc.points)||!doc.points.length)return null;
+  const M=window._cfgGridMemo;if(M&&M.has(doc))return M.get(doc);
+  const g=doc.points.filter(function(x){return x&&typeof x==='object';}).slice().sort(function(a,b){return (+b.pnl||0)-(+a.pnl||0);});
+  if(M)M.set(doc,g);return g;};
+window.cfgSetOfParams=function(doc,params,isPnl){
+  const g=window.cfgGridOf(doc);if(!g)return null;
+  const eq=function(a,b){const x=+a,y=+b;return (isFinite(x)&&isFinite(y)&&a!==''&&b!=='')?x===y:String(a)===String(b);};
+  const P=params||{},keys=Object.keys(P).filter(function(k){return !window.CFG_NOT_PARAM[k];});
+  if(keys.length){for(let i=0;i<g.length;i++){const row=g[i];
+    if(keys.every(function(k){return (k in row)&&eq(P[k],row[k]);}))return {cell:i+1,grid:g.length,how:'grid'};}}
+  if(isPnl!=null&&isFinite(+isPnl))return {cell:1+g.filter(function(x){return (+x.pnl||0)>(+isPnl)+0.5;}).length,grid:g.length,how:'is_net'};
+  return null;};
+// the run's crowned champion's set: the crowned candidate, else validate.champion, else best_pnl_pts, else the paper legs' record
+window.cfgChampSetOf=function(doc){
+  if(!doc)return null;
+  const sel=doc.selection,cs=(sel&&Array.isArray(sel.candidates))?sel.candidates:[];
+  const cr=cs.filter(function(c){return c&&c.crowned;})[0]||null;
+  let o=cr?window.cfgSetOfParams(doc,cr.params,cr.is_pnl):null;
+  if(!o&&doc.validate&&doc.validate.champion)o=window.cfgSetOfParams(doc,doc.validate.champion,doc.best_pnl_pts);
+  if(!o&&doc.best_pnl_pts!=null)o=window.cfgSetOfParams(doc,null,doc.best_pnl_pts);
+  if(o)return o;
+  // a paper leg recorded as this run's CHAMPION (how 'champion' / 'defaults' never; a 'grid' leg may be a cell no candidate is)
+  const P=(typeof PAPER_LEG_PARAMS!=='undefined')?PAPER_LEG_PARAMS:null;let c=null;
+  if(P&&doc.id!=null)Object.keys(P).forEach(function(k){const o=P[k]||{};if(c==null&&String(o.run)===String(doc.id)&&o.how==='champion'&&o.cell!=null)c=o.cell;});
+  return (c!=null)?{cell:c,how:'paper'}:null;};
+// the one label: 'NOISE #555.1 tilt · logistic ST'. An unknown set prints no number (never ' set ?' mid-table).
+window.cfgRowLabel=function(fam,run,cell,mode,detail){
+  return window.ledgerCfgLabel(fam,run,cell,mode,'')+((detail!=null&&String(detail).trim()!=='')?(' · '+String(detail).trim()):'');};
+// the same label without the family word, for a table whose FAMILY column sits beside it: '#555.1 tilt · logistic ST'
+window.cfgRowLabelShort=function(run,cell,mode,detail){
+  run=String(run==null?'':run).replace(/^#/,'');
+  return ((run?('#'+run+((cell!=null&&cell!=='')?('.'+cell):'')):'')+(mode?(' '+mode):'')).trim()+((detail!=null&&String(detail).trim()!=='')?(' '+String.fromCharCode(183)+' '+String(detail).trim()):'');};
 // THE RUN'S SET NUMBER, where the run records one. Only api/paper_leg_params.py knows it (it
 //   is a rank over the whole saved grid by in-sample net, and the page never loads that grid),
 //   so this reads the same constant the LEDGER reads - PAPER_LEG_PARAMS - and returns null for
@@ -5761,6 +5805,23 @@ function _starRunsFetch(uid){
 // (an IN filter on __name__ - Firestore caps that at 30 values, so longer lists are chunked and
 // merged) with the same projection and row shape as the two reads above. Never throws: any
 // failure resolves to null so the caller can fall back cleanly.
+// board 164 (owner 11-22 "no TTM" in EXPLORE): the runs that MATTER even when older than the newest 75 - every run a book leg
+//   is built on (BKA_PARAMS_RUN) and every live / paper leg's run (PAPER_LEG_PARAMS). Fetched ONCE a session by document id
+//   (_rbWatchRunsFetch: an IN on __name__, one read per run, no listener, no query over all runs), kept in window._keyRuns
+//   and folded into the same side pool the starred runs ride (_c2StarExtra), so chips, tables and charts read them like any run.
+window._keyRuns=window._keyRuns||[];window._keyRunsState=window._keyRunsState||'idle';
+function _keyRunIds(){const ids={};
+  try{if(typeof BKA_PARAMS_RUN!=='undefined')Object.keys(BKA_PARAMS_RUN).forEach(function(k){const v=BKA_PARAMS_RUN[k];if(v!=null&&/^\d+$/.test(String(v)))ids[String(v)]=1;});}catch(e){}
+  try{if(typeof PAPER_LEG_PARAMS!=='undefined')Object.keys(PAPER_LEG_PARAMS).forEach(function(k){const v=(PAPER_LEG_PARAMS[k]||{}).run;if(v!=null&&/^\d+$/.test(String(v)))ids[String(v)]=1;});}catch(e){}
+  return Object.keys(ids).sort(function(a,b){return (+a)-(+b);});}
+function _keyRunsLoad(uid){
+  if(window._keyRunsState!=='idle'||!uid)return;
+  const ids=_keyRunIds();if(!ids.length){window._keyRunsState='ok';return;}
+  window._keyRunsState='loading';
+  _rbWatchRunsFetch(uid,ids).then(function(rows){
+    window._keyRuns=Array.isArray(rows)?rows.map(function(r){r._keyRun=true;return r;}):[];
+    window._keyRunsState=Array.isArray(rows)?'ok':'err';
+    if(Array.isArray(rows)&&rows.length&&typeof activeTab!=='undefined'&&activeTab==='augur'&&typeof renderApp==='function')renderApp();});}
 function _rbWatchRunsFetch(uid,ids){
   const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
   const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+':runQuery';
@@ -5798,7 +5859,9 @@ window._runFull=window._runFull||{};window._runHydrating=window._runHydrating||{
 //    field-mask the runs list already uses. Kilobytes instead of megabytes, and it never
 //    evicts the report cache, because it keeps its own.
 const RUN_CFG_FIELDS=['selection','gate_validate','ml_gate','multiplier','strategy',
-  'instrument','timeframe','date_from','date_to','validate.windows'];   // gate_validate, fetched whole above, carries the stretch marks
+  'instrument','timeframe','date_from','date_to','validate.windows',
+  // board 163: the saved search grid + champion, so every configuration gets the ledger's own #RUN.CFG (window.cfgSetOfParams)
+  'points','best_pnl_pts','validate.champion'];   // gate_validate, fetched whole above, carries the stretch marks
 window._runCfg=window._runCfg||{};window._runCfgBusy=window._runCfgBusy||{};window._runCfgQ=window._runCfgQ||[];
 function _runCfgNext(){const n=window._runCfgQ.shift();if(n)_hydrateCfg(n);}
 function _hydrateCfg(id){
@@ -6103,6 +6166,7 @@ function _subscribeRuns(uid,lim){
   const _fetchLim=runsLimit;
   // STARRED RUNS (item 4) - independent of the main list and of whether it succeeds, so a
   //   crowned run's own read never depends on this one's, or the other way round.
+  try{_keyRunsLoad(uid);}catch(e){console.warn('[runs] book / live runs read skipped:',(e&&e.message)||e);}   // board 164
   {const g=++window._starRunsGen;_starRunsFetch(uid).then(sr=>{if(_starRunsApply(sr,g)&&activeTab==='augur')renderApp();})
     .catch(e=>{console.warn('[runs] starred read skipped:',(e&&e.message)||e);_starRunsApply(null,g);});}
   // THE INDEX FIRST (3 reads for every run), the projected query only when it is missing.
@@ -26840,7 +26904,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     const _mtxCfgId=p=>{const m=/^([^:]+):(\d+)$/.exec(String(p&&p.key||''));if(!m)return '';
       const k=m[1].toLowerCase();if(k==='raw')return '';
       const run=(typeof augurRunSel!=='undefined'&&augurRunSel!=null)?String(augurRunSel):'';
-      return window.cfgIdText({run:run,cell:window.cfgCellOfRun(run),pool:k,hash:false});};
+      // board 163: an overlay pool (gate / tilt / hybrid / keel) sits on the crowned champion, so its set is the champion's -
+      //   the same .CFG EXPLORE and the ledger print (window.cfgChampSetOf, off the run's saved grid); the paper record only as fallback
+      const _doc=(window._runFull||{})[run]||(window._runCfg||{})[run]||null,_ch=_doc?window.cfgChampSetOf(_doc):null;
+      return window.cfgIdText({run:run,cell:(_ch?_ch.cell:window.cfgCellOfRun(run)),pool:k,hash:false});};
     const _mtxVisible=(pts)=>{const off=_mtxHidden();
       (pts||[]).forEach(p=>{if(p&&!p._cid){const id=_mtxCfgId(p);p._cid=id||'-';if(id&&String(p.label||'').indexOf(id+' ')!==0)p.label=id+' '+String(p.label||'');}});
       const keep=(pts||[]).filter(p=>off.indexOf(p.pool)<0);
@@ -28216,7 +28283,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   by _subscribeRuns / _subscribeRunsFull with a second, tiny, unfiltered-by-date query.
     //   Dedupe by id: a starred run already inside the loaded window is not repeated.
     const _c2StarExtra=base=>{const have=new Set((base||[]).filter(r=>r&&r.id!=null).map(r=>String(r.id)));
-      return (Array.isArray(window._starRuns)?window._starRuns:[]).filter(r=>r&&r.id!=null&&!have.has(String(r.id)));};
+      const st=(Array.isArray(window._starRuns)?window._starRuns:[]).filter(r=>r&&r.id!=null&&!have.has(String(r.id)));
+      // board 164: + the older book / live runs (window._keyRuns), once each
+      st.forEach(r=>have.add(String(r.id)));
+      return st.concat((Array.isArray(window._keyRuns)?window._keyRuns:[]).filter(r=>r&&r.id!=null&&!have.has(String(r.id))));};
     // A GATE-VALIDATE JOB'S best_pnl_usd / best_dd_usd / best_win_rate / best_pf /
     //   best_trades ARE ITS GATED HEADLINE PICK (repair round, same F4 fact PICK RUNS' own
     //   Net P&L / Max DD / PF / Win % / Trades rows already act on via _gvIsOf) - sometimes
@@ -40314,10 +40384,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const reps=Array.isArray(rw.repeats)?rw.repeats:[];
           const repCell=reps.length?('<span title="'+_reEsc('This exact configuration was validated a second time on 18 August 2026, as run '+reps.join(' and ')+', because a duplicate job was queued by mistake. The repeat produced identical figures, so it added no new evidence. It has been ARCHIVED, which hides it from Past Runs without deleting it, and it is not counted in the run number beside this.')+'" style="color:var(--text5);font-size:9px;cursor:help"> ↺'+reps.length+' archived</span>'):'';
           const runCell=runs.length
-            ?('<span title="'+_reEsc('This result was persisted as a real run. Click the row to open its report.')+'" style="color:var(--text2)">#'+runs[0]+'</span>'
+            ?((rw._lblS
+                // board 163 ONE LABEL: '#555.1 tilt · logistic ST' - the ledger's #RUN.CFG MODE, the model after the dot. One line,
+                //   cut with an ellipsis when the column is narrow; the whole label (with the family) is the hover.
+                ?('<span data-relbl="'+_reEsc(rw._lbl||rw._lblS)+'" title="'+_reEsc((rw._lblTip||rw._lbl||'')+(rw._cidTip?(' '+rw._cidTip):'')+' Click the row to open its report.')+'" style="color:var(--text2);display:inline-block;max-width:'+(rw._plId?'90px':'120px')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(rw._lblS)+'</span>')
+                :('<span title="'+_reEsc('This result was persisted as a real run. Click the row to open its report.')+'" style="color:var(--text2)">#'+runs[0]+'</span>'))
               +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):'')+repCell
               // THE CONFIGURATION, BY THE NAME ITS RUN REPORT GIVES IT (owner 2026-10-09) - see _reCidOf
-              +(rw._cid?(' <span data-recid title="'+_reEsc(rw._cidTip||rw._cid)+'" style="color:var(--text3);font-weight:600;cursor:help">'+_reEsc(rw._cid)+'</span>'):'')
+              +((rw._cid&&!rw._lblS)?(' <span data-recid title="'+_reEsc(rw._cidTip||rw._cid)+'" style="color:var(--text3);font-weight:600;cursor:help">'+_reEsc(rw._cid)+'</span>'):'')
               // THE ROW TRADING PAPER MONEY, in the WEBULL PAPER row's own words so the two match by
               //   eye (owner 2026-11-09). Only on a row where the identity is real - see _rePaperLeg.
               +(rw._plId?(' <span data-repaperid title="'+_reEsc(rw._plTip||'')+'" style="color:var(--text);font-weight:700;cursor:help">'+_reEsc(rw._plId)+'</span>'
@@ -40552,6 +40626,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
 
         const _reXCap='Worst drawdown \u2014 further LEFT is better';
         const _reFamOf=(st,r)=>String((r&&r.fam)||(st&&st.fam)||'UNTAGGED');
+        // board 163 ONE LABEL for any row on the board: a configuration row's stamped 'NOISE #555.1 tilt \u00b7 logistic ST'; a run row
+        //   'NOISE #555.1 \u00b7 run' (its crowned champion's set); anything else (a registry write-up, a lane record) keeps its own name.
+        const _reLblOf=(st,r)=>{if(r&&r._lbl)return r._lbl;
+          const runs=(r&&Array.isArray(r.runs))?r.runs:[];
+          if(runs.length===1&&!r._rec){let doc=null;try{doc=_reRunDoc(r)||r._x||null;}catch(e){doc=null;}
+            const strat=(doc&&doc.strategy)||r._strat||'';
+            if(strat){const ch=doc?window.cfgChampSetOf(doc):null;return window.cfgRowLabel(window.ledgerFamWord(strat),runs[0],ch?ch.cell:null,'','run');}}
+          return String((r&&r.name)||'');};
         // A STABLE KEY FOR HIDE-THIS-DOT. A configuration row has no run number that survives
         //   a reload - the live Firestore read can renumber or drop rows - so its key is its
         //   own name and family; every other row keeps a run number that never moves, so it
@@ -40753,7 +40835,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               dots+='<g class="repar-row" data-prow="'+String(rw.r.n)+'">'
                 +'<circle cx="'+px2.toFixed(1)+'" cy="'+py2.toFixed(1)+'" r="'+(champ?'3':'1.8')
                 +'" fill="'+col+'" opacity="'+(champ?'0.95':'0.5')+'"><title>'
-                +_reEsc(((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(rw.r.name||'')
+                +_reEsc(((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(_reLblOf(rw.st,rw.r))
                   +'  |  '+AX[c].t+' '+AX[c].f(vx)+'  |  '+AX[r2].t+' '+AX[r2].f(vy))
                 +'</title></circle></g>';});
           }}
@@ -40829,7 +40911,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             const col=_reTone[rw.r.tone]||'var(--text4)',champ=(rw.r.tone==='champ');
             const pts2=[];rw.v.forEach(function(v,i){if(v==null||!isFinite(v))return;
               const q=pt(i,v);pts2.push(q[0].toFixed(1)+','+q[1].toFixed(1));});
-            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(rw.r.name||'').replace(/"/g,'')
+            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(_reLblOf(rw.st,rw.r)).replace(/"/g,'')
               +' ('+_famText(_reFamOf(rw.st,rw.r))+')';
             rw.v.forEach(function(v,i){if(v!=null&&isFinite(v))tip+=String.fromCharCode(10)+AX[i].t+'  '+AX[i].f(v);});
             const miss=rw.v.map(function(v,i){return (v==null||!isFinite(v))?AX[i].t:null;}).filter(Boolean);
@@ -40913,7 +40995,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               cur.push(ax(i).toFixed(1)+','+py(i,v).toFixed(1));});
             if(cur.length>1)segs.push(cur);
             const miss=rw.v.map(function(v,i){return (v==null||!isFinite(v))?AX[i].t:null;}).filter(Boolean);
-            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(rw.r.name||'').replace(/"/g,'')+' ('+_famText(_reFamOf(rw.st,rw.r))+')';
+            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(_reLblOf(rw.st,rw.r)).replace(/"/g,'')+' ('+_famText(_reFamOf(rw.st,rw.r))+')';
             rw.v.forEach(function(v,i){if(v!=null&&isFinite(v))tip+=String.fromCharCode(10)+AX[i].t+'  '+AX[i].f(v);});
             if(miss.length)tip+=String.fromCharCode(10)+'not recorded: '+miss.join(', ');
             tip+=String.fromCharCode(10)+((rw.src==='el')?('source: EDGELOG Auto-Validate run #'+rw.r.runs.join(', #')):((rw.src==='cfg')?('source: a '+String(rw.r._tab||'')+' configuration INSIDE a run - optimize window only, no lockbox has judged it, and it is one of the top few the search returned'):'source: local .py sweep - never persisted as a run, so there is no run number and no report'));
@@ -41323,7 +41405,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
 
               // THE HEADLINE: rank, row, total money, profit factor. Everything else is detail.
               const _tot=_reNum(r,'tot'),_pf=_reNum(r,'pf');
-              let tp='ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()+'  \u00b7  '+String(_reFamOf(st,r)).toUpperCase()+((r._cfg&&r._strat)?('  \u00b7  '+String(r._strat).toUpperCase()):'')
+              // board 163: the hover leads with WHICH configuration this dot is, its READ, both axes by name, then the four numbers
+              //   (ROC @ $30K DD, DD5, DD %, Sortino) and trades a year - the same readers the table columns use.
+              const _hvF=(M,f)=>{let v=null;try{v=_reXv(st,r,M);}catch(e){v=null;}return (v==null||!isFinite(v))?'\u2014':f(v);};
+              const _hvTpy=(()=>{let v=null;try{v=_reTpy(st,r);}catch(e){v=null;}return (v==null||!isFinite(v))?'\u2014':((v>=10)?Math.round(v).toLocaleString():v.toFixed(1));})();
+              let tp=_reLblOf(st,r)
+                +'\nREAD: '+String(r.read||(r._rec?'lane record':_reToneNm[r.tone])||'').toUpperCase()
+                +'\n'+String(_reXNm[_reXAxis]||'across')+' '+((p.x==null)?'not measured':_reVal(p.x,xf)+_reXSuf())
+                +'   \u00b7   '+String(_reYNm(items)||'up')+' '+((p.y==null)?'not measured':_reVal(p.y,yf)+_reYSuf())
+                +'\nROC @ $30K DD '+_hvF('roc30',v=>v.toFixed(1)+'%')+'   DD5 '+_hvF('dd5',v=>_reVal(v,'money'))
+                +'   DD % '+_hvF('ddp',v=>v.toFixed(1)+'%')+'   SORTINO '+_hvF('so',v=>v.toFixed(2))+'   TRADES / YR '+_hvTpy
+                +'\n'
+                +'ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()+'  \u00b7  '+String(_reFamOf(st,r)).toUpperCase()+((r._cfg&&r._strat)?('  \u00b7  '+String(r._strat).toUpperCase()):'')
                 +'\n'+(grank[st.key+':'+r.n]?('RANK '+grank[st.key+':'+r.n]+' of '+pts.length):'UNRANKED')
                 +'   TOTAL '+((_tot==null)?'not measured':_reVal(_tot,'money'))
                 +'   PF '+((_pf==null)?'not measured':_pf.toFixed(2))
@@ -42432,6 +42525,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   check 2026-09-28: every run loaded, ORB offered only #421, #404 and #403).
           const _watchedSet={};_reWatchIds.forEach(function(id){_watchedSet[id]=1;});
           [].concat(Array.isArray(window._starRuns)?window._starRuns:[])
+            .concat(Array.isArray(window._keyRuns)?window._keyRuns:[])   // board 164: book / live runs older than the newest 75
             .concat(Array.isArray(window._rbWatchRuns)?window._rbWatchRuns:[])
             .concat(rs.filter(function(r){return r&&(r.starred===true||_watchedSet[String(r.id)]);}))
             .forEach(function(r){if(ok(r)){have[String(r.id)]=1;forced.push(r);}});
@@ -42587,6 +42681,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   the same reader the STRATEGY rail already uses a few lines above
               //   (_canonFam(r.strategy)).
               const _stratNm=_canonFam(full.strategy)||'UNTAGGED';
+              // board 163 ONE LABEL: the ledger's family word and the crowned champion's set number (window.cfgChampSetOf)
+              const _lfam=window.ledgerFamWord(full.strategy||_stratNm),_lch=window.cfgChampSetOf(full),_lchC=_lch?_lch.cell:null;
               // a run doc without a saved point value is priced by its instrument (ES = $50, not NQ's $20)
               const mult=(+full.multiplier>0)?+full.multiplier:(({ES:50,MES:5,NQ:20,MNQ:2,RTY:50,M2K:5,YM:5,MYM:0.5})[String(full.instrument||'').toUpperCase().trim()]||20);
               const V=full.validate||null;
@@ -42670,7 +42766,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   :(_plGrid.length
                     ?('NONE OF THE ROWS ON THIS BOARD IS THE ONE TRADING PAPER MONEY, and it is worth knowing rather than guessing. Run #'+RID+'\u2019s paper leg trades SET '+_plGrid[0].cell+' of its '+_plGrid[0].grid+'-row saved search grid, sorted by in-sample net. This board lists selection.candidates ranked by WALK-FORWARD, which is a different and much shorter list - so that set is not among them. The WEBULL PAPER board prints it as '+_pl.fam+' #'+RID+'.'+_plGrid[0].cell+' '+_plGrid[0].variant+'.')
                     :'');
-                CROWS.push({n:_cn,name:'#'+RID+' RAW '+(c.crowned?('crowned'+(_plId?(' \u00b7 '+_plId):'')):('#'+(i+1))),fam:'RAW',_strat:_stratNm,
+                const _lrs=window.cfgSetOfParams(full,c.params,c.is_pnl);
+                CROWS.push({_lm:'raw',_lc:(_lrs?_lrs.cell:(c.crowned?_lchC:null)),_lhow:(_lrs?_lrs.how:(c.crowned&&_lch?_lch.how:null)),_ld:(c.crowned?String.fromCodePoint(0x1F451):'')+'R'+(i+1),
+                      n:_cn,name:'#'+RID+' RAW '+(c.crowned?('crowned'+(_plId?(' \u00b7 '+_plId):'')):('#'+(i+1))),fam:'RAW',_strat:_stratNm,
                       _plId:_plId,_plTip:_plTip,
                       // R2 IS A WALK-FORWARD RANK, NOT THE WEBULL SET NUMBER. Said in the hover of
                       //   every row, because the two look alike and mean different things: this is
@@ -42710,7 +42808,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const _gsp=(_gis!=null&&_gwf!=null&&isFinite(_gis)&&isFinite(_gwf));
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
-                  CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
+                  CROWS.push({_lm:'gate',_lc:_lchC,_lhow:(_lch?_lch.how:null),_ld:_reCidOf('GATE',c,false),
+                        n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
                         _cid:_reCidFull(RID,'GATE',c,isCh),_cidTip:_reCidTip('GATE',c,_reCidOf('GATE',c,isCh),isCh?'the gate this run chose':''),
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
                         tone:(isCh?'champ':'ref'),read:(isCh?'Chosen gate':'Gate variant'),
@@ -42806,7 +42905,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const net=(st2.total_pnl!=null)?st2.total_pnl*mult*f:null;
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
-                CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
+                const _lL=window.cfgPoolLetter(tabNm);
+                CROWS.push({_lm:((tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hybrid')),_lc:_lchC,_lhow:(_lch?_lch.how:null),
+                      _ld:String(_reCidOf(tabNm,x,false)).replace(/[()]/g,'').replace(/\s+/g,' ').trim()+((_lL==='HR'||_lL==='HD')?(' '+_lL):''),
+                      n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
                       _cid:_reCidFull(RID,tabNm,x,false),_cidTip:_reCidTip(tabNm,x,_reCidOf(tabNm,x,false),''),
                       what:'A '+tabNm.toLowerCase()+' variant from run #'+RID+'.',
                       tone:'ref',read:tabNm+' variant',
@@ -42854,6 +42956,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 szRow(K,'KEEL','KEEL '+String(K.version||''),'one');})();
               // NO TWO ROWS OF ONE RUN AND TYPE READ ALIKE (owner 2026-10-09). The run report can head two columns with the
               //   same label (two tilts on the same model and size shape); each then carries its place in the report order.
+              // board 163: stamp the ONE LABEL on every row of this run, and keep it unique inside the run
+              (function(){const cnt={},seen={};
+                CROWS.forEach(function(r){if(r._run!==RID||!r._lm)return;
+                  r._lbl=window.cfgRowLabel(_lfam,RID,r._lc,r._lm,r._ld);r._lblS=window.cfgRowLabelShort(RID,r._lc,r._lm,r._ld);
+                  r._lblTip='Configuration '+r._lbl+'. '+((r._lc==null)?('Run #'+RID+' saved no search grid this page could read, so the set number is left off rather than invented.')
+                    :((r._lm==='raw')?((r._lhow==='grid')?('Set '+r._lc+' = row '+r._lc+' of run #'+RID+'’s saved search grid sorted by in-sample net, the number the ledger and paper boards print.')
+                      :('Set '+r._lc+' = where this configuration’s in-sample net sorts among run #'+RID+'’s kept grid rows (it is not one of them) - the paper legs’ champion rule.'))
+                     :('A '+r._lm+' overlay on run #'+RID+'’s crowned champion, set '+r._lc+'; the words after the dot name the model.')))
+                    +((r._lm==='raw')?(' '+String(r._ld||'').replace(/^\D*R(\d+).*/,'R$1 is its walk-forward rank among the run’s candidates.')):'');
+                  cnt[r._lbl]=(cnt[r._lbl]||0)+1;});
+                CROWS.forEach(function(r){if(r._run!==RID||!r._lbl||cnt[r._lbl]<2)return;const k=r._lbl;seen[k]=(seen[k]||0)+1;
+                  r._lbl=k+' ·'+seen[k];r._lblS=r._lblS+' ·'+seen[k];});})();
               (function(){const grp={};
                 CROWS.forEach(function(r){if(r._run!==RID||!r._cid)return;(grp[r.fam]=grp[r.fam]||[]).push(r);});
                 Object.keys(grp).forEach(function(k){const cnt={},seen={};
@@ -43520,7 +43634,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   separate fetch, but it used to print 'ALL . 40' with 79 runs in the pool and no note,
             //   so ALL read as every run when it was every run THIS RAIL CHOSE TO SHOW.
             const _avAll=_reCfgPillOrd(_reCfgPick.filter(_famOk));
-            const _av=_avAll.slice(0,40);
+            // board 164: an older book / live run is never cut by the 40-chip cap - it is why it was fetched
+            const _av=_avAll.slice(0,40).concat(_avAll.slice(40).filter(function(r){return r&&r._keyRun;}));
+            const _avKey=_av.filter(function(r){return r&&r._keyRun&&!(Array.isArray(runHistory)&&runHistory.some(function(h){return h&&String(h.id)===String(r.id);}));}).length;
             const _avCut=_avAll.length-_av.length;
             const _on=_av.filter(function(r){return _reCfgIds.indexOf(String(r.id))>=0;}).length;
             const _pills=_av.map(function(r){const id=String(r.id);
@@ -43547,6 +43663,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 'tick every run listed here - the whole 1E landscape for this strategy on one chart. '
                +'Each run is a separate fetch, so a big strategy fills in over a few seconds.'
                +(_avCut?(' This rail shows the newest 40 of the '+_avAll.length+' runs that match, so ALL means those 40 - pick a strategy on the rail above to reach the other '+_avCut+'.'):''),_TONE.rank)
+              +(_avKey?('<span data-rekeyruns="'+_avKey+'" title="'+_reEsc('Run'+(_avKey===1?'':'s')+' older than the newest '+((typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:75)+' loaded, offered because a BOOK leg or a live / paper leg is built on '+(_avKey===1?'it':'them')+' - fetched once by id: '+_av.filter(function(r){return r&&r._keyRun;}).map(function(r){return '#'+r.id;}).join(' ')+'.')+'" style="font-size:9px;color:var(--text5);margin:0 6px;align-self:center;cursor:help">+ '+_avKey+' older book/live run'+(_avKey===1?'':'s')+'</span>'):'')
               +_reBtn('data-recfgnone="1"','KEEP ONE',false,
                 'clear back to the newest non-FAIL run on its own, or the newest run if every one offered here failed.',_TONE.rank)
               +_pills;})()

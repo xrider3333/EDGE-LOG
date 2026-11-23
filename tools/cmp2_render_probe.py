@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 174
+N_CASES = 176
 N_BLOCKS = None   # set after PROBE_HTML: its top-level case blocks (some report more than one case)
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -8697,6 +8697,74 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
            recLeg:(M.legBox||'').slice(0,200),whereFills:F.fills,
            oneFamLeg:(S.legBox||'').slice(0,120),chip:M.chip,errs:errAcc.slice(0,2)});
       })();
+      // -- case c163_cfg_labels (owner 11-22, board 163: "#555 v12 K", "#545 R9" - which config inside the run is it?).
+      //    Every configuration row's RUN cell reads the ledger's #RUN.CFG MODE . detail, the .CFG worked out HERE from the
+      //    fixture's own saved grid (points sorted by in-sample net, the crowned candidate's row); the overlays (gate / tilt /
+      //    hybrid) carry the champion's set; no two rows of the run read alike; the scatter hover leads with the label, the
+      //    READ, both axes by name and the four numbers + trades a year.
+      __B(174)&&(function(){
+        var calls=[],errAcc=[],CID=String(FIX.id),DOT=String.fromCharCode(183);
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        var NOTP={total_pnl:1,num_trades:1,win_rate:1,profit_factor:1,wins:1,losses:1,avg_pnl:1,max_drawdown:1,pnl:1,dd:1,trades:1,pf:1,wr:1,sharpe:1,sortino:1,n:1};
+        var g=(FIX.points||[]).slice().sort(function(a,b){return (+b.pnl||0)-(+a.pnl||0);});
+        var cr=(((FIX.selection||{}).candidates)||[]).filter(function(c){return c&&c.crowned;})[0]||null,want=null;
+        if(cr){var ks=Object.keys(cr.params||{}).filter(function(k){return !NOTP[k];});
+          for(var i=0;i<g.length&&want==null;i++){var row=g[i];if(ks.every(function(k){return (k in row)&&(+row[k])===(+cr.params[k]);}))want=i+1;}
+          if(want==null)want=1+g.filter(function(x){return (+x.pnl||0)>(+cr.is_pnl)+0.5;}).length;}
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[CID],c2Tbl:true,resCols:'key',
+          reSortK:'run',resOrd:'res',resSplit:'stack',resAxis:'so',resXAxis:'roc30',resSegs:['is','wf']},
+          dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];")));chk('explore');
+        try{w.eval('if(window._reFitCols)window._reFitCols();');}catch(e){errAcc.push('fit: '+e);}
+        var L=[].map.call(d.querySelectorAll('[data-relbl]'),function(s){var tr=s.closest('tr');
+          return {full:s.getAttribute('data-relbl')||'',short:dfxN(s.textContent||''),tip:s.getAttribute('title')||'',row:tr?dfxN(tr.textContent||''):'',
+            cut:(function(){var td=s.closest('td');return !!td&&td.scrollWidth>td.clientWidth+1;})()};});
+        var shortRe=new RegExp('^#'+CID+'[.][0-9]+ (raw|gate|tilt|hybrid|keel)( |$)');
+        var crow=L.filter(function(o){return new RegExp('#'+CID+' RAW crowned').test(o.row);})[0]||null;
+        var ovl=L.filter(function(o){return / (gate|tilt|hybrid) /.test(o.short);});
+        var seen={},dup=[];L.forEach(function(o){if(seen[o.full])dup.push(o.full);seen[o.full]=1;});
+        var tips=[].map.call(d.querySelectorAll('[data-repoint] title'),function(t){return t.textContent||'';});
+        var tip=tips.filter(function(t){return t.indexOf('NOISE #'+CID+'.')===0;})[0]||'';
+        var line1=tip.split(String.fromCharCode(10))[0]||'';
+        w.eval("window._runCfg={};window._runFull={};window._reFitLast=null;window._reFitRe=null;window._reFitM=null;var _fs=document.getElementById('reFitCss');if(_fs)_fs.textContent='';");
+        dfxCase('c163_cfg_labels',calls,{
+          'the fixture has a saved grid and a crowned candidate, so this case tests something':g.length>10&&want!=null,
+          'every configuration row carries the one label (raw + gate + tilt + hybrid rows)':L.length>=30,
+          'every RUN cell reads #RUN.CFG MODE, e.g. "#306.6 raw"':L.length>0&&L.every(function(o){return shortRe.test(o.short);}),
+          'every full label (the hover) leads with the family: "NOISE #306.N ..."':L.length>0&&L.every(function(o){return o.full.indexOf('NOISE #'+CID+'.')===0;}),
+          'the crowned row is the set worked out here from the saved grid':!!crow&&crow.short.indexOf('#'+CID+'.'+want+' raw')===0&&/R1/.test(crow.short),
+          'the overlays (gate / tilt / hybrid) carry the champion set and a model detail':ovl.length>=20&&ovl.every(function(o){return o.short.indexOf('#'+CID+'.'+want+' ')===0&&o.short.indexOf(' '+DOT+' ')>0;}),
+          'no two configurations of the run read alike':dup.length===0,
+          'no RUN cell is cut (long labels end in an ellipsis inside the cell)':L.every(function(o){return !o.cut;}),
+          'the hover of a label says what the set number means':!!crow&&/saved search grid|kept grid rows/.test(crow.tip),
+          'a scatter dot hover LEADS with the label':!!tip&&shortRe.test(line1.replace(/^NOISE /,'')),
+          'and carries the READ, both axes by name, ROC @ $30K DD, DD5, DD %, SORTINO and TRADES / YR':
+            /READ: /.test(tip)&&/ROC @ [$]30K DD/.test(tip)&&/DD5 /.test(tip)&&/DD % /.test(tip)&&/SORTINO /.test(tip)&&/TRADES [/] YR/.test(tip),
+          'no console errors':errAcc.length===0
+        },{want:want,n:L.length,sample:L.slice(0,4).map(function(o){return o.short;}),crowned:crow?crow.short:null,
+           ovl:ovl.slice(0,3).map(function(o){return o.short;}),dup:dup.slice(0,3),tip:tip.slice(0,300),errs:errAcc.slice(0,2)});
+      })();
+      // -- case c164_key_runs (owner 11-22, board 164: "no TTM" in EXPLORE - its runs are older than the newest 75). An older
+      //    run a book leg is built on, fetched once by id into window._keyRuns, is offered like any run: its strategy is on
+      //    the STRATEGY rail, its chip is on the RUNS rail, and the rail says "+ N older book/live runs".
+      __B(175)&&(function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        var old={id:'369',strategy:'TTMSQZ_3_0_ES30SSOF2.py',starred:false,multiplier:20,instrument:'NQ',timeframe:'5m',scope:'validate',
+          date_from:'2010-06-07',date_to:'2025-06-29',timestamp:'2025-02-01T00:00:00Z',
+          validate:{verdict:'PASS',windows:{optimize:['2010-06-07','2024-06-29'],wf_split:'2016-10-12',lockbox:['2024-06-29','2025-06-29']}}};
+        var wc=dfxWin([FIX],"window._keyRuns=[(function(x){x=__f(x);x._keyRun=true;return x;})("+JSON.stringify(old)+")];window._keyRunsState='ok';");
+        calls.push(doRender({c2Screen:'explore',resSrc:'cfg',resLvl:'all',resShow:'configs',c2Month:'all',c2Tbl:true,resCols:'key'},wc));chk('explore');
+        var fam=[].map.call(d.querySelectorAll('[data-refam]'),function(b){return b.getAttribute('data-refam');});
+        var pill=d.querySelector('[data-recfgrun="369"]'),note=d.querySelector('[data-rekeyruns]');
+        var res={fam:fam,pill:!!pill,note:note?dfxN(note.textContent||''):null};
+        w.eval("window._keyRuns=[];window._keyRunsState='idle';");
+        dfxCase('c164_key_runs',calls,{
+          'TTM is on the STRATEGY rail although its run is older than the loaded ones':fam.indexOf('TTM')>=0,
+          'its run #369 is a chip on the RUNS rail':res.pill,
+          'the rail says "+ 1 older book/live run"':res.note==='+ 1 older book/live run',
+          'no console errors':errAcc.length===0
+        },{res:res,errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     out.nBlocks=__IX;
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -10947,6 +11015,7 @@ def main(argv=None):
     DFX += ['e1_axis_outlier']
     DFX += ['d1_rail_all']
     DFX += ['i51_ddp_stored']
+    DFX += ['c163_cfg_labels', 'c164_key_runs']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
