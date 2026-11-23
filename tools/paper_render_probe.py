@@ -2043,7 +2043,16 @@ def _set_words(k, label, plp):
     if not run:
         return label
     cell = inl.get('cell') if inl else None
-    return '%s #%s%s %s' % (_fam_word(label or k), run, ('.%s' % cell) if cell is not None else ' set ?', _mode_word(inl and inl.get('variant'), label))
+    # never '.0' (owner 11-23): set 0 = the strategy file's defaults, printed as the word
+    setw = (' set ?' if cell is None else (' defaults' if _num(cell) is not None and _num(cell) <= 0 else '.%s' % cell))
+    return '%s #%s%s %s' % (_fam_word(label or k), run, setw, _mode_word(inl and inl.get('variant'), label))
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _caveat_fixes(root):

@@ -262,6 +262,13 @@ CASES = [
     # a1-cfg-gate / a1-cfg-raw: a 1E row drawn in 1A (its own curve, the DRAWN tag, the CHAMPION button visible, no daily bars).
     # a1-cfg-none: a row whose curve was removed says so in a box the chart's own height. a1-picks: the 1E ALL table rows are clickable.
     # a1-daily: the run document carries a daily series -> real bars are drawn. Every 1A case must keep the chart box the same height.
+    # round 3 (owner 11-23 on run 482, an older NOISE baseline): every 1E row carries a number on an old-shape doc too
+    ('cfg-labels-482', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'cfgRows': 1, 'fix': 'run_482'}),
+    # the oldest shape: no saved grid, no ungated twin, no champion record - every row still carries a number
+    #   (RAW = its R rank, ML = the crowned candidate's R rank + its variant number)
+    ('cfg-labels-482-nogrid', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'cfgRows': 1, 'fix': 'run_482',
+                               'pre': "delete doc.points;delete doc.gate_validate.ungated_pre;delete doc.gate_validate.ungated_full;"
+                                      "delete doc.best_pnl_pts;if(doc.validate)delete doc.validate.champion;"}),
     ('a1-ddpct', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': '[data-1abarsnote][data-1abarsstate="none"]'}),
     ('a1-ddusd', {'prefs': {'repCols': '3', 'dd1a': 'usd'}, 'win': {}, 'a1': 1}),
     ('a1-cfg-gate', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'gate:0'}}, 'win': {}, 'a1': 1}),
@@ -269,6 +276,28 @@ CASES = [
     ('a1-cfg-none', {'prefs': {'repCols': '3', 'cfg1a': {'306': 'tilt:0'}}, 'win': {}, 'a1': 1,
                      'pre': "(doc.gate_validate.tilts||[]).forEach(function(t){delete t.equity;});"}),
     ('a1-picks', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'a1': 1}),
+    # round 3 (owner 11-23 on run 482). CLICKS: a click on a 1E row - the ALL table's row, or a family tab's column - draws it in 1A,
+    #   and the card switches to its CHAMPION tab even when it was on the funnel. 'clicks' = selectors clicked in turn after the
+    #   first render (each click re-renders). 'clickWant' = the key 1A must then draw.
+    ('a1-click-all-482', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table', 'eqTab': 'funnel'}, 'win': {}, 'a1': 1, 'fix': 'run_482',
+                          'clicks': ['tr[data-1apick^="gate:"]'], 'clickWant': 'gate:'}),
+    ('a1-click-gate-482', {'prefs': {'repCols': '3', 'cfgTab': 'gate', 'mtxView': 'table'}, 'win': {}, 'a1': 1, 'fix': 'run_482',
+                           'clicks': ['th[data-mtxcol="gate:1"]'], 'clickWant': 'gate:1'}),
+    ('a1-click-tilt-both', {'prefs': {'repCols': '3', 'cfgTab': 'tilt', 'mtxView': 'both', 'eqTab': 'funnel'}, 'win': {}, 'a1': 1,
+                            'clicks': ['td[data-mtxcol="tilt:1"]'], 'clickWant': 'tilt:1'}),
+    # a click after a re-sort of the ALL table still lands (the second click is on a row of the re-sorted table)
+    ('a1-click-resort', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'a1': 1,
+                         'clicks': ['th[data-mtxallsort="net"]', 'tr[data-1apick^="raw:"]:not([data-1apick="raw:0"])'], 'clickWant': 'raw:'}),
+    # EXPANDED VIEW: double-click the 1A chart; the modal keeps the drawn config, the bars, the DD mode and the crosshair readout
+    ('a1-expand-daily', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': 'rect[data-1abar]', 'expand': 1,
+                         'pre': "(function(){var d0=Date.parse('2012-01-03T00:00:00Z'),D=[],P=[];for(var i=0;i<60;i++){var t=new Date(d0+i*86400000*60);"
+                                "D.push(t.toISOString().slice(0,10));P.push(i%3===0?-180:240);}doc.daily={d:D,p:P};})();"}),
+    ('a1-expand-cfg-usd', {'prefs': {'repCols': '3', 'dd1a': 'usd', 'cfg1a': {'306': 'gate:0'}}, 'win': {}, 'a1': 1, 'expand': 1}),
+    # FUNNEL on run 482 with EQUAL RISK on: nothing drawn outside the plot, off-scale lines marked, the key folded, family DD faint
+    ('funnel-eqr-482', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
+                                  'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2eqr': 1}, 'win': {}, 'fix': 'run_482', 'funGeo': 1}),
+    # NEVER '.0' (owner 11-23: the NT8 ledger read 'ENGU-Q #335.0 raw'): every paper leg and book leg label the page builds
+    ('leg-labels', {'prefs': {'repCols': '3'}, 'win': {}, 'legLabels': 1}),
     ('a1-daily', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': 'rect[data-1abar]',
                   'pre': "(function(){var d0=Date.parse('2012-01-03T00:00:00Z'),D=[],P=[];for(var i=0;i<60;i++){var t=new Date(d0+i*86400000*60);"
                          "D.push(t.toISOString().slice(0,10));P.push(i%3===0?-180:240);}doc.daily={d:D,p:P};})();"}),
@@ -295,7 +324,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1500px;height:1000px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
+var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__, FIXX=__FIXX__;
 (function(){
   var reported=false, out={cases:{}}, t0=Date.now();
   function finish(why){
@@ -331,7 +360,7 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
         +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(cfg.prefs||{}))+");"
         +"if(typeof APREF==='object'&&APREF){for(var k in APREF)delete APREF[k];"
         +"  var P="+JSON.stringify(cfg.prefs||{})+";for(var k2 in P)APREF[k2]=P[k2];}"
-        +"var F="+JSON.stringify(FIX)+";"
+        +"var F="+JSON.stringify(cfg.fix?FIXX[cfg.fix]:FIX)+";"
         // the same normalisation the Firestore read paths apply
         +"var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
         // SETID: render the fixture under another run number (the ROLL chip keys on the run id); everything else about the document stays the fixture's own
@@ -367,6 +396,10 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
       var ready=(el&&len>=20000&&len===_lastLen&&(!cfg.wait||el.querySelector(cfg.wait))&&(!cfg.waitText||(el.innerText||el.textContent||'').indexOf(cfg.waitText)>=0))?(++_stable>=2):false;
       _lastLen=len;
       if(!ready&&Date.now()-_t0<15000){setTimeout(poll,100);return;}
+      if(cfg.clicks&&!r.clickLog){r.clickLog=[];var _ck=0;(function nx(){
+        if(_ck>=cfg.clicks.length){_stable=0;_lastLen=-1;_t0=Date.now();setTimeout(poll,300);return;}
+        var sel=cfg.clicks[_ck++],el2=d.querySelector(sel);r.clickLog.push([sel,!!el2]);
+        if(el2){try{el2.click();}catch(_ce){r.clickErr=String(_ce);}}setTimeout(nx,700);})();return;}
       r.waitedMs=Date.now()-_t0;
       sample();
     })();
@@ -377,7 +410,7 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
         r.detailLen=det?det.innerHTML.length:-1;
         var txt=det?(det.innerText||det.textContent||''):'';
         r.cantRender=/couldn.t render/i.test(txt);
-        r.namesRun=txt.indexOf(String(cfg.setId!=null?cfg.setId:FIX.id))>=0;
+        r.namesRun=txt.indexOf(String(cfg.setId!=null?cfg.setId:(cfg.fix?FIXX[cfg.fix]:FIX).id))>=0;
         // LOCKBOX column / LB warm tag (2026-09-28, owner via MANAGER): this fixture (run 306)
         // scored its own lockbox cold (301 trades) before a continuous replay of the same
         // stretch (gate_validate.ungated_lockbox, 334 trades) - it qualifies for the same
@@ -482,6 +515,27 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
             if(hs[0]!=='FAMILY'||hs[1]!=='CONFIG')return;
             [].forEach.call(tb.querySelectorAll('tbody tr'),function(tr){var td=tr.querySelectorAll('td');
               if(td.length>1)r.cfgRows.push([tr.getAttribute('data-hlkey')||'',(td[1].textContent||'').split(CROWN).join('').replace(/ +/g,' ').trim()]);});});}
+        if(cfg.legLabels){try{r.legLabels=JSON.parse(w.eval("(function(){var o=[];"
+          +"Object.keys(PAPER_LEG_PARAMS).forEach(function(k){var P=PAPER_LEG_PARAMS[k];o.push(['paper',k,window.ledgerCfgLabel(window.ledgerFamWord(k),P.run,P.cell,window.ledgerModeWord(P.variant,''))]);"
+          +"o.push(['id',k,window.cfgIdText({run:P.run,cell:P.cell})]);});"
+          +"Object.keys(BKA_PARAMS_RUN).forEach(function(k){o.push(['book',k,bkaLegLabel(k)]);});"
+          +"[234,422,459,524,335,541,543].forEach(function(n){o.push(['report',String(n),window.cfgRowLabelShort(n,window.cfgCellOfRun(n),'raw')]);});"
+          +"return JSON.stringify(o);})()"));}catch(_le2){r.legLabelsErr=String(_le2);}}
+        if(cfg.funGeo){try{var G={out:0,n:0,offMarks:0,keyOpen:null,keyRows:0,ddFam:0,ddFamOp:[]};
+          var _kw=det?det.querySelector('[data-a2krow]'):null,_fw=_kw?_kw.parentNode:null;G.wrap=!!_fw;
+          [].forEach.call(_fw?_fw.querySelectorAll('svg'):[],function(sv){
+            var vb=(sv.getAttribute('viewBox')||'').split(/[ ,]+/).map(Number);if(vb.length<4)return;
+            [].forEach.call(sv.querySelectorAll('polyline[points]'),function(pl){(pl.getAttribute('points')||'').trim().split(/[ ]+/).forEach(function(q2){
+              var y=+q2.split(',')[1];if(!isFinite(y))return;G.n++;if(y<vb[1]-0.5||y>vb[1]+vb[3]+0.5)G.out++;});});
+            [].forEach.call(sv.querySelectorAll('path[d]'),function(pa){((pa.getAttribute('d')||'').match(/[ML][^MLZHVCQ]*/g)||[]).forEach(function(seg){
+              var xy=seg.slice(1).trim().split(/[ ,]+/);var y=+xy[1];if(!isFinite(y))return;G.n++;if(y<vb[1]-0.5||y>vb[1]+vb[3]+0.5)G.out++;});});
+            [].forEach.call(sv.querySelectorAll('[data-a2ddfam] path'),function(pa){G.ddFam++;G.ddFamOp.push(+pa.getAttribute('opacity'));});});
+          G.offMarks=det?det.querySelectorAll('[data-a2off]').length:0;
+          var kb=det?det.querySelector('[data-a2keyopen]'):null;G.keyOpen=kb?kb.getAttribute('data-a2keyopen'):null;
+          var kbd=det?det.querySelector('[data-a2keybody]'):null;G.keyBodyDisp=kbd?kbd.style.display:null;
+          G.keyTogText=(det&&det.querySelector('[data-a2keytog]'))?(det.querySelector('[data-a2keytog]').textContent||''):'';
+          r.funGeo=G;}catch(_fg){r.funGeoErr=String(_fg);}}
+        r.eqTabNow=w.eval("String((typeof APREF==='object'&&APREF&&APREF.eqTab)||'')");
         // 1A CHAMPION EQUITY (owner 11-23): the DD mode, its two reference labels, the daily-bar layer, the config picker, the drawn row
         if(cfg.a1){var A={},q=function(x){return det?det.querySelector(x):null;};
           var cur=q('[data-1addcur]');A.ddCur=cur?cur.getAttribute('data-1addcur'):null;
@@ -505,15 +559,32 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
             A.xhLine=xl?xl.style.display:null;A.xhTip=xt?(xt.textContent||''):'';A.xhShown=xt?xt.style.display:null;
             A.xhSameH=(Math.round(xb.getBoundingClientRect().height)===Math.round(hb0));
             xb.dispatchEvent(new PE('pointerleave',{bubbles:false}));A.xhHidden=xt?xt.style.display:null;}catch(_xe){A.xhErr=String(_xe);}}
+          // EXPANDED VIEW: open it the way a double-click does (expandEquity on the card's own data-eqx host), read it, close it
+          if(cfg.expand){var E={};try{var host=q('#res-step-8[data-eqx]')||q('#res-step-8 [data-eqx]');E.host=!!host;
+            if(host){var pay=JSON.parse(decodeURIComponent(host.getAttribute('data-eqx')));E.payAlt=pay.alt||0;E.payMode=pay.ddMode||null;E.title=pay.title||'';
+              w.expandEquity(host);E.open=!!d.getElementById('eqx-svg');}}catch(_ee){E.err=String(_ee&&_ee.stack?_ee.stack:_ee);}A.exp=E;}
           r.a1=A;}
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
       }catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
       if(cfg.steps&&!r.sampleErr){r.expoSteps=[];stepExpo(0);return;}
       if(cfg.sSteps&&!r.sampleErr){r.stampSteps=[];stepStamp(0);return;}
+      if(cfg.expand&&r.a1&&r.a1.exp&&r.a1.exp.open){setTimeout(expRead,600);return;}
       out.cases[nm]=r;
       runCase(i+1);
     }
+    // the expanded 1A draws on its own frame: read it once it has painted, hover it, close it
+    function expRead(){var E=r.a1.exp;
+      try{var sv2=d.getElementById('eqx-svg'),ch2=d.getElementById('eqx-chart'),rd2=d.getElementById('eqx-read');
+        if(sv2){E.bars=sv2.querySelectorAll('g[data-eqxbars] rect').length;var gb=sv2.querySelector('g[data-eqxbars]');E.barsKind=gb?gb.getAttribute('data-eqxbars'):null;
+          E.ddLabels=[].map.call(sv2.querySelectorAll('text'),function(t){return t.textContent||'';}).filter(function(t){return /^-~|^-[$]|^0%$|^[$]0$/.test(t);});
+          var tgt=ch2||sv2,rc=tgt.getBoundingClientRect(),ME=w.MouseEvent;
+          tgt.dispatchEvent(new ME('mousemove',{clientX:rc.left+rc.width*0.5,clientY:rc.top+rc.height*0.3,bubbles:true}));
+          E.read=rd2?(rd2.textContent||''):'';}
+        var cl=d.getElementById('eqx-close');if(cl)cl.click();else d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+        E.closed=!d.getElementById('eqx-svg');}catch(_ee){E.err=String(_ee&&_ee.stack?_ee.stack:_ee);}
+      r.errors=sink.errors.slice(0,20);r.uncaught=sink.uncaught.slice(0,20);
+      out.cases[nm]=r;runCase(i+1);}
     // EXPOSURE chip: the rail chip, where it sits against the ROLL / COST AND LIMITS chips, and the opened readout (text, svg, its lines)
     function expoRead(){
       var det=d.getElementById('res-detail');
@@ -897,7 +968,7 @@ def _check_1a(nm, A, fixture):
     """1A CHAMPION EQUITY (owner 11-23): DD % from peak by default with a % / $ switch, daily bars, any 1E row drawn in 1A."""
     f, rid = [], str(fixture.get('id'))
     pct = re.compile(r'^-~\d+(\.\d)?%$')
-    want_mode = 'usd' if nm == 'a1-ddusd' else 'pct'
+    want_mode = 'usd' if (nm == 'a1-ddusd' or nm.endswith('-usd')) else 'pct'
     if not A.get('noCurve') and A.get('ddCur') != want_mode:
         f.append('%s: the 1A drawdown switch reads %r, want %r' % (nm, A.get('ddCur'), want_mode))
     if not A.get('noCurve'):
@@ -962,6 +1033,36 @@ def _check_1a(nm, A, fixture):
                 f.append('%s: showing the crosshair changed the chart height' % nm)
             if A.get('xhHidden') != 'none':
                 f.append('%s: the crosshair readout stays up after the pointer leaves' % nm)
+    if nm.startswith('a1-click'):
+        want = None
+        for c in CASES:
+            if c[0] == nm:
+                want = c[1].get('clickWant')
+        if not A.get('alt') or not str(A.get('alt')).startswith(want or '?'):
+            f.append('%s: clicking a 1E row did not draw it in 1A (1A draws %r, want %s...)' % (nm, A.get('alt'), want))
+    if nm.startswith('a1-expand'):
+        E = A.get('exp') or {}
+        if E.get('err') or not E.get('open'):
+            f.append('%s: the expanded view did not open (%r)' % (nm, E.get('err') or E))
+        else:
+            usd = nm.endswith('-usd')
+            labs = E.get('ddLabels') or []
+            if usd and not any(t.startswith('-$') for t in labs):
+                f.append('%s: $ mode on the card but the expanded DD labels read %r' % (nm, labs[:4]))
+            if not usd and not any(pct.match(t) for t in labs):
+                f.append('%s: DD %% mode on the card but the expanded DD labels read %r' % (nm, labs[:4]))
+            if nm == 'a1-expand-daily' and (E.get('barsKind') != 'daily' or (E.get('bars') or 0) < 50):
+                f.append('%s: the expanded view lost the daily bars (%r, %s rects)' % (nm, E.get('barsKind'), E.get('bars')))
+            if nm == 'a1-expand-cfg-usd':
+                if not E.get('payAlt') or 'CONFIG EQUITY' not in (E.get('title') or ''):
+                    f.append('%s: the expanded view opens the champion, not the drawn config (title %r)' % (nm, E.get('title')))
+                if E.get('barsKind') != 'approx':
+                    f.append('%s: the expanded view of a 1E row lost its approx bars (%r)' % (nm, E.get('barsKind')))
+            rd = E.get('read') or ''
+            if 'drawdown' not in rd or not (('day ' in rd) or ('step ' in rd)):
+                f.append('%s: the expanded crosshair readout lacks the bar / drawdown: %r' % (nm, rd[:160]))
+            if not E.get('closed'):
+                f.append('%s: the expanded view did not close' % nm)
     if nm == 'a1-picks' and (A.get('picks') or 0) < 20:
         f.append('%s: only %s 1E ALL-table rows can be clicked into 1A' % (nm, A.get('picks')))
     return f
@@ -971,6 +1072,29 @@ def _check_cfg_labels(nm, r, fixture):
     """board 169: the 1E ALL table's CONFIG column names each row's OWN base config ('#306.<set> <mode> . <detail>')."""
     f, rid, dot = [], str(fixture.get('id')), '\u00b7'
     rows = r.get('cfgRows') or []
+    if nm.endswith('-nogrid'):
+        cs = sorted((fixture.get('selection') or {}).get('candidates') or [], key=lambda c: -(c.get('wf_oos_pnl') or 0))
+        cr = [i + 1 for i, c in enumerate(cs) if c.get('crowned')]
+        raw_re = re.compile(r'^#' + rid + r'\.(\d+) raw ' + dot + r' R(\d+)$')
+        ml_re = re.compile(r'^#' + rid + r'\.(\d+)\.(\d+) (gate|tilt|hybrid|keel) ' + dot + r' \S')
+        if len(rows) < 20:
+            return ['%s: only %d CONFIG rows' % (nm, len(rows))]
+        for key, txt in rows:
+            if key.startswith('raw:'):
+                m = raw_re.match(txt)
+                if not m or m.group(1) != m.group(2):
+                    f.append('%s: RAW row %r on a doc with no grid must take its R rank as its set' % (nm, txt))
+            else:
+                m = ml_re.match(txt)
+                if not m or (cr and int(m.group(1)) != cr[0]):
+                    f.append('%s: ML row %r on a doc with no grid / ungated twin must read #%s.<crowned R %s>.<n>' % (nm, txt, rid, cr))
+        seen = {}
+        for key, txt in rows:
+            seen.setdefault(txt, []).append(key)
+        dup = [t for t, k in seen.items() if len(k) > 1]
+        if dup:
+            f.append('%s: %d labels shared by more than one row, e.g. %r' % (nm, len(dup), dup[:2]))
+        return f[:8]
     if len(rows) < 20:
         return ['%s: the 1E ALL table shows only %d CONFIG rows (want the raw + gate + tilt + hybrid rows)' % (nm, len(rows))]
     cs = sorted((fixture.get('selection') or {}).get('candidates') or [], key=lambda c: -(c.get('wf_oos_pnl') or 0))
@@ -1244,6 +1368,27 @@ def _check_stamp(nm, r, st):
     return f
 
 
+# EXTRA FIXTURES (owner 11-23 round 3): a case carrying 'fix': '<name>' renders tools/fixtures/<name>.json instead of run 306.
+#   run_482 = an older NOISE baseline (9-row grid, keel block, EQUAL RISK factors x3-x8) the owner found the 1A / 1E faults on.
+EXTRA_FIX = ('run_482',)
+
+
+def _extra_fixtures(root):
+    out = {}
+    for n in EXTRA_FIX:
+        fp = os.path.join(root, 'tools', 'fixtures', n + '.json')
+        if os.path.exists(fp):
+            out[n] = json.load(io.open(fp, encoding='utf-8'))
+    return out
+
+
+def _case_cfg(nm):
+    for n, c in CASES:
+        if n == nm:
+            return c
+    return {}
+
+
 def _attempt(chrome, root, alt_index, fixture):
     """Render every case once in a fresh headless Chrome.
 
@@ -1258,6 +1403,7 @@ def _attempt(chrome, root, alt_index, fixture):
     html = (PROBE_HTML
             .replace('__CASES__', json.dumps([[n, c] for n, c in CASES]))
             .replace('__FIX__', json.dumps(fixture))
+            .replace('__FIXX__', json.dumps(_extra_fixtures(root)))
             .replace('__CANNED__', json.dumps(CANNED)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -1343,8 +1489,9 @@ def _attempt(chrome, root, alt_index, fixture):
             fails.append("%s: the \"couldn't render\" fallback card is showing" % nm)
         if (r.get('detailLen') or 0) < 20000:
             fails.append('%s: report body is only %s chars' % (nm, r.get('detailLen')))
+        _cfx = _case_cfg(nm).get('fix')
         if not r.get('namesRun'):
-            fails.append('%s: report never names run %s' % (nm, fixture.get('id')))
+            fails.append('%s: report never names run %s' % (nm, _cfx or fixture.get('id')))
         # ── EQUAL RISK (owner 2026-10-07). The chip must exist on every funnel case, and on the
         #    funnel-eqr case it must be ON and must have actually resized something. Counting the
         #    factor labels is the part that cannot pass with the sizing removed - which is what
@@ -1402,10 +1549,43 @@ def _attempt(chrome, root, alt_index, fixture):
                 if _inv:
                     fails.append('%s: the legend is not ordered by ending $ - %s'
                                  % (nm, '; '.join(_inv)))
+        _fxc = fixture
+        if _cfx:
+            _fxc = _extra_fixtures(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).get(_cfx) or fixture
         if nm.startswith('cfg-labels'):
-            fails.extend(_check_cfg_labels(nm, r, fixture))
+            fails.extend(_check_cfg_labels(nm, r, _fxc))
         if r.get('a1') is not None:
-            fails.extend(_check_1a(nm, r['a1'], fixture))
+            fails.extend(_check_1a(nm, r['a1'], _fxc))
+        if nm.startswith('a1-click') and r.get('eqTabNow') not in ('chart', ''):
+            fails.append('%s: a 1E click left the 1A card on its %r tab - it must switch to CHAMPION' % (nm, r.get('eqTabNow')))
+        if nm.startswith('a1-click') and not all(x[1] for x in (r.get('clickLog') or [[0, 0]])):
+            fails.append('%s: a click target was not on the page: %r' % (nm, r.get('clickLog')))
+        if nm == 'leg-labels':
+            L = r.get('legLabels') or []
+            if r.get('legLabelsErr') or len(L) < 30:
+                fails.append('%s: could not read the leg labels (%r, %d)' % (nm, r.get('legLabelsErr'), len(L)))
+            bad = [x for x in L if re.search(r'#\d+\.0(\D|$)', x[2])]
+            if bad:
+                fails.append('%s: %d labels print set 0, e.g. %r' % (nm, len(bad), bad[:3]))
+            have = dict(((x[0], x[1]), x[2]) for x in L)
+            for (kind, k), want in ((('paper', 'ENGUQ_335'), 'ENGU-Q #335 defaults raw'), (('book', 'ORB234'), 'ORB #234.1 raw'),
+                                    (('book', 'NOISE422'), 'NOISE #422.2 raw'), (('book', 'OPUS55a'), 'MISC #524.5 raw'),
+                                    (('book', 'ENGUQ335'), 'ENGU-Q #335.4 raw'), (('book', 'GLDNIGHT'), 'MISC #541 champ raw')):
+                if have.get((kind, k)) != want:
+                    fails.append('%s: %s leg %s reads %r, want %r' % (nm, kind, k, have.get((kind, k)), want))
+        if nm == 'funnel-eqr-482':
+            G = r.get('funGeo') or {}
+            if r.get('funGeoErr') or not G.get('n'):
+                fails.append('%s: could not read the funnel (%r %r)' % (nm, r.get('funGeoErr'), G))
+            else:
+                if G.get('out'):
+                    fails.append('%s: %d of %d funnel points are drawn outside the plot' % (nm, G['out'], G['n']))
+                if not G.get('offMarks'):
+                    fails.append('%s: EQUAL RISK pushes lines past the plot on run 482 but no key row says "off scale"' % nm)
+                if G.get('keyOpen') != '0' or G.get('keyBodyDisp') != 'none' or 'off scale' not in (G.get('keyTogText') or ''):
+                    fails.append('%s: the key should be folded by default and say "off scale" (open %r, body %r, %r)' % (nm, G.get('keyOpen'), G.get('keyBodyDisp'), G.get('keyTogText')))
+                if not G.get('ddFam') or max(G.get('ddFamOp') or [1]) > 0.3:
+                    fails.append('%s: the family drawdown lines should be faint (%s lines, opacity %r)' % (nm, G.get('ddFam'), (G.get('ddFamOp') or [])[:3]))
         if nm == 'funnel-1a' and (r.get('eqrTips') or 0):
             fails.append('%s: the EQUAL RISK hover is printed with the toggle OFF - the off state '
                          'must read exactly as it did before the toggle existed' % nm)
@@ -1456,7 +1636,7 @@ def _attempt(chrome, root, alt_index, fixture):
                          'v73.940: the 1A chart hover)' % (nm, r.get('lbChartTips') - (r.get('lbChartWarm') or 0),
                                                           r.get('lbChartTips')))
         # cfg-labels-base moves gate_validate.ungated_pre on purpose (board 169), so the warm-lockbox swap does not qualify there
-        if not r.get('lbWarmTagCount') and nm != 'cfg-labels-base':
+        if not r.get('lbWarmTagCount') and nm != 'cfg-labels-base' and not _cfx:
             fails.append('%s: the 1E KPI MATRIX LOCKBOX column shows no LB warm tag -- run %s '
                          'scored its own lockbox cold (301 trades) and should read the '
                          'continuous replay (334 trades) like RUNBOARD / EXPLORE / LEADERBOARD '
