@@ -33,3 +33,4 @@ Chart fills 90% of the window, volume underneath, OHLCV readout + crosshair, ent
 - 2026-11-20: board changed to [done] LIVE v73.1215
 - 2026-11-21: board changed to [done] LIVE v73.1215
 - 2026-11-22: board changed to [done] LIVE v73.1215
+- 2026-11-23: board changed to [done] LIVE v73.1215

@@ -33,3 +33,4 @@ Every ML study, verdict and links, open by default
 - 2026-11-20: board changed to [done] LIVE v73.1206
 - 2026-11-21: board changed to [done] LIVE v73.1206
 - 2026-11-22: board changed to [done] LIVE v73.1206
+- 2026-11-23: board changed to [done] LIVE v73.1206
