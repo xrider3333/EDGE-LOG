@@ -2207,7 +2207,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.30';
+const VERSION='92.31';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8936,9 +8936,17 @@ function booksCardHtml(QE){
   let h='<div class="bk-wrap">'+(B.basis?'<div class="bk-basis">'+esc(B.basis)+'</div>':'')
     +'<div class="bk-basis">A switch applies when the box is flat - no open lots in the QQQ book - at the next such moment, PAPER mode only. Until then the row reads pending.</div>';
   const inBooks={};keys.forEach(k=>{const b=B.books[k];(b&&Array.isArray(b.legs)?b.legs:[]).forEach(l=>{const i=String(l.id||'');(inBooks[i]=inBooks[i]||[]).push(String(b.row||k));});});
-  keys.forEach(k=>{const b=B.books[k];if(!b)return;
+  // SIMPLE BOOK TAB (owner OK 11-23, board 180): one row per book - Book | $/yr | Max DD | ROC30 + one line of leg chips;
+  // everything else behind ONE closed <details> per row. A book with the same legs+weights as one already shown folds into it.
+  const _sig=b=>JSON.stringify((Array.isArray(b.legs)?b.legs:[]).map(l=>[String(l.id||''),l.weight||1]));
+  const _side=k=>/_(keel|gate|hybrid|raw)$|_prov|_cons/.test(k),_seen={},_dups={},_main=[],_other=[];
+  keys.forEach(k=>{const b=B.books[k];if(!b)return;if(_side(k)){_other.push(k);return;}const g=_sig(b);if(_seen[g]!=null){(_dups[_seen[g]]=_dups[_seen[g]]||[]).push(String(b.row||k));return;}_seen[g]=k;_main.push(k);});
+  const _fmt=v=>v==null?'&mdash;':'$'+Math.round(+v).toLocaleString('en-US');
+  const _g='display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px';
+  h+='<div class="bk-simple-head" style="'+_g+';font-weight:600;opacity:.7;padding:4px 0"><span>Book</span><span>$/yr</span><span>Max DD</span><span>ROC30</span></div>';
+  const _old=k=>{let h='';const b=B.books[k];
     const legs=Array.isArray(b.legs)?b.legs:[];
-    h+='<div class="bk-book" data-bkbook="'+esc(k)+'"><div class="bk-head"><b>'+esc(b.row||k)+'</b>'+(B.books[k+'_nogold']?' <span class="bk-fig">with gold (research)</span>':'')
+    h+='<div data-bkbookfull="'+esc(k)+'"><div class="bk-head"><b>'+esc(b.row||k)+'</b>'+(B.books[k+'_nogold']?' <span class="bk-fig">with gold (research)</span>':'')
       +'<span class="bk-fig">'+(b.label?esc(b.label)+' &middot; ':'')+'$'+Math.round(+b.usd_per_year||0).toLocaleString('en-US')+'/yr'
         +(b.old_champion_usd_per_year!=null?' <span title="the old champion book made this a year on the same basis">(was $'+Math.round(+b.old_champion_usd_per_year).toLocaleString('en-US')+'/yr)</span>':'')
         +' &middot; max DD '+esc(b.max_dd_pct)+'%'+(b.max_dd_ex2020_pct!=null?' ('+esc(b.max_dd_ex2020_pct)+'% without 2020)':'')+(b.provisional?' &middot; provisional':'')+'</span>'
@@ -8957,7 +8965,12 @@ function booksCardHtml(QE){
         +'<span class="bk-tog" role="group">'+BOOKS_STATES.map(s=>{const ok=booksAllowed(id,s);
           return '<button type="button" class="bk-t'+(s===cur?' on':'')+'"'+(ok?'':' disabled')+' data-bkset="'+s+'" data-bkid="'+esc(id)+'">'+s+'</button>';}).join('')+'</span></div>'
         +'<div class="bk-l2">'+(l.status?'<span data-bklegstatus="1">'+esc(l.status)+'</span> &middot; ':'')+esc(c.reason)+(booksEffect(id,cur)?' &middot; '+booksEffect(id,cur):'')+(others.length?' &middot; same switch in books '+esc(others.join(', ')):'')+' '+booksEchoLine(id)+'</div></div>';});
-    h+='</div>';});
+    h+='</div>';return h;};
+  _main.forEach(k=>{const b=B.books[k],legs=Array.isArray(b.legs)?b.legs:[];
+    const chips=legs.map(l=>'<span class="bk-chip">'+esc(String(l.id||'')+(String(l.run||'').indexOf('#459')===0?' #459':'')+((l.weight||1)>1?' x'+l.weight:''))+'</span>').join(' &middot; ');
+    h+='<div class="bk-book" data-bkbook="'+esc(k)+'"><div style="'+_g+'"><b>'+esc(String(b.row||k).replace(/ no gold( ML)?/,''))+'</b><span>'+_fmt(b.usd_per_year)+'</span><span>'+(b.max_dd_pct!=null?esc(b.max_dd_pct)+'%':'&mdash;')+'</span><span>'+(b.roc30!=null?(+b.roc30).toFixed(1):'&mdash;')+'</span></div>'
+      +'<div class="bk-l2">'+chips+'</div><details class="bk-details"><summary>details</summary>'+(_dups[k]?'<div class="bk-basis">Same legs: '+esc(_dups[k].join(', '))+'</div>':'')+_old(k)+'</details></div>';});
+  if(_other.length)h+='<details class="bk-details"><summary>provisional / gate / keel / shadow rows ('+_other.length+')</summary>'+_other.map(_old).join('')+'</details>';
   return h+'</div>';
 }
 function booksWrite(legs){
