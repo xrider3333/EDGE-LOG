@@ -19,6 +19,11 @@ Type=oneshot
 User=__EDGELOG_USER__
 WorkingDirectory=__EDGELOG_REPO__
 EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+# BOX TOP-UP FIRST (board 174, 2026-11-25): when the PC is off its 17:20 ET push never lands, so
+# add Yahoo NQ=F's missing CLOSED sessions after the master's last bar (add-only; the PC's bars
+# keep priority; no-op if the PC already pushed today). '-' = a failed top-up never blocks the
+# build; the script itself also exits 0 on any error. See tools/nq_box_topup.py.
+ExecStartPre=-__EDGELOG_VENV__/bin/python -u tools/nq_box_topup.py --nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv
 ExecStart=__EDGELOG_VENV__/bin/python -u tools/keel_live_state.py --nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv --out-dir __EDGELOG_HOME__/cloud_signal/keel --defer-in-session
 Nice=10
 StandardOutput=append:__EDGELOG_HOME__/logs/keel_state.log
