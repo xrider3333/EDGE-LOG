@@ -64,6 +64,7 @@ import datetime as _dt
 import json
 import math
 import os
+import time
 
 from api import cloud_signal as cs                                          # noqa: E402
 from api import webull_stream as _wstream                                   # noqa: E402
@@ -205,7 +206,7 @@ def _effective_now_for_bar(bar_close_epoch, grace_seconds):
 
 
 def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, paths=None,
-                      not_taken_log=False):
+                      not_taken_log=False, arrays_memo=None, stages=None):
     """Runs the exact engine path step() uses (closed_arrays over
     cs.leg_warmup_sessions(cfg) -> cs.leg_decision_trades -> _diff_leg) against a
     throwaway DEEP COPY of `leg_state` -- the real one is never touched here. Returns
@@ -226,12 +227,32 @@ def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, path
     `not_taken_log` (2026-10-09): where _diff_leg's "not taken: the market is closed" line
     for this dry run goes -- dropped by default (False), since a throwaway copy's line would
     repeat the one step() logs off the real state; _handle_handoff_window collects it and
-    logs it only for a decision it commits (step() never sees that trade as new again)."""
-    arrays = cs.closed_arrays(df, now_et, "5m", cs.leg_warmup_sessions(cfg))
+    logs it only for a decision it commits (step() never sees that trade as new again).
+
+    `arrays_memo` (FAST NOISE, 2026-11-25): a dict shared by the legs of ONE pass over ONE
+    bar (same df, same now_et) -- closed_arrays is a pure function of (df, now_et, "5m",
+    warmup), so legs with the same warm-up (the three NOISE legs: 262) build it once; each
+    leg still gets its OWN copy (_copy_arrays) so nothing one strategy does to its inputs can
+    reach another leg. None (every other caller) = today's path exactly. `stages` (optional
+    dict) receives arrays_ms / engine_ms / diff_ms for the own-bar latency line."""
+    t0 = time.perf_counter()
+    warmup = cs.leg_warmup_sessions(cfg)
+    if arrays_memo is None:
+        arrays = cs.closed_arrays(df, now_et, "5m", warmup)
+    else:
+        if warmup not in arrays_memo:
+            arrays_memo[warmup] = cs.closed_arrays(df, now_et, "5m", warmup)
+        arrays = _copy_arrays(arrays_memo[warmup])
+    t1 = time.perf_counter()
+    if stages is not None:
+        stages["arrays_ms"] = (t1 - t0) * 1000
     if arrays is None:
         return None, None
     trades, diff_arrays = cs.leg_decision_trades(cfg, arrays, leg_key, "5m", now_et, paths,
                                                  False, log=log)
+    t2 = time.perf_counter()
+    if stages is not None:
+        stages["engine_ms"] = (t2 - t1) * 1000
     if trades is None:
         # a live leg the HALF-DAY RULE guard refuses (cs.half_day_rule_refusal): no decision
         # here either -- step() reports it and pages (cs._note_live_leg_not_ready)
@@ -241,7 +262,25 @@ def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, path
     events = cs._diff_leg(leg_key, trades, leg_state_copy, now_et, max_entry_age_sec=max_age,
                           bar_source=bar_source, cfg=cfg, arrays=diff_arrays, fetch=False,
                           log=log, not_taken_log=not_taken_log)
+    if stages is not None:
+        stages["diff_ms"] = (time.perf_counter() - t2) * 1000
     return events, leg_state_copy
+
+
+def _copy_arrays(arrays):
+    """A private copy of one closed_arrays() result: every numpy array copied, the
+    DatetimeIndex (immutable) and the meta dict copied. None stays None."""
+    if arrays is None:
+        return None
+    out = {}
+    for k, v in arrays.items():
+        if hasattr(v, "copy") and not isinstance(v, dict):
+            out[k] = v.copy()
+        elif isinstance(v, dict):
+            out[k] = copy.deepcopy(v)
+        else:
+            out[k] = v
+    return out
 
 
 # Last bar_epoch each leg was held back for by _daily_cache_may_still_change -- only so
@@ -408,7 +447,8 @@ def _trip_disagreement(shadow, leg_key, today_iso, bar_epoch, now, log):
 
 # ── the two halves of one tick ───────────────────────────────────────────────────────────
 def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None,
-                           payload=None, force_live=False, bar_source="stream", on_commit=None):
+                           payload=None, force_live=False, bar_source="stream", on_commit=None,
+                           stage_out=None):
     """Runs only inside the ~1 minute after a 5m boundary. Reads the hand-off file
     once; if it clears every safety gate, computes (and records) each 5m leg's
     stream-implied decision, and -- only when the owner switch is on AND that leg's
@@ -417,7 +457,14 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None,
     `state` (ORDERS FIRST, 2026-11-18): a snapshot of cs state.json taken BEFORE this
     tick's step() -- run_stream_aware_step hands it in when the owner switch is OFF and
     the extras run after step(), so the dry run sees exactly the baseline it saw when it
-    ran first. Never written back (state_changed needs want_live, which is off then)."""
+    ran first. Never written back (state_changed needs want_live, which is off then).
+
+    `stage_out` (FAST NOISE, 2026-11-25): an optional dict; each leg's per-stage timings
+    (start_ms = when its own work began after the pass started, arrays_ms / engine_ms /
+    diff_ms from _dry_run_decision) land under its key BEFORE on_commit runs, so the own-bar
+    log line can say where the time went. Legs of one pass share one closed_arrays build per
+    warm-up (arrays_memo -- see _dry_run_decision)."""
+    t_pass0 = time.perf_counter()
     if payload is None:
         payload = read_closed_bar_handoff("5m", home=paths.get("home"))
         ok, reason = stream_bar_is_usable(payload, now)
@@ -439,6 +486,7 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None,
 
     state_changed = False
     keel_events = []          # committed rows for the KEEL entry note, AFTER the loop
+    arrays_memo = {}          # one closed_arrays per warm-up for this bar (FAST NOISE)
     for leg_key, cfg in five_m_legs.items():
         if already_shadowed(paths, leg_key, bar_epoch):
             continue
@@ -459,9 +507,13 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None,
             continue
         baseline = copy.deepcopy(leg_state)
         not_taken = []        # "not taken: the market is closed" lines -- logged on commit only
+        stages = {"start_ms": (time.perf_counter() - t_pass0) * 1000}
         events, mutated = _dry_run_decision(leg_key, cfg, augmented, effective_now, leg_state,
                                             bar_source, log, paths=paths,
-                                            not_taken_log=not_taken.append)
+                                            not_taken_log=not_taken.append,
+                                            arrays_memo=arrays_memo, stages=stages)
+        if stage_out is not None:
+            stage_out[leg_key] = stages
         if events is None:
             continue
         committed = False
@@ -647,6 +699,24 @@ def _rth_bar(bar_start):
         return False
 
 
+def _stage_text(st, pre_s, total_s):
+    """' [stages: wake 372 ms, queue 410, arrays 21, engine 380, diff 6, commit 4]' for the
+    own-bar line: wake = bar end -> this pass started (fold + grace + UDP), queue = this leg
+    waited behind the legs decided before it (the first leg: the bar prep -- REST cache read,
+    own bar spliced on, state.json read), arrays / engine / diff = its own
+    _dry_run_decision, commit = the rest (signals.csv row + state copy). '' if unknown."""
+    try:
+        if not st:
+            return ""
+        start, arr = float(st.get("start_ms", 0)), float(st.get("arrays_ms", 0))
+        eng, dif = float(st.get("engine_ms", 0)), float(st.get("diff_ms", 0))
+        commit = max(0.0, total_s * 1000 - start - arr - eng - dif)
+        return (f" [stages: wake {pre_s * 1000:.0f} ms, queue {start:.0f}, arrays {arr:.0f}, "
+                f"engine {eng:.0f}, diff {dif:.0f}, commit {commit:.0f}]")
+    except Exception:
+        return ""
+
+
 def handle_ownbar(now, five_m_legs, paths, log, wall=None):
     """One own-bar pass for the boundary that just closed. Returns True when the bar was
     handled (committed or fallen back), False when there is nothing to do yet."""
@@ -677,14 +747,18 @@ def handle_ownbar(now, five_m_legs, paths, log, wall=None):
     bar = dict(payload["bar"])
     t_dec0 = _t.time()
 
+    stage_out = {}
+
     def _wake_exec(leg_key, events):
         ob.wake(ob.exec_port(), f"{leg_key}:{bar_end}".encode())
+        t_now = _t.time()
         log(f"[cloud-signal-stream] own bar {leg_key} @ close {bar_end}: decided "
-            f"{(_t.time() - bar_end) * 1000:.0f} ms after bar end "
-            f"(decision {(_t.time() - t_dec0) * 1000:.0f} ms), executor woken")
+            f"{(t_now - bar_end) * 1000:.0f} ms after bar end "
+            f"(decision {(t_now - t_dec0) * 1000:.0f} ms), executor woken"
+            f"{_stage_text(stage_out.get(leg_key), t_dec0 - bar_end, t_now - t_dec0)}")
 
     _handle_handoff_window(now, five_m_legs, paths, {}, log, payload=bar, force_live=True,
-                           bar_source="ownbar", on_commit=_wake_exec)
+                           bar_source="ownbar", on_commit=_wake_exec, stage_out=stage_out)
     return True
 
 
