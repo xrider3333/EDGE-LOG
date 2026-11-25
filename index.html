@@ -2370,7 +2370,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.45';
+const VERSION='92.46';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4123,7 +4123,7 @@ function _lgDash(l,all){return l.dash||_LG_DASHES[Math.max(0,(all||[]).indexOf(l
 // draws l.dash / o.lineDash (the boards use ONE dotted pattern in the line's own colour). Read at draw time, so a theme change redraws right.
 const _LG_DASHES_MONO=['2 3','6 3','2 7','6 3 2 3'];
 const _lgMono=()=>(document.documentElement.getAttribute('data-theme')||'')==='mono';
-function _lgDashOf(l,o){if(o&&(o.id==='qb'||o.id==='p2'))return 'none';   // board 183 (owner 11-25): on the paper ledgers every line is solid colour, no dots or dashes
+function _lgDashOf(l,o){if(o&&(o.id==='qb'||o.id==='qbwb'||o.id==='p2'))return 'none';   // board 183 (owner 11-25): on the paper ledgers every line is solid colour, no dots or dashes
   if(l&&l.shadow&&l.dash)return (_lgMono()&&l.dashMono)?l.dashMono:l.dash;   // v91.71: a shadow / what-if line keeps its own dash on every board
   return (_lgMono()&&l.dashMono)?l.dashMono:(o.lineDash||_lgDash(l,o.lines));}
 // % tick label (the shared chart's left gutter): whole percent from 10 up, one place from 1, two under 1
