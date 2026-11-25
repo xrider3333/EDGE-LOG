@@ -1789,6 +1789,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 /* board 183 stage 3 (owner 11-25): ONE big account number, today's $ and % small under it, and
    the timeframe range as small round pills under the chart. */
 .lg-paper .lg-hero-big{font-size:clamp(34px,4.4vw,46px);font-weight:600;letter-spacing:-.5px;margin-top:2px;line-height:1.05}
+.lg-lside .lg-frame-side .lg-paper .lg-hero-big,.lg-paper.lg-lside .lg-frame-side .lg-hero-big,.lg-lside .lg-frame-side .qbx-hero .lg-hero-big{font-size:40px!important;font-weight:600;line-height:1.05}
+@media (max-width:600px){.lg-paper .lg-hero-big,.lg-lside .lg-frame-side .qbx-hero .lg-hero-big{font-size:34px!important}}
 .lg-paper .lg-hero-big .qbx-hero-qual{font-size:10px;letter-spacing:.4px;margin-left:6px;color:var(--text5)}
 .lg-paper .lg-hero-today{display:block;margin-top:3px;font-size:12px;font-weight:400;letter-spacing:.2px}
 .lg-paper .lg-hero-lbl,.lg-paper .lg-hero-range{font-size:9px;letter-spacing:.6px;color:var(--text5);font-weight:400}
@@ -2342,7 +2344,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.40';
+const VERSION='92.41';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
