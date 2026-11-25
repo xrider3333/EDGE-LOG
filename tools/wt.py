@@ -1965,7 +1965,7 @@ def cmd_ship(name, message):
     sync_shared(root)
 
 
-FAST_TEST_TIMEOUT = 600        # touched-file tests of a fast ship: minutes, never the full tier
+FAST_TEST_TIMEOUT = 300        # OWNER HARD RULE 11-25: no check over 5 min, ever
 
 
 def touched_tests(wt, changed):
@@ -2041,12 +2041,16 @@ def cmd_ship_fast(name, message):
                                    text=True, encoding='utf-8', errors='replace',
                                    timeout=FAST_TEST_TIMEOUT)
             except subprocess.TimeoutExpired:
-                raise SystemExit('FAST: touched tests ran over %d s - nothing pushed; use the '
-                                 'full ship (no --fast)' % FAST_TEST_TIMEOUT)
-            if r.returncode != 0:
+                # owner 11-25: a check is killed at 5:00 and reported SLOW, never left running;
+                # the push goes ahead (SHIP = B) and the sharded post-push run covers the rest
+                safe_print('FAST: touched tests SLOW - killed at %d s, split these: %s'
+                           % (FAST_TEST_TIMEOUT, ' '.join(tests)))
+                r = None
+            if r is not None and r.returncode != 0:
                 raise SystemExit('FAST: touched tests FAILED - nothing pushed\n' +
                                  ((r.stdout or '') + (r.stderr or ''))[-3000:])
-            safe_print('FAST: touched tests passed in %s' % _mmss(time.time() - t0))
+            if r is not None:
+                safe_print('FAST: touched tests passed in %s' % _mmss(time.time() - t0))
         else:
             safe_print('FAST: no test file covers what changed')
         ticket = push_queue.hold_turn(who=who) if push_queue else (None, None)
