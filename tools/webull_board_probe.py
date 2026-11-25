@@ -402,7 +402,7 @@ RETIRED_KEY = 'ENGUQ'          # the page's retired leg (QE_LEGS_RETIRED); a cas
 RETIRED_SINCE = '2026-09-28'   # the day the fixture's ENGU-Q went flat, which the Retired fold names
 LEG_RE = re.compile(r'^(ORB|ENGU-Q|NOISE) #\d+$')
 # owner 10-31 15:50: the row's words - family, run.set (or 'set ?'), the model word (api/paper_leg_params.py)
-LABEL_RE = re.compile(r'^(ORB|ENGU-Q|NOISE|DIP) #\d+(?:\.(\d+)| set \?) (raw|keel|fixed|hybrid|tilt|comp)$')
+LABEL_RE = re.compile(r'^(ORB|ENGU-Q|NOISE|DIP) #\d+(?:\.(\d+)| set \?| defaults) (raw|keel|fixed|hybrid|tilt|comp)$')
 MONEY_RE = re.compile(r'^-?\$[\d,]+\.\d\d$')
 # LEDGER step 6, redesign step 10 (owner 2026-11-01): the shared stat tiles, in this order on every board. NET P&L took the first slot
 # (it is the only tile that answers 'did this range make money' without arithmetic) and the TRADES tile it displaced is now the Net P&L
@@ -478,14 +478,14 @@ DIP_PHONE_TOP_MAX = 757 + 28 + 16 + PHONE_TAP_TARGET_EXTRA  # owner 10-31 (live 
 DIP_RAIL_OK = ('ok', 'DIP #424 own rail: $0.00 of $800.00 used today (not in this stop); a breach pauses its entries for the next session and never sells')
 DIP_RAIL_NOFIG = ('ok', 'DIP #424 has its own -$800.00 daily rail (not in this stop); a breach pauses its entries for the next session and never sells')
 DIP_WANT = {
-    'book': ['ORB #314', 'NOISE #382', 'DIP #424'],                      # ONE row for the seven lots, after the live legs
+    'book': ['ORB #314', 'NOISE #382', 'NOISE #555', 'NOISE #545', 'DIP #424'],   # ONE row for the seven lots, after the live legs
     'live': 'Long 42 \u00b7 7 lots @ avg $746.90 \u00b7 now $751.73',     # the shares, the lots, the share-weighted average entry
     'open': 'Open $202.92',                          # the lots' open P&L summed; + the family's closed $35.52
     'line': 'Held overnight \u00b7 gap -$67.62 (prior close to the open), outside the rails',
     'value': ('+$35.52', '3 trades \u00b7 67% won'),   # LEDGER UI r2 step 7: closed in the range; the open $202.92 reads under it (unrealized, then equity +$238.44)
     'note': 'DIP #424 held overnight (7 lots) \u00b7 gap -$67.62, outside the rails',
     'acct': 'DIP #424 \u00b7 Long 42 \u00b7 7 lots \u00b7 held overnight, gap -$67.62', 'acct_pnl': '$202.92', 'acct_lines': 3,
-    'acct_sum': '3 open (1 held overnight)', 'list_sum': ('3 live', '3 open'),
+    'acct_sum': '3 open (1 held overnight)', 'list_sum': ('5 live', '3 open'),
     # the daily stop leaves DIP out: closed -$6.80 (NOISE) + open -$11.70 (ORB) - $5.30 (NOISE); with DIP's +$202.92 it would read $0.00
     'stop': '$23.80 of $400.00 daily stop used',
     'rail': DIP_RAIL_OK, 'row_rail': None,
@@ -1228,7 +1228,7 @@ def _variant_docs(fixture):
                 _dip_doc(move_to(base('2026-10-05'), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00'), evening=True,
                          rail={'tripped_on': '2026-10-01', 'blocks_until': '2026-10-02', 'loss_usd': -805.0}, rail_input=False),
                 dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], eq_stale=False, recon=dip_ok, open_leg='DIP',
-                     dip=dict(DIP_WANT, acct_lines=1, acct_sum='1 held overnight', list_sum=('3 live', '1 held'), rail=DIP_RAIL_NOFIG,
+                     dip=dict(DIP_WANT, acct_lines=1, acct_sum='1 held overnight', list_sum=('5 live', '1 held'), rail=DIP_RAIL_NOFIG,
                               stop='$6.80 of $400.00 daily stop used'))))
     # DIP's own rail hit on Friday: its entries are paused through Monday (the next session), nothing is sold, the $400 stop is untouched
     out.append(("DIP #424 live: its own rail hit Friday, entries paused through Monday", FRESH_NOW,
@@ -2418,10 +2418,10 @@ MUTANTS = [
      "@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}",
      "@container qbtl (max-width:1000px){.qbx-tl .qbx-cav{display:block}}",
      'the flagged-row mark uses a width (1000 px) that is no house breakpoint'),
-    ('status-strip-folded',
-     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml)+'</div>';",
-     "const qbStatusSec=qbFoldHtml('status','Status','paper only',qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml));",
-     'the status strip is folded away under a header instead of staying visible under the chart'),
+    ('status-sentence-off-the-dot',
+     "['paper',(()=>{const d=window._qbStatusDot;",
+     "['paper',(()=>{const d=null&&window._qbStatusDot;",
+     "the board's status sentence is in neither place: off the page AND out of the top bar's dot"),
     # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
     ('oldflag-changes-the-board',
      _FR_BODY,
@@ -3618,7 +3618,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     // freshness readouts (sweep 2026-10-05)
     r.fresh={};
     [].forEach.call(d.querySelectorAll('#qb-hero-chips [data-qbfresh]'),function(e){r.fresh[e.getAttribute('data-qbfresh')]=(e.textContent||'').trim();});
-    r.strip=txt('.qbx-status-strip');
+    r.strip=txt('[data-tbdotrow="paper"]');   // owner 11-25: the status sentence lives in the top bar's one dot
     var tc=d.querySelector('[data-qbtopchip]');
     r.top=tc?[tc.getAttribute('data-qbtopchip'),(tc.textContent||'').slice(1).trim()]:null;
     // the chip must be DRAWN where the owner can see it: shown, inside the viewport, not covered
@@ -4879,11 +4879,13 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     o.statsIn=where(sbx);o.moreIn=where(mbx);o.moreBox=rectOf(mbx);o.chartIn=where(chb);o.chartBox=rectOf(chb);o.actIn=where(acb);o.actBox=rectOf(acb);
     o.sideInPos=fi?w.getComputedStyle(fi).position:null;o.pills=rectOf(q('.qbx-range-row'));o.stats=rectOf(q('.qbx-lgstats .lg-stats'));
     // the status line: one, in the top block right after the hero, one or two lines, the Refresh button in it
-    var sts=d.querySelectorAll('[data-lgstatus="qb"]'),st=sts[0]||null,sl=st?st.querySelector('.lg-status-line'):null,sw=st?st.closest('.qbx-statusline'):null;
+    var sts=d.querySelectorAll('.qbx-statusline'),st=sts[0]||null,sw=st;
     var swp=sw?sw.previousElementSibling:null;
     o.status={n:sts.length,box:rectOf(st),inTop:where(st)==='top',where:where(st),refresh:!!(st&&st.querySelector('[data-qqqrefresh]')),
-      afterHero:!!(swp&&swp.classList.contains('qbx-hero')),lineH:sl?Math.round(sl.getBoundingClientRect().height*10)/10:null,
-      lh:sl?parseFloat(w.getComputedStyle(sl).lineHeight):null,text:sl?tx2(sl):null};
+      afterHero:!!(swp&&swp.classList.contains('qbx-hero')),text:st?tx2(st):null,
+      line:!!(st&&st.querySelector('.qbx-st-tog')),   // owner 11-25: the status SENTENCE must not be on the board any more
+      dot:(function(){var r=d.querySelector('[data-tbdotrow="paper"]');return r?tx2(r):null;})(),
+      dotPanel:!!d.querySelector('[data-tbdotpanel]')};
     // the chart foot: one, in the chart section, right after the chart box, the caption (the only one on the page) and the key in it
     var fts=d.querySelectorAll('[data-lgchartfoot="qb"]'),fo=fts[0]||null,ch=q('#qb-lg-chart'),prev=fo?((fo.parentElement&&fo.parentElement.classList.contains('lg-chart-row'))?fo.parentElement.previousElementSibling:fo.previousElementSibling):null;   // the foot rides in the chart's own row since 10-31: what comes before is the row's predecessor
     var cap=d.querySelector('.qbx-chart-cap'),lcap=fo?fo.querySelector('.lg-chart-cap'):null;
@@ -5108,8 +5110,16 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
             if tr0 and tr0.get('shown') and tr0['t'] < max(ch['b'], ac['b']) - 1:
                 fails.append('%s: the trade list (top %s) does not start under the chart (bottom %s) and the calendar (bottom %s)' % (tag, tr0['t'], ch['b'], ac['b']))
     st = s11.get('strip') or {}
-    if (pos.get('status') or {}).get('shown') and (st.get('inFold') or not re.search(r'box \d+ (s|min|h)\b|· last \w', st.get('text') or '') or not st.get('refresh')):
-        fails.append('%s: the status line under the hero lost its box-updated line or its Refresh button, or sits in a fold (%s)' % (tag, st))
+    stp = s11.get('status') or {}
+    if stp.get('shown'):
+        if st.get('inFold') or not st.get('refresh'):
+            fails.append('%s: the attention block under the hero lost its Refresh button or sits in a fold (%s)' % (tag, st))
+        # owner 11-25: the sentence is in the top bar's one dot, and nowhere on the board
+        if not stp.get('dotPanel') or not re.search(r'box \d+ (s|min|h)\b|· last \w|CANNOT READ', stp.get('dot') or ''):
+            fails.append("%s: the top bar's status dot has no box-updated line for this board (panel %s, reads %r)"
+                         % (tag, stp.get('dotPanel'), stp.get('dot')))
+        if stp.get('line'):
+            fails.append('%s: the board still draws its own status line - every status mark belongs to the one top-bar dot' % tag)
     folds = [f for f in s11.get('folds') or [] if f.get('key') != 'list']
     keys = [f['key'] for f in folds]
     miss = [k for k in S11_OWN_REQUIRED if k not in keys]
@@ -5381,17 +5391,16 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
     # the status line, directly under the hero
     hero, pills, sb = fr.get('hero') or {}, fr.get('pills') or {}, st.get('box') or {}
     if st.get('n') != 1:
-        fails.append('%s: want one status line [data-lgstatus="qb"], the page has %s' % (tag, st.get('n')))
+        fails.append('%s: want one attention block .qbx-statusline under the hero, the page has %s' % (tag, st.get('n')))
     else:
         if not st.get('refresh'):
-            fails.append('%s: the status line has no Refresh button [data-qqqrefresh] in it' % tag)
+            fails.append('%s: the attention block has no Refresh button [data-qqqrefresh] in it' % tag)
         if (not st.get('afterHero') or not sb.get('shown') or not hero or sb['t'] < hero['b'] - 1 or sb['t'] - hero['b'] > STATUS_GAP_MAX
                 or (pills and not lside and sb['b'] > pills['t'] + 1) or (lside and fr.get('stats') and sb['b'] > fr['stats']['t'] + 1)):
             fails.append('%s: the status line (top %s, bottom %s, right after the hero %s) is not directly under the hero (bottom %s) and above the '
                          'range pills (top %s)' % (tag, sb.get('t'), sb.get('b'), st.get('afterHero'), hero.get('b'), pills.get('t')))
-        lh, h = st.get('lh'), st.get('lineH')
-        if not lh or h is None or h / lh > STATUS_LINES_MAX + 0.2 or h / lh < 0.8:
-            fails.append('%s: the status line is %s px tall at %s px a line: want one or two lines (%r)' % (tag, h, lh, (st.get('text') or '')[:80]))
+        if st.get('line'):
+            fails.append('%s: the board still draws its own status line [data-lgstatus="qb"] - the one top-bar dot carries the status now' % tag)
     # the chart foot, under the chart, holding the caption and the key
     fo = fr.get('foot') or {}
     fb, ch, stb = fo.get('box') or {}, fo.get('chart'), fr.get('stats')
@@ -5835,19 +5844,20 @@ SHADOW_ERROR = 'shadow ledger not found'              # api/qqq_exec.py's error 
 # MANAGER #108: the DIP #424 legs carry no variant word in their keys, so the board names them (index.html QB_SH_LEGS), and their hover
 # says how the strategy trades (one trade per dip mechanism, decided on a daily close, entered at the next session's 09:30 open)
 # v91.91 ONE LABEL (owner 11-22): FAMILY #RUN.CFG MODE, the set from PAPER_LEG_PARAMS (DIP_424F's mode word is QB_SH_LEGS's 'fixed')
-SHADOW_LEG_NAMES = {'DIP_424K': 'DIP #424.1 keel', 'DIP_424F': 'DIP #424.1 fixed', 'ENGUQ_335': 'ENGU-Q #335.0 raw',
+SHADOW_LEG_NAMES = {'DIP_424K': 'DIP #424.1 keel', 'DIP_424F': 'DIP #424.1 fixed', 'ENGUQ_335': 'ENGU-Q #335 defaults raw',
                     'NOISE_422_PLAIN': 'NOISE #422.2 raw', 'NOISE_422_FIXED': 'NOISE #422.2 fixed', 'NOISE_422_KEEL': 'NOISE #422.2 keel'}
 SHADOW_DIP_NOTE = ('Seven long-only dip mechanisms, each decided on a daily close and entered at the next session\u2019s 09:30 open '
                    '(the backtest\u2019s fill), so up to 7 of its trades can be open at once.')
 SHADOW_LEG_NOTES = {'DIP_424K': SHADOW_DIP_NOTE + ' Each trade is sized by KEEL v12.',
                     'DIP_424F': SHADOW_DIP_NOTE + ' Every trade is 1.245\u00d7 (KEEL\u2019s average size over #424\u2019s walk-forward trades).'}
 # the fixture block's rows, in the fold's order (by family: ENGU-Q, NOISE, DIP; the box's order inside one), and the DIP legs' open lines
-SHADOW_ROW_ORDER = ['ENGU-Q #335.0 raw', 'NOISE #422.2 raw', 'NOISE #422.2 fixed', 'NOISE #422.2 keel']   # DIP #424 retired 11-16: its rows left the fold
+# v92.20 config labels: a row whose config is the run's own defaults reads 'defaults' where a set number would be
+SHADOW_ROW_ORDER = ['ENGU-Q #335 defaults raw', 'NOISE #422.2 raw', 'NOISE #422.2 fixed', 'NOISE #422.2 keel']   # DIP #424 retired 11-16: its rows left the fold
 SHADOW_DIP_OPEN = {'DIP #424.1 keel': '3 open, long since 10-01 · +$196.53 at 751.73',
                    'DIP #424.1 fixed': '3 open, long since 10-01 · +$259.34 at 751.73'}
 # a block whose box lists DIP first and NOISE out of its usual order: the fold still reads ENGU-Q, NOISE, DIP (the box's order inside each)
 SHADOW_LEGS_DIP_FIRST = ['DIP_424F', 'DIP_424K', 'NOISE_422_KEEL', 'NOISE_422_PLAIN', 'NOISE_422_FIXED', 'ENGUQ_335']
-SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335.0 raw', 'NOISE #422.2 keel', 'NOISE #422.2 raw', 'NOISE #422.2 fixed']
+SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335 defaults raw', 'NOISE #422.2 keel', 'NOISE #422.2 raw', 'NOISE #422.2 fixed']
 _SHADOW_BLOCK = {}
 
 
@@ -5915,7 +5925,8 @@ def _ny_wall(s):
 
 def shadow_leg_name(k):
     """index.html qbShLegName (v91.91 ONE LABEL): 'ENGUQ_335' -> 'ENGU-Q #335.0 raw', 'NOISE_422_KEEL' -> 'NOISE #422.2 keel',
-    'DIP_424F' -> 'DIP #424.1 fixed' (SHADOW_LEG_NAMES); a key with no recorded set -> 'FAMILY #N set ? mode'."""
+    'DIP_424F' -> 'DIP #424.1 fixed' (SHADOW_LEG_NAMES); a key with no recorded set -> 'FAMILY #N set ? mode'.
+    v92.20 config labels: set 0 is the run's OWN DEFAULTS, and the page spells that word out instead of printing '.0'."""
     if str(k or '') in SHADOW_LEG_NAMES:
         return SHADOW_LEG_NAMES[str(k)]
     m = re.match(r'^([A-Za-z]+)_(\d+)(?:_(\w+))?$', str(k or ''))
@@ -5984,7 +5995,9 @@ def _shadow_open_line(os_):
 # the page). The calendar takes the chosen range's trades at the P&L of record on their close day; the list's rows are the legs
 # the board names (ORB #314, ENGU-Q #335, NOISE #382), the range's P&L of record, trades and win rate.
 LIST_GROUPS = ['book', 'shadow', 'retired']   # v91.89: LIVE, SHADOW (a label group, only with shadow legs), the 'retired (n)' fold
-BOOK_NAMES = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']   # the rows under BOOK with no leg retired, or while ENGU-Q holds a position
+BOOK_NAMES = ['ORB #314', 'ENGU-Q #335', 'NOISE #382', 'NOISE #555', 'NOISE #545']
+# ^ the rows under BOOK with no leg retired, or while ENGU-Q holds a position. The roster is QE_LEGS in index.html: NOISE #555.1 keel
+#   and NOISE #545.1 keel went live as paper legs on 2026-11-23 (9eaf67dc), which is why they are here.
 RETIRED_NAME = 'ENGU-Q #335'
 # BOOK SIDEBAR (board 113): the book table the page reads (users/{uid}/meta/book_legs, tools/book_legs_publish.py), seeded on every case.
 #   '30_prov' is the only book whose QQQ-executor legs are ORB #314 + NOISE #382 - the BOOK rows while ENGU-Q is retired - so it is the
@@ -6000,6 +6013,8 @@ BOOK_LEGS_FIX = {'basis': 'probe fixture', 'books': {
                 'legs': [{'id': 'ORB314', 'name': 'ORB', 'run': '#314', 'size': '1 NQ', 'nq_contracts': 1.0, 'share_pct': 40.5,
                           'usd_per_year': 40000, 'status': 'stitched'},
                          {'id': 'NOISE382', 'name': 'NOISE', 'run': '#382', 'status': 'stitched'},
+                         {'id': 'NOISE555', 'name': 'NOISE', 'run': '#555', 'status': 'stitched'},
+                         {'id': 'NOISE545', 'name': 'NOISE', 'run': '#545', 'status': 'stitched'},
                          {'id': 'OPUS86a', 'name': 'last-10-minutes stock trade', 'run': '', 'size': '$100k a side', 'usd_per_year': 5000, 'status': 'fixed rule'}]},
     # v91.91: a gold book (a '_nogold' twin exists) - the page must leave it out
     '30_prov': {'row': '30 provisional', 'label': 'estimate, probe, WITH GOLD', 'provisional': True, 'usd_per_year': 1,
@@ -6007,8 +6022,9 @@ BOOK_LEGS_FIX = {'basis': 'probe fixture', 'books': {
                          {'id': 'GLDNIGHT', 'name': 'GLD night', 'run': '', 'size': '100 sh'}]}}}
 BOOK_HEAD_WANT = ['Book 30 provisional', 'estimate', '$98,765/yr', 'was $140.1k', 'max DD 31.2%', 'ex-2020 24.6%', 'ROC30 97.1',
                   'Sortino 4.51', '2016-20 $68,870', '2021-25 $173.3k']   # board 145-D: elMoney compacts from $100,000
-BOOK_NAMES_RETIRED = ['ORB #314', 'NOISE #382']   # the BOOK rows while ENGU-Q is retired (the page's default) and holds no position
-LEG_KEYS = [('ORB', 'ORB #314'), ('ENGUQ', 'ENGU-Q #335'), ('NOISE', 'NOISE #382')]
+BOOK_NAMES_RETIRED = ['ORB #314', 'NOISE #382', 'NOISE #555', 'NOISE #545']   # the BOOK rows while ENGU-Q is retired (the page's default) and holds no position
+LEG_KEYS = [('ORB', 'ORB #314'), ('ENGUQ', 'ENGU-Q #335'), ('NOISE', 'NOISE #382'),
+            ('NOISE555', 'NOISE #555'), ('NOISE545', 'NOISE #545')]
 MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
           'December']
 RANGE_WORD = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'past 3 months', 'YTD': 'year to date',
@@ -6037,7 +6053,7 @@ PARAMS_NOTE = '· set'
 # owner 10-31 (row 76): the words of a strategy name on the page carry run.set and the model word - 'NOISE #382.2 keel',
 # 'DIP #424 set ? raw' - in the legend, the chips, the trade rows and the open line. _plain() takes them back to family + run
 # ('NOISE #382') so every check pinned on the plain words keeps reading; the words themselves are judged by LABEL_RE on the rows.
-SETW_RE = re.compile(r'(#\d+)(?:(?:\.\d+| set \?)(?: (?:raw|keel|fixed|hybrid|tilt|comp))?)(?=$|[^\w.])')
+SETW_RE = re.compile(r'(#\d+)(?:(?:\.\d+| set \?| defaults)(?: (?:raw|keel|fixed|hybrid|tilt|comp))?)(?=$|[^\w.])')
 
 
 def _plain(name):
@@ -6597,10 +6613,14 @@ def _hero_qual_problems(tag, r, doc, fails):
             want_open = signed(round(sum(v[0] for v in opn.values()), 2))
             if r.get('heroOpen') != want_open:
                 fails.append("%s: the hero's open figure reads %r, want %s (the live legs' open P&L summed)" % (tag, r.get('heroOpen'), want_open))
+            # owner 11-25: the hero keeps the unrealized TOTAL and nothing else - the list of legs under it
+            #   ('ORB #314.22 raw . 1 lot, NOISE ...') was three wrapped lines saying what the OPEN rows under
+            #   the chart already say, one row a position, and those rows are checked below.
             for fam, (v, n) in opn.items():
                 who = '%s · %d lot%s' % (_fam_name(fam), n, '' if n == 1 else 's')
-                if who not in (r.get('heroUnder') or ''):
-                    fails.append("%s: the open line under the big number %r does not name who holds the lots (%r)" % (tag, r.get('heroUnder'), who))
+                if who in (r.get('heroUnder') or ''):
+                    fails.append("%s: the open line under the big number %r still lists the legs (%r) - the OPEN rows name them"
+                                 % (tag, r.get('heroUnder'), who))
         elif r.get('heroOpen') is not None:
             fails.append("%s: the hero shows an open figure %r while nothing is held" % (tag, r.get('heroOpen')))
         elif r.get('heroUnder'):
@@ -7239,8 +7259,9 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
 # as REAL's is. Everything below is worked out here from the fixture and never read off the page: which trades each chip, search and
 # range leaves, their order (newest CLOSE first, under a header for each New York close day), each day's signed net and every cell.
 # ---------------------------------------------------------------------------------------------------------------------------------
-TL_CHIP_KEYS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB', 'ENGUQ', 'NOISE', 'BOOKONLY']
-TL_CHIP_LABELS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB #314', 'ENGU-Q #335', 'NOISE #382', 'BOOK ONLY']
+# one chip per live leg, in the QE_LEGS order: the two KEEL NOISE legs joined the roster 2026-11-23 (9eaf67dc)
+TL_CHIP_KEYS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB', 'ENGUQ', 'NOISE', 'NOISE555', 'NOISE545', 'BOOKONLY']
+TL_CHIP_LABELS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB #314', 'ENGU-Q #335', 'NOISE #382', 'NOISE #555', 'NOISE #545', 'BOOK ONLY']
 TL_COMMON_CELLS = ['time', 'sym', 'side', 'size', 'pnl', 'pts', 'strat', 'chart']
 TL_PHONE_CELLS = ['time', 'sym', 'side', 'pnl', 'chart']
 TL_PAGE = 18                 # the SHOW MORE case: the list shows this many rows first, and on to the end of that trade's day (the 18th trade shares 09-25 with the 19th)
@@ -7447,7 +7468,7 @@ def tl_rows(doc, cutoff=None, chip='ALL', query=''):
             continue
         if chip == 'BOOKONLY' and not t.get('book_only'):
             continue
-        if chip in ('ORB', 'ENGUQ', 'NOISE') and t.get('leg') != chip:
+        if chip in ('ORB', 'ENGUQ', 'NOISE', 'NOISE555', 'NOISE545') and t.get('leg') != chip:
             continue
         keep.append(t)
     return tl_order(keep)
@@ -8273,6 +8294,13 @@ def _judge_tl_main(tag, res, doc, fails):
         n = len(tl_rows(doc, None, k))
         if tl is None:
             fails.append('%s: the %s chip is not on the page' % (tag, k))
+            continue
+        if k != 'ALL' and n == 0:
+            # a live leg the fixture has no trades for (NOISE #555 / #545 joined the roster 2026-11-23): its chip
+            #   is real and must filter to an empty list, not be called a broken case.
+            if (tl.get('rows') or []) or (tl.get('days') or []):
+                fails.append('%s: the %s chip leaves %r in the list, but the fixture has no trade for that leg'
+                             % (tag, k, tl.get('rows')))
             continue
         if k != 'ALL' and not 0 < n < len(allrows):
             fails.append("%s: the probe's own case is wrong: the %s chip leaves %d of %d trades" % (tag, k, n, len(allrows)))

@@ -1786,6 +1786,17 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .qbx-st-tog[aria-expanded="true"] .qbx-st-chev{transform:rotate(180deg)}
 .qbx-st1 .qbx-st-rf,.lg-frame .qbx-st1 .qbx-st-rf{height:22px;padding:0 7px;font-size:12px;letter-spacing:0;border-color:var(--border2)}
 .qbx-st-chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-start;padding-top:4px}
+/* owner 11-25: the status SENTENCE moved to the top bar's one dot, so this row carries only what
+   must be acted on - the red / blocking chips, the fills chip, the quiet notes and Refresh */
+.qbx-st-bare{display:flex;align-items:center;gap:8px;min-width:0}
+.qbx-st-bare>#qb-hero-chips{flex:1 1 auto;min-width:0}
+.qbx-st-bare .qbx-st-rf{flex:0 0 auto}
+.qbx-st-bare .qbx-st-chips{padding-top:0}
+.qbx-st-more-open{display:flex;flex-direction:column;gap:1px;padding-bottom:0}
+.qbx-st-more-open .qbx-st-note,.qbx-st-more-open .lg-hero-excl,.qbx-st-more-open [data-qbbroker]{margin-top:0;line-height:1.35}
+/* on a phone the notes are read in the one dot, so the board keeps the chips and Refresh only */
+@media (max-width:600px){.qbx-st-bare .qbx-st-more{display:none}
+  .qbx-st1 .qbx-st-rf,.lg-frame .qbx-st1 .qbx-st-rf{height:18px;padding:0 6px;font-size:11px}}
 .qbx-st-chips .lg-chip{font-size:9.5px;padding:1px 7px;font-weight:600!important;line-height:1.4}
 .qbx-st-more{padding:0 0 4px;font-size:10px;color:var(--text4)}
 .qbx-st-more .qbx-st-note,.qbx-st-more .lg-hero-excl{display:block;font-size:10px;font-weight:400;color:var(--text4);margin-top:3px}
@@ -1904,8 +1915,21 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 /* point 3: the one control row above the chart - VIEW | SIZING | range | toggles | density on one line */
 /* the chart row (caption + legend slot) is flipped above the chart box on .lg-uni (order -1); the
    control row goes above that, so the caption still sits right on top of the chart. */
-.lg-uni .qb-chart-wrap>.qbx-ctl-row,.lg-uni [data-p2sec="chart"]>.qbx-ctl-row{order:-2}
-.qbx-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:0 0 8px;min-width:0}
+.qbx-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-width:0;max-width:100%}
+.qbx-ctl-row .lgv-bar,.qbx-ctl-row .hm-mode,.qbx-ctl-row .lg-opts{min-width:0;flex-wrap:wrap}
+/* a phone keeps the old page order - chart first, then its controls - and the row wraps instead of
+   pushing the page sideways (the one-row ask was about the laptop's three stacked rows). */
+/* the controls sit in the chart row, so they keep its own place: above the chart from 1100 px, under
+   it below that - the page order the boards always had, with three rows folded into one. */
+.qbx-ctl-row>*{max-width:100%}
+@media (max-width:740px){.qbx-ctl-row .lgv-bar{flex:1 1 100%}}
+/* the strategy name in a ledger row never loses a character (owner rule): it wraps instead of clipping */
+.lg-paper .lg-tl-row .lg-c-sym{white-space:normal;overflow:visible;text-overflow:clip;flex:1 1 150px;min-width:96px;line-height:1.25}
+@media (max-width:600px){.lg-paper .lg-tl-row .lg-c-sym{white-space:normal;overflow:visible;text-overflow:clip;min-width:82px}}
+/* the run / config words inside the name are their own spans: they wrap too, or the cell still clips */
+.lg-paper .lg-tl-row .lg-c-sym,.lg-paper .lg-tl-row .lg-c-sym *{white-space:normal!important;overflow-wrap:anywhere}
+/* the filter chips wrap at a narrow width instead of running the page sideways */
+.lg-paper .lg-tl-bar,.lg-paper .lg-tl-chips{flex-wrap:wrap}
 .qbx-ctl-row>*{margin:0!important}
 .qbx-ctl-row .lgv-bar{margin:0;flex:0 0 auto}
 .qbx-ctl-row .qbx-range-row{margin:0;flex:0 0 auto}
@@ -2261,7 +2285,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.34';
+const VERSION='92.35';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -21532,7 +21556,8 @@ function _tbStatusLines(){
   return [['load','<span id="tb-load" style="display:contents">'+_tbLoadHtml()+'</span>'],
           ['auto',auto],['data',warn],
           ['gate','<span id="tb-gate" style="display:contents">'+_tbGateHtml()+'</span>'],
-          ['webull',(typeof qbTopChipHtml==='function')?qbTopChipHtml():'']];}
+          ['webull',(typeof qbTopChipHtml==='function')?qbTopChipHtml():''],
+          ['paper',(()=>{const d=window._qbStatusDot;return d?('<span style="color:'+d.col+'">&#9679;</span> <span style="color:var(--text4)">'+d.txt+'</span>'+(d.more||'')):'';})()]];}
 function _tbStatusHtml(){try{
   const lines=_tbStatusLines(),body=lines.map(x=>x[1]).join('');
   const col=_tbStatusCol(body);
@@ -47882,17 +47907,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const ratioWord=QRHEALTH?(QRHEALTH.used===false?'ratio not used':(QRHEALTH.warn?'ratio warn':'ratio OK')):'';
         const dotCls=red.length?' qbx-st-dot-red':((amb.length||qbFillsChip)?'':' qbx-st-dot-ok');
         const chk=amb.length?(amb.length+' check'+(amb.length===1?'':'s')):'all clear';
-        const tog='<button type="button" class="qbx-st-tog" data-qbsttog aria-expanded="'+stOpen+'" aria-controls="qb-st-more" title="'
-          +(amb.length?(amb.length+' check'+(amb.length===1?' needs':'s need')+' a look - tap to see '+(amb.length===1?'it':'them')):'no checks need a look - tap for the details')+'">'
-          +'<span class="lg-chk-dot'+dotCls+'" aria-hidden="true"></span><span class="qbx-st-txt">'+statusBits+' &middot; <span data-qbstchk>'+chk+'</span></span>'
-          +'<span class="qbx-st-chev" aria-hidden="true">&#9662;</span></button>';
-        const more='<div class="qbx-st-more" id="qb-st-more" data-qbstmore'+(stOpen?'':' hidden')+'>'
+        // the sentence the line used to carry now rides in the top bar's one status dot
+        try{window._qbStatusDot={txt:statusBits+' &middot; '+chk,
+          col:red.length?'var(--attn-red)':((amb.length||qbFillsChip)?'var(--attn-amber)':'var(--attn-ok)')};}catch(_e){}
+        const more='<div class="qbx-st-more qbx-st-more-open" id="qb-st-more" data-qbstmore>'
           +(amb.length?'<div class="qbx-st-chips">'+amb.join('')+'</div>':'')
           +(ratioWord?'<div class="qbx-st-note" data-qbstratio>'+ratioWord+'</div>':'')
           +'<!--QBSTX-->'+brokerLine+'</div>';
-        const heroStrip=ledgerStatusHtml({id:'qb',cls:'qbx-status-strip qbx-st1',label:'',line:tog,
-          act:'<button class="qb-hero-refresh lg-status-btn qbx-st-rf" data-qqqrefresh aria-label="Refresh" title="Reload the Webull paper status">'+(qeLoading?'\u2026':'\u27f3')+'</button>',
-          after:'<div id="qb-hero-chips" class="qbx-st-box">'+((red.length||qbFillsChip)?'<div class="qbx-st-chips qbx-st-shown">'+red.join('')+qbFillsChip+'</div>':'')+more+'</div>'});
+        try{window._qbStatusDot.more=more.replace(' id="qb-st-more"','').replace(' data-qbstmore','');}catch(_e){}
+        const heroStrip='<div class="qbx-st-bare qbx-st1">'
+          +'<div id="qb-hero-chips" class="qbx-st-box">'+((red.length||qbFillsChip)?'<div class="qbx-st-chips qbx-st-shown">'+red.join('')+qbFillsChip+'</div>':'')+more+'</div>'
+          +'<button class="qb-hero-refresh lg-status-btn qbx-st-rf" data-qqqrefresh aria-label="Refresh" title="Reload the Webull paper status">'+(qeLoading?'…':'⟳')+'</button>'
+          +'</div>';
         return {main:heroMain,strip:heroStrip};
       };
 
@@ -49326,8 +49352,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(_lgvShQbRaw.length?' Shadow legs: each as-if trade sized like a live trade (shares = floor(equity x risk % / its q.risk_usd a share)) when its as-if data carries a risk figure; '+_lgvShQb.filter(x=>x.fixed).length+' of '+_lgvShQb.length+' have none and stay FIXED (no stop).':'')):'';
             return lgvBarHtml('qb',{whatifOk:_lgvShQbMem.length>0,fixedWord:'10 sh',sizeTip:tip,sized:Z,whatifTip:'LIVE + '+_lgvShQbMem.map(x=>x.name).join(', ')+' (simulated, never the account).'});})();
           // owner 11-25 (point 3): ONE control row above the chart - VIEW | SIZING | range pills | chart toggles | density
-          const qbCtlRow='<div class="qbx-ctl-row">'+_lgvBarQb+'<div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerChartOptsHtml('qb')+'</div>';
-          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row">'+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
+          const qbCtlRow='';   // the controls ride in the chart row itself (owner 11-25: ONE row)
+          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row qbx-ctl-row">'+_lgvBarQb+'<div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerChartOptsHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
             +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord):('Cumulative P&amp;L since '+naS(QE.live_from));
           const qbRangeCapFull=((qbRange&&qbRange!=='ALL')?('Cumulative P&L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&L since '+naS(QE.live_from)))
@@ -50875,7 +50901,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // v91.75: 'excluding ENGU-Q, DIP' rides in the status line's fold (it was a bold line under the hero)
         const qbExclNames=qbLegsOff.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;});
         const qbExclHtml=qbExclNames.length?'<div class="lg-hero-excl qbx-st-note" data-qbexcl="'+String(qbLegsOff.join(',')).replace(/[<>"&']/g,'')+'" title="switched off in the Strategies list: not in any figure on this page">excluding '+String(qbExclNames.join(', ')).replace(/[<>"&']/g,'')+'</div>':'';
-        const qbStatusSec='<div class="qbx-statusline">'+qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml)+'</div>';
+        try{if(window._qbStatusDot)window._qbStatusDot.more=String(window._qbStatusDot.more||'').replace('<!--QBSTX-->',qbExclHtml);}catch(_e){}
+        const qbStatusSec='<div class="qbx-statusline">'+qbStatusStripHtml.replace('<!--QBSTX-->','')+'</div>';
 
         // ── LEDGER UNIFY STEP 11 (2026-10-06): the fixed page order. Hero, range pills (the top of the chart block), chart, status strip (under the chart,
         // never folded), stats strip, More stats fold, calendar fold, strategy list (a one-line fold up to 600 px), the trade list (History: the frame,
@@ -56538,6 +56565,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       document.addEventListener('keydown',window._libKeyH);
     }
     else if(augurSub==='qqqpaper'){
+      try{setTimeout(()=>{try{_tbSwap('tb-status',_tbStatusHtml());}catch(_e){}},0);}catch(_e){}
       const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqExec(null,true);loadQqqPaper(null,true);renderApp();};
       // v91.75: the one-line status opens / shuts its fold in place (no redraw); the choice is remembered per browser
       content.querySelectorAll('[data-qbsttog]').forEach(t=>{t.onclick=()=>{const m=content.querySelector('[data-qbstmore]');const o=t.getAttribute('aria-expanded')!=='true';
