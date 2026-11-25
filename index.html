@@ -2342,7 +2342,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.39';
+const VERSION='92.40';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4887,7 +4887,7 @@ function ledgerTradeListHtml(o){
   }
   const chips=LEDGER_TL_CHIPS.map(k=>({k:k,label:k})).concat(o.chips||[]);
   const total=o.total!=null?o.total:rows.length;
-  const _rhL=(id==='qb'||id==='p2');   // board 183: the paper ledgers read as a plain list; the extras sit behind '...'
+  const _rhL=(id==='wb'||id==='nt8');   // board 183: the paper ledgers' own list ids - Webull 'wb', NT8 'nt8'
   const bar='<div class="lg-tl-bar'+(_rhL?' lg-tl-rh':'')+'">'
     +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+real(rows).length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
     +(_rhL?'<details class="lg-tl-more"><summary title="list or table, and the per-trade charts" aria-label="more list options"><span aria-hidden="true">&#8943;</span></summary><div class="lg-tl-more-body">':'')
