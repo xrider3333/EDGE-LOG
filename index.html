@@ -1786,6 +1786,35 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .qbx-st-tog[aria-expanded="true"] .qbx-st-chev{transform:rotate(180deg)}
 .qbx-st1 .qbx-st-rf,.lg-frame .qbx-st1 .qbx-st-rf{height:22px;padding:0 7px;font-size:12px;letter-spacing:0;border-color:var(--border2)}
 .qbx-st-chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-start;padding-top:4px}
+/* ══ BOARD 183 (owner 11-25: 'less stimulating, more Robinhood-esque minimalist') ══════════════
+   The paper ledgers keep every number - daily bars, strategy lines, every ledger trade, the
+   calendar where it is. This sheet changes only the look: one small type scale, normal weight,
+   thin rows, one accent, and green / red kept for money. */
+/* the view / sizing switches behind '...' */
+.lgv-more{display:inline-block;position:relative}
+.lgv-more>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:2px 7px;
+  border:1px solid var(--border2);border-radius:999px;font-size:9.5px;letter-spacing:.5px;color:var(--text4)}
+.lgv-more>summary::-webkit-details-marker{display:none}
+.lgv-more>summary:hover{color:var(--text3);border-color:var(--border)}
+.lgv-more-dots{font-size:12px;line-height:1;color:var(--text5)}
+.lgv-more[open]>summary{color:var(--text2)}
+.lgv-more-body{position:absolute;z-index:40;top:calc(100% + 4px);left:0;display:flex;flex-direction:column;gap:6px;
+  padding:8px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.lgv-rh{gap:8px}
+/* one type scale, normal weight: bold is for the account number alone */
+.lg-paper .lg-tl-row,.lg-paper .lg-row,.lg-paper .lg-grp-hd{font-weight:400}
+.lg-paper .lg-tl-row{padding:3px 2px;border-bottom:1px solid color-mix(in srgb,var(--border2) 45%,transparent)}
+.lg-paper .lg-tl-row:hover{background:color-mix(in srgb,var(--text) 3%,transparent)}
+.lg-paper .lg-grp-hd{font-size:9px;letter-spacing:.5px;color:var(--text5);border:none}
+.lg-paper .lg-tl-dayhd{border-bottom:1px solid color-mix(in srgb,var(--border2) 40%,transparent)}
+/* money right-aligned, and the only thing wearing a colour */
+.lg-paper .lg-tl-row .lg-c-pnl,.lg-paper .lg-row-val{text-align:right;font-variant-numeric:tabular-nums}
+.lg-paper .lg-chip,.lg-paper .lg-side{border-color:color-mix(in srgb,var(--border2) 70%,transparent)!important;font-weight:500!important}
+/* fewer boxes: the tiles and folds lose their frames, the numbers carry the page */
+.lg-paper .lg-stat{border:none;background:none;padding:4px 6px}
+.lg-paper .lg-stat-lbl{font-size:9px;letter-spacing:.5px;color:var(--text5)}
+.lg-paper .lg-stat-val{font-size:13px;font-weight:500}
+.lg-paper .qbx-fold-hd,.lg-paper .lg-fold-hd{border-width:0 0 1px;border-radius:0;background:none}
 /* owner 11-25: the status SENTENCE moved to the top bar's one dot, so this row carries only what
    must be acted on - the red / blocking chips, the fills chip, the quiet notes and Refresh */
 .qbx-st-bare{display:flex;align-items:center;gap:8px;min-width:0}
@@ -2285,7 +2314,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.35';
+const VERSION='92.36';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5426,7 +5455,7 @@ function ledgerChartRender(wrap,o){
       o.bands.forEach(b=>{if(b.i==null||b.i<0||b.i>=n)return;const x0=Math.max(L,X(b.i)-half),x1=Math.min(L+pw,X(b.i)+half);
         h+='<rect data-lgband="1"'+(b.fix?' data-lgbandfix="1"':'')+(ledgerCavOn()?'':' visibility="hidden"')+' x="'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+(b.fix?'f':'')+')"><title>'+esc(b.title||'')+'</title></rect>';});}
     tks.forEach((tv,k)=>{const yy=Y(tv).toFixed(1);
-      h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--border2)" stroke-width="1"/>'
+      h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--border2)" stroke-opacity="0.45" stroke-width="1"/>'
         +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>'
         +(pB?'<text data-lgpcttick="1" x="'+(L-6)+'" y="'+(+yy+3)+'" text-anchor="end" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace"><title>'+esc(o.pctTip||('% of '+_lgAxisMoney(pB)))+'</title>'+esc(pctLbl[k])+'</text>':'');});
     const by=Y(pts[0].v).toFixed(1);
@@ -5445,10 +5474,10 @@ function ledgerChartRender(wrap,o){
       DB.forEach((b,k)=>{const x=Math.max(L,Math.min(L+pw-bw,xs[k]-bw/2));
         if(b.segs.length){let up=0,dn=0;h+='<g data-lgdaily-stack="'+b.d+'" data-lgdaily-bar="1" data-net="'+b.net+'">';
           b.segs.forEach(sg=>{const a=sg.v>0?up:dn,e=a+sg.v;if(sg.v>0)up=e;else dn=e;const y1=Math.min(Y(a),Y(e)),hh=Math.max(0.8,Math.abs(Y(a)-Y(e)));
-            h+='<rect x="'+x.toFixed(1)+'" y="'+y1.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" style="fill:'+sg.color+'" opacity="0.85" data-lgdaily-seg="'+esc(sg.k)+'" data-v="'+sg.v+'"><title>'+esc(dl(b.d)+': '+sg.name+' '+ledgerSigned(sg.v)+' (day '+ledgerSigned(b.net)+')')+'</title></rect>';});
+            h+='<rect x="'+x.toFixed(1)+'" y="'+y1.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" style="fill:'+sg.color+'" opacity="0.6" data-lgdaily-seg="'+esc(sg.k)+'" data-v="'+sg.v+'"><title>'+esc(dl(b.d)+': '+sg.name+' '+ledgerSigned(sg.v)+' (day '+ledgerSigned(b.net)+')')+'</title></rect>';});
           h+='</g>';return;}
         const yy=Math.min(Y(b.net),y0),hh=Math.max(1,Math.abs(Y(b.net)-y0));
-        h+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="1.5" fill="'+(b.net>=0?'#1d9e75':'#e24b4a')+'" opacity="0.8" data-lgdaily-bar="1" data-net="'+b.net+'"><title>'+esc(dl(b.d)+': '+ledgerSigned(b.net)+' day')+'</title></rect>';});
+        h+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="2" fill="'+(b.net>=0?'#1d9e75':'#e24b4a')+'" opacity="0.55" data-lgdaily-bar="1" data-net="'+b.net+'"><title>'+esc(dl(b.d)+': '+ledgerSigned(b.net)+' day')+'</title></rect>';});
       h+='</g>';}
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
     lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(i>=n||v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
@@ -5467,7 +5496,7 @@ function ledgerChartRender(wrap,o){
       +'<stop offset="0" style="stop-color:var(--green)" stop-opacity="'+wa+'"/><stop offset="'+zf.toFixed(4)+'" style="stop-color:var(--green)" stop-opacity="0"/>'
       +'<stop offset="'+zf.toFixed(4)+'" style="stop-color:var(--red)" stop-opacity="0"/><stop offset="1" style="stop-color:var(--red)" stop-opacity="'+wa+'"/></linearGradient></defs>';
     h+='<polygon data-lgzerofill="1" points="'+X(0).toFixed(1)+','+y0c.toFixed(1)+' '+line+' '+X(n-1).toFixed(1)+','+y0c.toFixed(1)+'" fill="url(#'+zid+')" stroke="none"/>'
-      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" data-lgtotal="1"/>'
+      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" data-lgtotal="1"/>'
       +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(pts[n-1].v).toFixed(1)+'" r="3.5" style="fill:'+col+'"/>';
     // dates along the bottom: evenly spread, about 110 px apart; the year shows when the range crosses one
     const dated=pts.map((p,i)=>p.date?i:-1).filter(i=>i>=0);
@@ -8835,12 +8864,18 @@ function lgvBarHtml(b,o){o=o||{};const v=lgvView(b),s=lgvSize(b),ok=!!o.whatifOk
   const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const hint='Switch a shadow leg on in the Books panel (or a shadow row in Strategies) to compare.';
   const btn=(k,val,lab,on,tip,dis)=>'<button type="button" data-lgvboard="'+b+'" data-lgv'+k+'="'+val+'" class="'+(on?'active':'')+'" aria-pressed="'+(on?'true':'false')+'" title="'+esc(tip)+'"'+(dis?' disabled aria-disabled="true"':'')+'>'+lab+'</button>';
-  return '<div class="lgv-bar" data-lgvbar="'+b+'" data-lgveff="'+eff+'" data-lgvsizenow="'+s+'">'
+  const _rh=(b==='qb'||b==='nt');   // board 183: the paper ledgers put these two groups behind '...'
+  return '<div class="lgv-bar'+(_rh?' lgv-rh':'')+'" data-lgvbar="'+b+'" data-lgveff="'+eff+'" data-lgvsizenow="'+s+'">'
+    +(_rh?('<details class="lgv-more" data-lgvmore="'+b+'"><summary title="View and sizing: '
+      +(eff==='whatif'?'WHAT-IF':'LIVE')+', '+(s==='fixed'?'FIXED':(s.slice(1)+' % risk'))+'" aria-label="view and sizing">'
+      +'<span class="lgv-more-now">'+(eff==='whatif'?'WHAT-IF':'LIVE')+' &middot; '+(s==='fixed'?'FIXED':(s.slice(1)+'%'))+'</span>'
+      +'<span class="lgv-more-dots" aria-hidden="true">&#8943;</span></summary><div class="lgv-more-body">'):'')
     +'<div class="hm-mode lgv-view" role="group" aria-label="view">'
     +btn('view','live',s!=='fixed'?'LIVE &middot; sized (simulated)':'LIVE',eff==='live',s!=='fixed'?('The strategies this platform trades, each closed trade re-priced at '+lgvSizeWord(s)+'. Simulated - not the account. FIXED shows the account as traded.'):'The account: only the strategies this platform trades.',false)
     +btn('view','whatif','WHAT-IF',eff==='whatif',ok?'LIVE + every shadow leg switched on, added into the hero, tiles, chart and calendar. Never the account.':hint,!ok)+'</div>'
     +'<div class="hm-mode lgv-size" role="group" aria-label="sizing">'
     +RTS_COLS.map(([k,l])=>btn('size',k,'<span class="lgv-l">'+(k==='fixed'?('FIXED '+(o.fixedWord||'')).trim():l)+'</span><span class="lgv-s">'+(k==='fixed'?'FIXED':(k.slice(1)+'%'))+'</span>',s===k,k==='fixed'?'As traded ('+(o.fixedWord||'the fixed lot')+').':('Each closed trade re-priced at '+k.slice(1)+' % of the account risked on it. '+(o.sizeTip||'')),false)).join('')+'</div>'
+    +(_rh?'</div></details>':'')
     // board 159 (owner 11-22): both tags always hold their slot (hidden when off), so WHAT-IF / RISK never reflow the bar. The size tag
     // carries the risk-sized / fixed counts (data-riskn / data-fixn, and its hover) that the sidebar hero tag used to show.
     +(eff==='whatif'?'<span class="lgv-tag lgv-wi" data-lgvtag="whatif" title="'+esc(o.whatifTip||'LIVE + the switched-on shadow legs, simulated. Not the account.')+'">what-if</span>':'<span class="lgv-tag lgv-wi lgv-off" aria-hidden="true">what-if</span>')
