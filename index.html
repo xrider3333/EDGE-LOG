@@ -1803,6 +1803,12 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-paper .lg-pills button:hover,.lg-uni.lg-paper .lg-pills button:hover{color:var(--text3);background:color-mix(in srgb,var(--text) 6%,transparent)}
 .lg-paper .lg-pills button.active,.lg-uni.lg-paper .lg-pills button.active{
   color:var(--text);background:color-mix(in srgb,var(--text) 12%,transparent);border-bottom-color:transparent}
+/* board 183 round 2 (owner 11-25) item 6: the warnings are one small row in the tab header; the
+   hero block stays in the page for screen readers (and the board probe) but draws nothing. */
+.tbdot-chips{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:6px;vertical-align:middle}
+.tbdot-chips .lg-chip{font-size:9px;padding:0 6px;line-height:1.5;font-weight:600!important}
+.lg-paper .qbx-st-bare .qbx-st-box{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.lg-paper .qbx-st-bare{position:relative;justify-content:flex-end;min-height:0}
 /* board 183 round 2 (owner 11-25) item 2: the day readout above the chart is one nowrap strip, so a
    wide day (many strategies) used to push the whole row wider and the sidebar jumped as the mouse
    moved. It is clamped to its own column now and never changes the layout. */
@@ -2364,7 +2370,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.44';
+const VERSION='92.45';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -21643,7 +21649,7 @@ function _tbStatusLines(){
           ['auto',auto],['data',warn],
           ['gate','<span id="tb-gate" style="display:contents">'+_tbGateHtml()+'</span>'],
           ['webull',(typeof qbTopChipHtml==='function')?qbTopChipHtml():''],
-          ['paper',(()=>{const d=window._qbStatusDot;return d?('<span style="color:'+d.col+'">&#9679;</span> <span style="color:var(--text4)">'+d.txt+'</span>'+(d.more||'')):'';})()]];}
+          ['paper',(()=>{const d=window._qbStatusDot;return d?('<span style="color:'+d.col+'">&#9679;</span> <span style="color:var(--text4)">'+d.txt+'</span>'+(d.chips||'')+(d.more||'')):'';})()]];}
 function _tbStatusHtml(){try{
   const lines=_tbStatusLines(),body=lines.map(x=>x[1]).join('');
   const col=_tbStatusCol(body);
@@ -47995,6 +48001,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const chk=amb.length?(amb.length+' check'+(amb.length===1?'':'s')):'all clear';
         // the sentence the line used to carry now rides in the top bar's one status dot
         try{window._qbStatusDot={txt:statusBits+' &middot; '+chk,
+          chips:((red.length||qbFillsChip)?('<span class="tbdot-chips">'+red.join('')+qbFillsChip+'</span>'):''),
           col:red.length?'var(--attn-red)':((amb.length||qbFillsChip)?'var(--attn-amber)':'var(--attn-ok)')};}catch(_e){}
         const more='<div class="qbx-st-more qbx-st-more-open" id="qb-st-more" data-qbstmore>'
           +(amb.length?'<div class="qbx-st-chips">'+amb.join('')+'</div>':'')
