@@ -1,5 +1,12 @@
 # AUGUR — Strategy Optimizer (project context for Claude Code)
 
+## Owner hard rules 2026-11-25 (read first)
+- **No check runs over 5 minutes. Ever. No exception** (owner: "Building the feature can take as long as necessary. But no check ever over 5min"). This covers pre-ship gates, post-push tiers, probes, selftests and validate gates. A check that can't finish in 5 min gets killed at 5:00 and split into parallel shards, or dropped. Never stack test runs: a new push cancels the older post-push run, and only one suite runs machine-wide. Parallel subagents for checks are fine.
+- **Builders ship first and fix forward.** One pass of code, one look in the browser, `wt.py ship --fast`. No pre-ship probe loops, bisects, new mutants or selftests (a UI stage that took 90 min was ~15 min of code and ~75 min of the builder's own checks).
+- **Fix a mistake as soon as it's found, even mid-session.** Stale data or a stale model (e.g. KEEL a session behind) gets rebuilt right away and its flag cleared. Open positions are never touched (no resize, re-send or exit change); the fix applies to the next entries only. Code deploys to the box still follow the box_deploy window.
+- **Keep the owner updated unasked.** Relay every PUSHED line, result and screenshot the moment it lands.
+- **UI direction: calm, Robinhood-style minimal.** One small type scale, regular weight (bold only on the hero number), colour only on money, few borders/badges, helper text behind (i), one status dot instead of scattered indicators. Keep the data (daily bars, strategy lines, every ledger trade, the calendar); just restyle it.
+
 ## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
 
 **SUPERSEDING CORRECTION (owner 2026-10-06: "when reporting to me, be extremely, exceptionally
