@@ -1803,6 +1803,23 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-paper .lg-pills button:hover,.lg-uni.lg-paper .lg-pills button:hover{color:var(--text3);background:color-mix(in srgb,var(--text) 6%,transparent)}
 .lg-paper .lg-pills button.active,.lg-uni.lg-paper .lg-pills button.active{
   color:var(--text);background:color-mix(in srgb,var(--text) 12%,transparent);border-bottom-color:transparent}
+/* board 183 round 2 (owner 11-25) item 2: the day readout above the chart is one nowrap strip, so a
+   wide day (many strategies) used to push the whole row wider and the sidebar jumped as the mouse
+   moved. It is clamped to its own column now and never changes the layout. */
+.lg-paper .lg-daily-strip{overflow:clip;contain:layout paint}
+.lg-paper .hm-daily-tip{max-width:100%;overflow:hidden}
+/* item 8: one step smaller again - ledger rows, sidebar rows, the stat numbers and the tab labels.
+   Regular weight, low emphasis: the numbers carry the page. */
+.lg-paper .lg-tl-row,.lg-paper .lg-tl-row *{font-size:9.5px}
+.lg-paper .lg-tl-dayhd,.lg-paper .lg-tl-dayhd *{font-size:9px;color:var(--text5)}
+.lg-paper .lg-row-name,.lg-paper .lg-row-val,.lg-paper .lg-row-sub{font-size:10px}
+.lg-paper .lg-row-val{font-weight:400}
+.lg-paper .lg-stat-val{font-size:12px;font-weight:400}
+.lg-paper .lg-stat-lbl{font-size:8.5px}
+.lg-paper .lg-grp-hd,.lg-paper .lg-grp-hd *{font-size:8.5px}
+.lg-paper .lg-chip,.lg-paper .lg-fchip,.lg-paper .lg-panel-tag{font-size:9px}
+.lg-paper .lg-cal-day{font-size:9px}
+[data-homesub]{font-size:9.5px!important;padding:2px 10px!important;letter-spacing:.3px}
 /* board 183 round 2 (owner 11-25): no what-if tag, and the paper calendar drops its key and help line */
 .lg-paper .lgv-wi,.lg-paper .lgv-hint{display:none}
 .lg-paper .lg-cal-cav,.lg-paper .lg-cal-note{display:none}
@@ -2347,7 +2364,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.43';
+const VERSION='92.44';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
