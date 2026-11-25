@@ -306,3 +306,46 @@ def latency_line(rows):
     if not parts:
         return ""
     return "latency " + "; ".join(parts)
+
+
+# -- EXEC LEGS OFF (owner/MANAGER GO 2026-11-25) ---------------------------------------------
+# A 5m engine leg whose EXEC leg is off at the executor (qqq_exec config.json "legs_off", plus
+# the BOOKS TOGGLE's applied set -- exactly the two lists api/qqq_exec.load_config reads) sends
+# no order, so the own-bar pass does not decide it: its CPU goes to the legs that do trade
+# (one vCPU on the box). step() then decides it on the REST bar exactly as it decides any leg
+# the own bar did not commit -- same rows in its ledger, a few seconds later. Mirrors
+# qqq_exec.ENGINE_LEG_MAP (tests/test_ownbar_exec_legs_off.py pins the two together; importing
+# qqq_exec here would cost the engine ~4 s). Any doubt -> None -> every leg decided as today.
+ENGINE_TO_EXEC = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE",
+                  "NOISE_304": "NOISE", "NOISE_555": "NOISE555", "NOISE_545": "NOISE545"}
+
+
+def exec_config_dir(home):
+    return os.environ.get("EDGELOG_QQQ_EXEC_DIR") or os.path.join(home, "qqq_exec")
+
+
+def exec_legs_off(home):
+    """Set of exec leg names off at the executor, or None when that cannot be read for sure
+    (no config.json, unreadable JSON, legs_off not a list) -- the caller then decides every
+    leg as today. Never raises."""
+    try:
+        d = exec_config_dir(home)
+        with open(os.path.join(d, "config.json"), encoding="utf-8") as f:
+            cfg = json.load(f)
+        off = (cfg or {}).get("legs_off") or []
+        if not isinstance(off, list):
+            return None
+        names = {x for x in off if isinstance(x, str)}
+        from api import books_toggle
+        names |= set(books_toggle.applied_legs_off(d))
+        return names
+    except Exception:
+        return None
+
+
+def engine_legs_off(home, engine_keys):
+    """The engine keys (of `engine_keys`) whose exec leg is off -- set() on any doubt."""
+    off = exec_legs_off(home)
+    if not off:
+        return set()
+    return {k for k in engine_keys if ENGINE_TO_EXEC.get(k) in off}

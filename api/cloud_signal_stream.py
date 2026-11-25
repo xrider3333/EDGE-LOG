@@ -699,6 +699,9 @@ def _rth_bar(bar_start):
         return False
 
 
+_OWNBAR_OFF_LOGGED = {}       # last legs_off set logged (once per change, not per bar)
+
+
 def _stage_text(st, pre_s, total_s):
     """' [stages: wake 372 ms, queue 410, arrays 21, engine 380, diff 6, commit 4]' for the
     own-bar line: wake = bar end -> this pass started (fold + grace + UDP), queue = this leg
@@ -757,6 +760,18 @@ def handle_ownbar(now, five_m_legs, paths, log, wall=None):
             f"(decision {(t_now - t_dec0) * 1000:.0f} ms), executor woken"
             f"{_stage_text(stage_out.get(leg_key), t_dec0 - bar_end, t_now - t_dec0)}")
 
+    # EXEC LEGS OFF (GO 2026-11-25): a leg the executor has off sends no order -- not decided
+    # here; step() decides it on the REST bar (its ledger rows unchanged, just later)
+    try:
+        off = ob.engine_legs_off(home, list(five_m_legs))
+    except Exception:
+        off = set()
+    if off:
+        if _OWNBAR_OFF_LOGGED.get("legs") != sorted(off):
+            _OWNBAR_OFF_LOGGED["legs"] = sorted(off)
+            log(f"[cloud-signal-stream] own bar: {', '.join(sorted(off))} off at the executor "
+                f"(legs_off) -- decided by the REST step, not the own bar")
+        five_m_legs = {k: v for k, v in five_m_legs.items() if k not in off}
     _handle_handoff_window(now, five_m_legs, paths, {}, log, payload=bar, force_live=True,
                            bar_source="ownbar", on_commit=_wake_exec, stage_out=stage_out)
     return True
