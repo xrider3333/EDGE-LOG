@@ -3628,6 +3628,14 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       r.topBox={l:Math.round(br.left),t:Math.round(br.top),r:Math.round(br.right),b:Math.round(br.bottom),w:Math.round(br.width),h:Math.round(br.height),
         disp:cs.display,vis:cs.visibility,op:effOp(tcw),vw:w.innerWidth,vh:w.innerHeight,
         covered:hit?!(hit===tcw||tcw.contains(hit)):null,coveredBy:hit&&!(hit===tcw||tcw.contains(hit))?(hit.tagName.toLowerCase()+(hit.id?'#'+hit.id:'')):null};}
+    // owner 11-25: the chip is one line inside the ONE status dot's panel now; the thing the owner
+    //   must be able to see in the bar is the DOT, so measure that when the chip sits in the panel
+    r.topInPanel=!!(tcw&&tcw.closest&&tcw.closest('[data-tbdotpanel]'));
+    var dotEl=d.querySelector('.tbdot');
+    if(dotEl){var dbr=dotEl.getBoundingClientRect(),dcs=w.getComputedStyle(dotEl);
+      r.topDot={l:Math.round(dbr.left),t:Math.round(dbr.top),r:Math.round(dbr.right),b:Math.round(dbr.bottom),
+        w:Math.round(dbr.width),h:Math.round(dbr.height),disp:dcs.display,vis:dcs.visibility,op:effOp(dotEl),
+        vw:w.innerWidth,vh:w.innerHeight};}
     r.timer=typeof w._qbFreshTimer;
     r.vis=d.visibilityState;
     var lp=q('[data-qblegpill="NOISE"]');r.legPill=lp?(w.getComputedStyle(lp).color===greyCol()?'grey':'colour'):null;r.legPillTxt=lp?(lp.textContent||'').trim():null;
@@ -8616,10 +8624,30 @@ def _errs(tag, r, fails):
 
 
 def _topbox(tag, r, fails):
-    """The top bar WEBULL chip must be drawn where the owner can see it."""
+    """The Webull state must be reachable from the top bar where the owner can see it.
+
+    Until 2026-11-25 that meant the chip itself, drawn in the bar. The owner then asked for ONE
+    status dot ('they are all over the place') with every check on one line behind it, so what has
+    to be visible is the DOT; the chip must still exist, inside that panel, carrying its own words.
+    """
     b = r.get('topBox')
     if not b:
         fails.append('%s: the top bar WEBULL chip is not on the page' % tag)
+        return
+    if r.get('topInPanel'):
+        dt = r.get('topDot')
+        if not dt:
+            fails.append('%s: the WEBULL chip is in the status panel but there is no status dot in the top bar' % tag)
+            return
+        why = []
+        if dt.get('disp') == 'none' or dt.get('vis') == 'hidden' or (dt.get('op') is not None and dt['op'] < 0.5):
+            why.append('hidden (display %s, visibility %s, opacity %s)' % (dt.get('disp'), dt.get('vis'), dt.get('op')))
+        if not dt.get('w') or not dt.get('h'):
+            why.append('zero size')
+        elif dt['l'] < -1 or dt['t'] < -1 or dt['r'] > dt['vw'] + 1 or dt['b'] > dt['vh'] + 1:
+            why.append('outside the %sx%s viewport (%s,%s to %s,%s)' % (dt['vw'], dt['vh'], dt['l'], dt['t'], dt['r'], dt['b']))
+        if why:
+            fails.append('%s: the top bar status dot is %s' % (tag, '; '.join(why)))
         return
     why = []
     if b.get('disp') == 'none' or b.get('vis') == 'hidden' or (b.get('op') is not None and b['op'] < 0.5):

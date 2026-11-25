@@ -485,6 +485,16 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .vbadge{font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;font-family:'JetBrains Mono',monospace}
 .lesson-card{background:var(--bg3);border:1px solid var(--border2);padding:13px 15px;margin-bottom:8px;overflow-wrap:anywhere}
 /* spinner / pulse */
+/* owner 11-25: ONE status dot in the top bar, its panel on hover or click - one line per check */
+.tbdotwrap{position:relative;display:inline-flex;align-items:center}
+.tbdot{background:none;border:none;padding:2px 4px;cursor:pointer;line-height:1;display:inline-flex;align-items:center}
+.tbdot-i{display:inline-block;width:8px;height:8px;border-radius:50%}
+.tbdot-panel{position:absolute;top:100%;right:0;z-index:60;display:flex;flex-direction:column;gap:5px;min-width:190px;
+  padding:8px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;font-size:10px;letter-spacing:.4px;white-space:nowrap;
+  box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.tbdot-panel[hidden]{display:none}
+.tbdotwrap:hover .tbdot-panel{display:flex}
+.tbdot-row{display:flex;align-items:center;gap:6px;min-height:13px}
 .pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;vertical-align:middle}
 .pulse-y{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--yellow);animation:pulse 2s infinite;vertical-align:middle}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
@@ -2251,7 +2261,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.32';
+const VERSION='92.33';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2272,6 +2282,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.33',date:'2026-11-25',notes:['THE TOP BAR, QUIETER (owner 11-25). The job gauges now read a short number - the run number once a job has one, else the test number from the board (t115), else a short handle - plus the percent or WAIT. The strategy file name moved into the hover, where the rest of the detail already lived.','CPU and RAM are off the top bar. They are still on the PC tab, which is where the machine is looked at. The same slot still says LIVE PAUSED or LIVE OFF, because that is about this page, not about the box.','ONE STATUS DOT instead of five marks. NT GATE, the Webull chip, the data-feed warning, AUTO and the green pulse were strung along the bar, each with its own colour. There is one dot now: green while every check is clear, amber or red the moment one is not. Hover or tap it and each check reads on its own line, with the same words and the same links as before.']},
 {v:'92.32',date:'2026-11-25',notes:['WEBULL PAPER, calmed down (owner 11-25). The page keeps every figure it had, in one small type scale at normal weight: the only bold thing left is the equity number.','The sidebar sits flush left - the empty strip beside it is gone and that width went to the sidebar, so its rows stop wrapping. The list of open legs under unrealized is gone; the unrealized total stays, and the open positions are named once, in the OPEN rows under the chart, now one small line each.','LIVE / WHAT-IF, the sizing buttons, the date range and the chart toggles are one row above the chart instead of three.','The strategy key no longer pushes the chart down: it sits inside the chart, top left, small and see-through. The two helper lines under the calendar fold into the small mark beside them - hover it to read them.']},
 {v:'92.25',date:'2026-11-22',notes:['WEBULL PAPER: two more live paper NOISE legs beside NOISE #382, NOISE #555.1 keel and NOISE #545.1 keel, each with its own trades, its own KEEL learning and 10 base shares; the account still nets one QQQ position.']},
 {v:'92.00',date:'2026-11-22',notes:['BOOKS: three more ML what-if legs, SHADOW only (NOISE 382.2 KEEL, ORB 234 gate, ORB 314 gate), each with live-like learning. What-if trades now publish per leg for the ledger trade table, written only when they change.']},
@@ -21493,6 +21504,8 @@ function _tbLoadHtml(){try{
     return '<span title="'+_q+'" style="color:#e0c341;cursor:help">LIVE OFF</span>';}
   if(window._lsPaused){const _t='This tab stopped listening while nobody was looking at it, to save the daily database allowance. It catches up the moment you come back.';
     return '<span title="'+_t+'" style="color:var(--text5);cursor:help">LIVE PAUSED</span>';}
+  return '';   // owner 11-25: CPU / RAM off the top bar (the PC tab still has them)
+  /* eslint-disable no-unreachable */
   const L=window._pcLoad; if(!L||!L.ok) return '';
   const cpu=Math.round(L.cpu_pct), mem=Math.round(L.mem_pct), free=L.free_gb;
   // A reading older than 10 minutes means the primary stopped publishing; say so rather than showing a stale number as live.
@@ -21505,6 +21518,35 @@ function _tbLoadHtml(){try{
     +(old?' - last reading '+age+' min ago, the runner may have stopped publishing':'')).replace(/"/g,'&quot;');
   return '<span title="'+tip+'" style="color:'+col+';cursor:help">CPU '+cpu+' &middot; RAM '+mem+(old?' ?':'')+'</span>';
 }catch(e){return '';}}
+// ONE STATUS DOT (owner 11-25). Worst-of: red beats amber beats green. The colour is read from the
+//   chips' own markup rather than re-derived, so a chip that learns a new state cannot leave the dot
+//   lying - the one thing a merged indicator must never do.
+function _tbStatusCol(h){h=String(h||'');
+  if(/attn-red|#e24b4a|var\(--red\)/.test(h))return 'var(--attn-red)';
+  if(/attn-amber|#e0c341|var\(--yellow\)|var\(--warn\)|LIVE OFF|LIVE PAUSED/.test(h))return 'var(--attn-amber)';
+  return 'var(--attn-ok)';}
+function _tbStatusLines(){
+  const auto=window._autoHandleOn?'<span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':'';
+  const warn=(()=>{try{const w=window._dataFeedWarn?window._dataFeedWarn():[];
+    return w.length?'<span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';}catch(e){return '';}})();
+  return [['load','<span id="tb-load" style="display:contents">'+_tbLoadHtml()+'</span>'],
+          ['auto',auto],['data',warn],
+          ['gate','<span id="tb-gate" style="display:contents">'+_tbGateHtml()+'</span>'],
+          ['webull',(typeof qbTopChipHtml==='function')?qbTopChipHtml():'']];}
+function _tbStatusHtml(){try{
+  const lines=_tbStatusLines(),body=lines.map(x=>x[1]).join('');
+  const col=_tbStatusCol(body);
+  const word=col==='var(--attn-ok)'?'everything checks out':(col==='var(--attn-amber)'?'something wants a look':'something needs you now');
+  return '<span class="tbdotwrap"><button type="button" class="tbdot" data-tbdot aria-expanded="false" title="Status - '+word+'. Click for every check."'
+    +' style="color:'+col+'"><span class="tbdot-i" style="background:'+col+'"></span></button>'
+    +'<span class="tbdot-panel" data-tbdotpanel hidden>'
+    +lines.map(x=>'<span class="tbdot-row" data-tbdotrow="'+x[0]+'">'+(x[1]||'<span style="color:var(--text5)">'+x[0]+' - nothing to report</span>')+'</span>').join('')
+    +'</span></span>';}catch(e){return '';}}
+// after a background redraw of one line inside the panel, the dot has to agree with it again
+function _tbDotSync(){try{const w=document.querySelector('.tbdotwrap');if(!w)return;
+  const pn=w.querySelector('[data-tbdotpanel]'),b=w.querySelector('.tbdot');if(!pn||!b)return;
+  const col=_tbStatusCol(pn.innerHTML);b.style.color=col;
+  const i=b.querySelector('.tbdot-i');if(i)i.style.background=col;}catch(e){}}
 // THE TOP BAR'S NT GATE CHIP AND QUEUE DIALS, built by name so a background tick can redraw just them (see _onResTables).
 function _tbGateHtml(){
             // ML GATE chip -- owner 2026-08-16: "just put this at the top with the demo
@@ -21614,6 +21656,11 @@ function _tbQueueHtml(){
                    :(stale?'var(--attn-red)'
                    :(stt==='paused'?'var(--attn-amber)':'var(--attn-ok)')));
           const nm=String(j.strategy||'job').replace(/\.py$/,'').replace(/^BOOK: /,'');
+          // the short label, in the owner's order of preference
+          const _tag=[j.notes,j.note,j.tag,j.title,j.label,j.strategy].map(x=>String(x==null?'':x)).join(' ');
+          const _test=(/\bTEST\s*#?\s*([0-9]{1,4})\b/i.exec(_tag)||[])[1];
+          const _rid=(j.run_id!=null&&j.run_id!=='')?j.run_id:(j.runId!=null?j.runId:null);
+          const short=(_rid!=null&&_rid!=='')?('#'+_rid):(_test?('t'+_test):String(j.id||'job').slice(0,4));
           const started=_ms(j.startedAt);
           const runMin=started?Math.round((Date.now()-started)/60000):null;
           const tip=(isRun
@@ -21627,7 +21674,7 @@ function _tbQueueHtml(){
           html+='<span data-queuechip title="'+String(tip).replace(/"/g,'&quot;')+'"'
             +' style="display:inline-flex;align-items:center;cursor:pointer;font-size:10px;letter-spacing:.4px;color:'+col+';margin-right:9px;white-space:nowrap">'
             +dial(pct,col,stale)
-            +'<span style="opacity:.92">'+nm.slice(0,16).toUpperCase()+'</span>'
+            +'<span style="opacity:.92">'+String(short).toUpperCase()+'</span>'
             +(failed?'<span style="opacity:.8;margin-left:4px">FAILED</span>'
               :(isRun?('<span style="opacity:.65;margin-left:4px">'
                        +(stale?'STALLED':(stt==='paused'?'PAUSED':(pct+'%')))+'</span>')
@@ -21643,6 +21690,7 @@ function _tbQueueHtml(){
 function _tbSwap(id,html){try{const el=document.getElementById(id);if(!el)return false;
   el.innerHTML=html;
   el.querySelectorAll('[data-queuechip]').forEach(_qc=>{_qc.onclick=()=>{activeTab='augur';augurSub='exec2';savePref('augurSub','exec2');renderApp();};});
+  try{_tbDotSync();}catch(_e){}
   const tb=document.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling;if(tb&&sb&&sb.classList&&sb.classList.contains('nav-subrow'))sb.style.top=tb.offsetHeight+'px';
   return true;}catch(e){return false;}}
 // THE RESEARCH TABLES ARE ON SCREEN (COMPARE > EXPLORE / STUDIES). A 2,000-row board takes 6 to 9 seconds to build, and a
@@ -21786,11 +21834,7 @@ function renderApp(){
       }).join(''):''}
       <span id="tb-tabs" style="display:contents"></span>
       <div class="tbstat">
-        <span id="tb-load" style="display:contents">${_tbLoadHtml()}</span>
-        ${autoHandle?'<span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
-        ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
-        <span id="tb-gate" style="display:contents">${_tbGateHtml()}</span>
-        ${typeof qbTopChipHtml==='function'?qbTopChipHtml():''}
+        <span id="tb-status" style="display:contents">${(window._autoHandleOn=!!autoHandle,_tbStatusHtml())}</span>
         <span id="tb-queue" style="display:contents">${_tbQueueHtml()}</span>
       </div>
     </div>
@@ -21800,12 +21844,16 @@ function renderApp(){
         <button id="tog-net" class="${!useGross?'on':''}">NET</button>
         <button id="tog-grs" class="${useGross?'on':''}">GROSS</button>
       </div>
-      <span class="pulse"></span>
       <label class="tblogoup" style="cursor:pointer;color:var(--text4);font-size:14px" title="Upload logo"><input type="file" accept="image/*" id="logo-upload" style="display:none"/>🖼</label>
       <button class="btn-ghost" id="set-gear" title="Settings — appearance, trading log, backtester (all in one)" style="font-size:16px;line-height:1;padding:4px 9px;color:var(--text4);font-variant-emoji:text">&#9881;</button>
       <button class="btn-d" style="font-size:var(--fsxs);padding:5px 10px" id="so-btn">OUT</button>
     </div>`;
   wrap.appendChild(tb);
+  // the one status dot: click opens the panel, click anywhere else shuts it
+  tb.querySelectorAll('[data-tbdot]').forEach(_d=>{_d.onclick=ev=>{ev.stopPropagation();
+    const pn=_d.parentNode.querySelector('[data-tbdotpanel]');if(!pn)return;
+    const open=pn.hasAttribute('hidden');if(open)pn.removeAttribute('hidden');else pn.setAttribute('hidden','');
+    _d.setAttribute('aria-expanded',open?'true':'false');};});
   // every dial is clickable - querySelector would have wired up only the first one
   tb.querySelectorAll('[data-queuechip]').forEach(_qc=>{
     _qc.onclick=()=>{activeTab='augur';augurSub='exec2';savePref('augurSub','exec2');renderApp();};
