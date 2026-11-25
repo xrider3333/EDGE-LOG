@@ -1803,6 +1803,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-paper .lg-pills button:hover,.lg-uni.lg-paper .lg-pills button:hover{color:var(--text3);background:color-mix(in srgb,var(--text) 6%,transparent)}
 .lg-paper .lg-pills button.active,.lg-uni.lg-paper .lg-pills button.active{
   color:var(--text);background:color-mix(in srgb,var(--text) 12%,transparent);border-bottom-color:transparent}
+/* board 183 round 2 (owner 11-25): no what-if tag, and the paper calendar drops its key and help line */
+.lg-paper .lgv-wi,.lg-paper .lgv-hint{display:none}
+.lg-paper .lg-cal-cav,.lg-paper .lg-cal-note{display:none}
 /* board 183 stage 2: the list's extras behind '...', and the strategies list as plain lines */
 .lg-tl-more{display:inline-block;position:relative}
 .lg-tl-more>summary{list-style:none;cursor:pointer;padding:0 6px;color:var(--text5);font-size:13px;line-height:1}
@@ -2344,7 +2347,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.42';
+const VERSION='92.43';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4097,7 +4100,8 @@ function _lgDash(l,all){return l.dash||_LG_DASHES[Math.max(0,(all||[]).indexOf(l
 // draws l.dash / o.lineDash (the boards use ONE dotted pattern in the line's own colour). Read at draw time, so a theme change redraws right.
 const _LG_DASHES_MONO=['2 3','6 3','2 7','6 3 2 3'];
 const _lgMono=()=>(document.documentElement.getAttribute('data-theme')||'')==='mono';
-function _lgDashOf(l,o){if(l&&l.shadow&&l.dash)return (_lgMono()&&l.dashMono)?l.dashMono:l.dash;   // v91.71: a shadow / what-if line keeps its own dash on every board
+function _lgDashOf(l,o){if(o&&(o.id==='qb'||o.id==='p2'))return 'none';   // board 183 (owner 11-25): on the paper ledgers every line is solid colour, no dots or dashes
+  if(l&&l.shadow&&l.dash)return (_lgMono()&&l.dashMono)?l.dashMono:l.dash;   // v91.71: a shadow / what-if line keeps its own dash on every board
   return (_lgMono()&&l.dashMono)?l.dashMono:(o.lineDash||_lgDash(l,o.lines));}
 // % tick label (the shared chart's left gutter): whole percent from 10 up, one place from 1, two under 1
 function _lgAxisPct(p){const a=Math.abs(p);if(a<1e-9)return '0%';return (p<0?'-':'+')+(a>=10?a.toFixed(0):(a>=1?a.toFixed(1):a.toFixed(2)))+'%';}
@@ -8641,7 +8645,7 @@ function bkaColorOf(id){const s=bkaColorSlot(id,bkaUniverse());return {slot:s,co
 function bkaLineStyle(id){const c=bkaColorOf(id);return {color:c.color,dash:BKA_DASH,dashMono:c.dashMono,width:1.5,opacity:0.95,shadow:true,slot:c.slot};}
 // the swatch: a short line in the leg's colour and dash, the same one the chart legend draws
 function bkaSwatchHtml(id,attr){const c=bkaColorOf(id),d=_lgMono()?c.dashMono:BKA_DASH;
-  return '<svg class="bka-swatch" '+(attr||'')+' data-bkaswatch="'+String(id).replace(/"/g,'')+'" data-bkaslot="'+c.slot+'" width="14" height="6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" style="stroke:'+c.color+'" stroke-width="2.4" stroke-dasharray="'+d+'"/></svg>';}
+  return '<svg class="bka-swatch" '+(attr||'')+' data-bkaswatch="'+String(id).replace(/"/g,'')+'" data-bkaslot="'+c.slot+'" width="14" height="6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" style="stroke:'+c.color+'" stroke-width="2.4" stroke-dasharray="none"/></svg>';}
 // the hover readout: each switched-on shadow line's $ through point i, in its own colour
 function bkaHoverHtml(lines,i){return (lines||[]).filter(l=>l&&l.shadow&&l.on!==false&&l.vals&&l.vals[i]!=null).map(l=>
   ' <span class="bka-hv'+(l.whatif?' wi':'')+'" data-bkahover="'+String(l.bka||l.bkaFwd||l.name).replace(/"/g,'')+'" style="color:'+l.color+'">&middot; '+String(l.name).replace(/&/g,'&amp;').replace(/</g,'&lt;')+' '+ledgerSigned(+l.vals[i])+'</span>').join('');}
@@ -8697,7 +8701,8 @@ function bkaKpiSpec(board,ctx,live,base,baseWord,fwd){if(!ctx)return null;
 function bkaKpiOpen(b){try{return localStorage.getItem('el_bka_kpi_open_'+b)==='1';}catch(e){return false;}}
 function bkaKpiHdHtml(b,open,inner){return '<div class="bka-kpi-hd" role="button" tabindex="0" data-bkakpihd="'+b+'" aria-expanded="'+(open?'true':'false')+'" title="'+(open?'Fold':'Unfold')+' the what-if KPI table">'+inner
   +'<span class="bka-kcaret" aria-hidden="true">'+(open?'&#9662;':'&#9656;')+'</span></div>';}
-function bkaKpiNoneHtml(b){const open=bkaKpiOpen(b);
+function bkaKpiNoneHtml(b){if(b==='qb'||b==='p2')return '';   // board 183 (owner 11-25): no what-if comparison on the paper ledgers
+  const open=bkaKpiOpen(b);
   return '<div class="bka-kpi bka-kpi-none'+(open?' bka-kpi-open':'')+'" data-bkakpinone="'+b+'">'+bkaKpiHdHtml(b,open,'<span class="bka-t">What-if KPIs</span><span class="bka-s">0 shadows on</span>')
     +'<div class="bka-kpi-body bka-kpi-hint">Switch a shadow leg on in the Books panel to compare.</div></div>';}
 function bkaKpiToggle(h){const b=h.getAttribute('data-bkakpihd'),box=h.closest('.bka-kpi');if(!box)return;const open=!box.classList.contains('bka-kpi-open');
@@ -8707,6 +8712,7 @@ function bkaKpiToggle(h){const b=h.getAttribute('data-bkakpihd'),box=h.closest('
 document.addEventListener('click',e=>{const h=e.target&&e.target.closest&&e.target.closest('[data-bkakpihd]');if(!h||e.target.closest('.lg-help'))return;bkaKpiToggle(h);});
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const h=(e.target&&e.target.matches&&e.target.matches('[data-bkakpihd]'))?e.target:null;if(!h)return;e.preventDefault();bkaKpiToggle(h);});
 function bkaKpiTableHtml(spec){
+  if(spec&&(spec.board==='qb'||spec.board==='p2'||spec.board==='nt8'))return '';   // board 183 (owner 11-25)
   if(!spec||!spec.shadows||!spec.shadows.length)return (spec&&spec.board)?bkaKpiNoneHtml(spec.board):'';
   const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const to=spec.to||null,from=spec.from||null,inR=d=>(!from||d>=from)&&(!to||d<=to);
@@ -8783,7 +8789,8 @@ function bkaOnSum(board,from,to,skip){let s=0;const seen={};bkaOnA(board).forEac
 //        Remembered per board: el_lgv_view_<b>, el_lgv_size_<b> (b = p2 | qb).
 function _lgvLs(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function _lgvLsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
-function lgvView(b){return _lgvLs('el_lgv_view_'+b)==='whatif'?'whatif':'live';}
+function lgvView(b){if(b==='qb'||b==='p2')return 'live';   // board 183 (owner 11-25): the paper ledgers have no WHAT-IF view - a strategy switch simply recomputes with or without that leg
+  return _lgvLs('el_lgv_view_'+b)==='whatif'?'whatif':'live';}
 // v91.89 (owner 11-22) THE VIEW DECIDES, THE SWITCHES REMEMBER. A shadow switch (Books as-if, or a box shadow row on Webull) holds the
 // REMEMBERED what-if set; the view says whether that set is APPLIED. LIVE = none of it anywhere (hero, tiles, chart, daily bars, calendar,
 // KPI table); WHAT-IF = all of it. Switching a shadow ON flips the board to WHAT-IF; switching the last one OFF in WHAT-IF returns to LIVE;
@@ -8896,18 +8903,13 @@ function lgvBarHtml(b,o){o=o||{};const v=lgvView(b),s=lgvSize(b),ok=!!o.whatifOk
   const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const hint='Switch a shadow leg on in the Books panel (or a shadow row in Strategies) to compare.';
   const btn=(k,val,lab,on,tip,dis)=>'<button type="button" data-lgvboard="'+b+'" data-lgv'+k+'="'+val+'" class="'+(on?'active':'')+'" aria-pressed="'+(on?'true':'false')+'" title="'+esc(tip)+'"'+(dis?' disabled aria-disabled="true"':'')+'>'+lab+'</button>';
-  const _rh=(b==='qb'||b==='p2');   // board 183: the two paper ledgers (Webull, NT8) put these groups behind '...'
+  const _rh=(b==='qb'||b==='p2');   // board 183 (owner 11-25): the paper ledgers drop the LIVE / WHAT-IF group; the sizing group stays in plain sight
   return '<div class="lgv-bar'+(_rh?' lgv-rh':'')+'" data-lgvbar="'+b+'" data-lgveff="'+eff+'" data-lgvsizenow="'+s+'">'
-    +(_rh?('<details class="lgv-more" data-lgvmore="'+b+'"><summary title="View and sizing: '
-      +(eff==='whatif'?'WHAT-IF':'LIVE')+', '+(s==='fixed'?'FIXED':(s.slice(1)+' % risk'))+'" aria-label="view and sizing">'
-      +'<span class="lgv-more-now">'+(eff==='whatif'?'WHAT-IF':'LIVE')+' &middot; '+(s==='fixed'?'FIXED':(s.slice(1)+'%'))+'</span>'
-      +'<span class="lgv-more-dots" aria-hidden="true">&#8943;</span></summary><div class="lgv-more-body">'):'')
-    +'<div class="hm-mode lgv-view" role="group" aria-label="view">'
+    +(_rh?'':'<div class="hm-mode lgv-view" role="group" aria-label="view">'
     +btn('view','live',s!=='fixed'?'LIVE &middot; sized (simulated)':'LIVE',eff==='live',s!=='fixed'?('The strategies this platform trades, each closed trade re-priced at '+lgvSizeWord(s)+'. Simulated - not the account. FIXED shows the account as traded.'):'The account: only the strategies this platform trades.',false)
-    +btn('view','whatif','WHAT-IF',eff==='whatif',ok?'LIVE + every shadow leg switched on, added into the hero, tiles, chart and calendar. Never the account.':hint,!ok)+'</div>'
+    +btn('view','whatif','WHAT-IF',eff==='whatif',ok?'LIVE + every shadow leg switched on, added into the hero, tiles, chart and calendar. Never the account.':hint,!ok)+'</div>')
     +'<div class="hm-mode lgv-size" role="group" aria-label="sizing">'
     +RTS_COLS.map(([k,l])=>btn('size',k,'<span class="lgv-l">'+(k==='fixed'?('FIXED '+(o.fixedWord||'')).trim():l)+'</span><span class="lgv-s">'+(k==='fixed'?'FIXED':(k.slice(1)+'%'))+'</span>',s===k,k==='fixed'?'As traded ('+(o.fixedWord||'the fixed lot')+').':('Each closed trade re-priced at '+k.slice(1)+' % of the account risked on it. '+(o.sizeTip||'')),false)).join('')+'</div>'
-    +(_rh?'</div></details>':'')
     // board 159 (owner 11-22): both tags always hold their slot (hidden when off), so WHAT-IF / RISK never reflow the bar. The size tag
     // carries the risk-sized / fixed counts (data-riskn / data-fixn, and its hover) that the sidebar hero tag used to show.
     +(eff==='whatif'?'<span class="lgv-tag lgv-wi" data-lgvtag="whatif" title="'+esc(o.whatifTip||'LIVE + the switched-on shadow legs, simulated. Not the account.')+'">what-if</span>':'<span class="lgv-tag lgv-wi lgv-off" aria-hidden="true">what-if</span>')
@@ -51005,6 +51007,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +(()=>{try{const C=window._qbBkaCtx;if(!C)return '';const v=bkaOnSum('qb',C.from,null,id=>!!(C.live(id)||C.fwd(id)));
             if(!bkaOnA('qb').some(id=>!(C.live(id)||C.fwd(id))&&bkaLegB('qb',id)&&Array.isArray(bkaLegB('qb',id).d)))return '';
             const w=Math.round((qbRangePnl+qbShOnSum+v)*100)/100;
+            return '';   // board 183 (owner 11-25): no what-if line under the account number
             return '<span class="lg-hero-excl" data-qbbkawhatif="'+w+'" title="What-if only: realized + the switched-on shadow legs + the book legs switched on as-if (simulated). Never part of the account number.">what-if incl. book as-if '+ledgerSigned(w)+'</span>';}catch(e){return '';}})()+'</div>',status:qbStatusSec,pills:'',chart:'<div class="qbx-chart">'+equityHtml+'</div>',
           stats:'<div class="qbx-stats qbx-lgstats">'+_lgvWrapQb(qbLgStatsHtml,'stats')+'</div>',more:'',cal:'<div class="qbx-activity">'+_lgvWrapQb(qbCalHtml,'cal')+'</div><div class="qbx-stats qbx-lgmore">'+qbLgMoreHtml+'</div>'};
         const qbWide=(window.innerWidth||0)>=1100;
