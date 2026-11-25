@@ -1881,6 +1881,50 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-mode{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
 .hm-mode button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
 .hm-mode button.active{background:var(--bg1);color:var(--text)}
+/* ── CALM THE PAPER BOARDS (owner 11-25: 'the entire page is verbose, busy, and overstimulating ...
+   you keep using this big bold font. stop it.'). Same data, one small type scale, normal weight,
+   fewer borders, helper text behind the ? it already carries. Point 2 (the open-leg list under
+   'unrealized') is the only thing removed, and it is removed in the markup, not here. */
+/* point 1: the sidebar sits flush left - the page's own gutter was ~66 px of nothing beside it, and
+   that width goes to the sidebar instead (264 -> 300), so its rows stop wrapping. */
+@media (min-width:1100px){
+  .lg-frame.lg-lside{--lgf-side:300px;padding-left:0;column-gap:22px}
+  .content:has(>.lg-frame.lg-lside),.content:has(.qb-shell.lg-lside){padding-left:12px}
+}
+/* point 3: the one control row above the chart - VIEW | SIZING | range | toggles | density on one line */
+/* the chart row (caption + legend slot) is flipped above the chart box on .lg-uni (order -1); the
+   control row goes above that, so the caption still sits right on top of the chart. */
+.lg-uni .qb-chart-wrap>.qbx-ctl-row,.lg-uni [data-p2sec="chart"]>.qbx-ctl-row{order:-2}
+.qbx-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:0 0 8px;min-width:0}
+.qbx-ctl-row>*{margin:0!important}
+.qbx-ctl-row .lgv-bar{margin:0;flex:0 0 auto}
+.qbx-ctl-row .qbx-range-row{margin:0;flex:0 0 auto}
+/* point 4: OPEN positions under the chart - one compact row each, small regular type, thin header */
+.qbx-opensec .lg-tl-dayhd{font-size:9px;letter-spacing:.4px;padding:4px 2px;border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.qbx-opensec .lg-tl-daylbl{font-weight:500;color:var(--text4)}
+.qbx-opensec .lg-tl-daymeta{font-weight:400;color:var(--text5)}
+.qbx-openrow{padding:4px 2px;min-height:0}
+.qbx-openrow .lg-c-sym{font-size:11px;font-weight:400;line-height:1.3}
+.qbx-openrow .lg-c-sym small,.qbx-openrow .lg-c-time small{display:inline;margin-left:4px;font-size:9px}
+.qbx-openrow .lg-c-time,.qbx-openrow .lg-c-size,.qbx-openrow .lg-c-side,.qbx-openrow .lg-c-pts,.qbx-openrow .lg-c-strat{font-size:10px;font-weight:400}
+.qbx-openrow .lg-c-pnl{font-size:11px;font-weight:400}
+.qbx-openrow .lg-side{font-size:8.5px;font-weight:500;letter-spacing:.3px}
+/* point 5: the strategy key rides INSIDE the plot, top-left, small and see-through - never above it */
+.lg-legend.lg-legend-in{padding:2px 5px;gap:1px;background:color-mix(in srgb,var(--bg) 45%,transparent);opacity:.82;max-width:46%}
+.lg-legend.lg-legend-in:hover{opacity:1;background:color-mix(in srgb,var(--bg) 80%,transparent)}
+.lg-legend.lg-legend-in button{font-size:8.5px;gap:4px}
+/* point 6: the two helper lines under the calendar fold into the (i) they already carry; the words
+   stay in the DOM (and in the hover), they just stop shouting on every render. */
+.lg-paper .lg-cal-cav>summary,.lg-paper .lg-cal-note{font-size:0;letter-spacing:0;gap:4px}
+.lg-paper .lg-cal-cav>summary>*,.lg-paper .lg-cal-note>*{font-size:9px}
+.lg-paper .lg-cal-note{margin-top:4px}
+.lg-paper .lg-cal-note .lg-help{font-size:9px}
+/* point 7: one type scale on the paper boards, normal weight - bold is left for the equity number */
+.lg-paper .lg-tl-row .lg-c-sym{font-size:12px;font-weight:400}
+.lg-paper .lg-tl-dayhd,.lg-paper .lg-tl-daylbl{font-weight:500}
+.lg-paper .lg-row-name,.lg-paper .lg-stat-val,.lg-paper .lg-tl-row .lg-c-pnl{font-weight:500}
+.lg-paper .qbx-leg-live b{font-weight:500}
+.lg-paper .lg-cal-day .m{font-weight:500}
 /* v91.81 owner 11-22: LEDGER VIEW (LIVE | WHAT-IF) + SIZING (FIXED | RISK 1/2/3 %) bar on NT8 PAPER and WEBULL PAPER, and the what-if accent */
 .lgv-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px;min-width:0}
 .lgv-bar .hm-mode button{padding:5px 10px}
@@ -2207,7 +2251,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.31';
+const VERSION='92.32';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2228,6 +2272,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.32',date:'2026-11-25',notes:['WEBULL PAPER, calmed down (owner 11-25). The page keeps every figure it had, in one small type scale at normal weight: the only bold thing left is the equity number.','The sidebar sits flush left - the empty strip beside it is gone and that width went to the sidebar, so its rows stop wrapping. The list of open legs under unrealized is gone; the unrealized total stays, and the open positions are named once, in the OPEN rows under the chart, now one small line each.','LIVE / WHAT-IF, the sizing buttons, the date range and the chart toggles are one row above the chart instead of three.','The strategy key no longer pushes the chart down: it sits inside the chart, top left, small and see-through. The two helper lines under the calendar fold into the small mark beside them - hover it to read them.']},
 {v:'92.25',date:'2026-11-22',notes:['WEBULL PAPER: two more live paper NOISE legs beside NOISE #382, NOISE #555.1 keel and NOISE #545.1 keel, each with its own trades, its own KEEL learning and 10 base shares; the account still nets one QQQ position.']},
 {v:'92.00',date:'2026-11-22',notes:['BOOKS: three more ML what-if legs, SHADOW only (NOISE 382.2 KEEL, ORB 234 gate, ORB 314 gate), each with live-like learning. What-if trades now publish per leg for the ledger trade table, written only when they change.']},
 {v:'91.99',date:'2026-11-22',notes:['ONE LABEL on NT8 PAPER and WEBULL PAPER (owner 11-22): every strategy and config name reads FAMILY #RUN.CFG MODE, for example ORB #314.22 raw, NOISE #382.2 keel, in the sidebar (LIVE, SHADOW, retired), the Books as-if legs, the chart legend, the what-if KPI headers and the day bar hovers. The set number and the mode word are visible again; the run number is printed once; size stays in the hover. A book leg is a raw replay of its run champion, so it reads the champion set (NOISE422 = NOISE #422.2 raw, ORB546 = ORB #546.94 raw, NOISE398 = NOISE #528.1 raw, the #528 PASS pick it replays); a run with no known set reads champ','ONE CHART on both boards (owner GO 11-22): the CURVE and DAILY switch is gone. The running total line is always drawn; DAILY BARS (stacked by strategy colour, on by default) and STRATEGY LINES (the per-config lines, off by default) are two toggles remembered per board. The white day-net tick across each stacked bar is gone. Hover, legend and the % axis stay','NO GOLD BOOKS (owner 11-22): the Books as-if panel lists only the no-gold books, named without the words no gold (Book 20, Book 25 provisional, Book #463 today); tools/book_legs_publish.py leaves the gold books out at the source and the page drops them from an older doc too','BOOKS PANEL fixes (MANAGER): in LIVE a book row total no longer adds remembered shadow legs, so no what-if dollars show in LIVE; under RISK pct sizing the shadow leg dollars and the what-if total read the sized days, the same figures as the chart and the KPI table; a shadow leg with no trades in the range shows an em dash, not $0.','AUDIT SWEEP 2 (owner GO 11-22). TRADING LOG AI ASSESSMENT reads the weekday at local noon so a trade no longer lands on the day before; AI WEEK / MONTH cut from the New York date and MONTH is now the last 30 days, as its label says. SETTINGS no longer wipes what you are typing: a background redraw skips the overlay while a field has focus or unsaved edits, and otherwise redraws only the pane body (IMPORT / EXPORT only its live panel). Below 600px the settings menu is a strip above the pane. ABOUT caches its history list. BUILDER lockbox cut and the lockbox test prompt do their date maths in UTC. Books card ROC hover now reads ROC pct a year sized so the worst drawdown is 30k. Retired family names (NQDIP, TTMSQZ, ENGUQ) no longer reach STUDIES dot hovers, study titles, the paper pointer list or the RUNBOARD research plane. Account balances total reads ALL ACCOUNTS. Dead second ETFDIP family entry removed.']},
@@ -47750,7 +47795,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const openLine=(rangeInfo&&rangeInfo.open)
           ?ledgerHeroCells({label:'<span'+openTip+'>unrealized</span>',
             v:ov,fig:ov!=null?ledgerSigned(ov):'<span class="hm-suffix" data-qbheroopen-unpriced>not priced yet</span>',figAttr:ov!=null?' data-qbheroopen':'',
-            extra:rangeInfo.openWho?'&middot; '+rangeInfo.openWho:''})
+            extra:''})   // owner 11-25: the total only - the open legs are listed once, in the OPEN rows under the chart
           :'';
         // r2 step 2 (item 5): 'realized +$X' - 'closed trades' is what realized means and the range is the lit pill; both stay in the title
         const rangeLine=rv==null?'':ledgerHeroCells({label:'<span data-qbrealword>realized</span>',v:rv,cls:rc,fig:ledgerSigned(rv),
@@ -49228,7 +49273,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +Z.skipped+' trade'+(Z.skipped===1?'':'s')+' rounded to 0 shares and skipped. Open lots and trades before the range stay as traded.'
               +(_lgvShQbRaw.length?' Shadow legs: each as-if trade sized like a live trade (shares = floor(equity x risk % / its q.risk_usd a share)) when its as-if data carries a risk figure; '+_lgvShQb.filter(x=>x.fixed).length+' of '+_lgvShQb.length+' have none and stay FIXED (no stop).':'')):'';
             return lgvBarHtml('qb',{whatifOk:_lgvShQbMem.length>0,fixedWord:'10 sh',sizeTip:tip,sized:Z,whatifTip:'LIVE + '+_lgvShQbMem.map(x=>x.name).join(', ')+' (simulated, never the account).'});})();
-          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerChartOptsHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
+          // owner 11-25 (point 3): ONE control row above the chart - VIEW | SIZING | range pills | chart toggles | density
+          const qbCtlRow='<div class="qbx-ctl-row">'+_lgvBarQb+'<div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerChartOptsHtml('qb')+'</div>';
+          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row">'+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
             +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord):('Cumulative P&amp;L since '+naS(QE.live_from));
           const qbRangeCapFull=((qbRange&&qbRange!=='ALL')?('Cumulative P&L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&L since '+naS(QE.live_from)))
@@ -49236,9 +49283,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const qbCapHelp=extra=>'<span class="lg-help" data-qbcaphelp title="'+String(qbRangeCapFull+(extra||'')).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">?</span>';
           if(!qbRangeTrades.length){
             window._qbLgChart=null;
-            equityHtml='<div class="qb-chart-wrap'+(_lgvEffQb==='whatif'?' lgv-whatif':'')+'">'
+            equityHtml='<div class="qb-chart-wrap'+(_lgvEffQb==='whatif'?' lgv-whatif':'')+'">'+qbCtlRow
               +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'
-              +qbChartRow(false,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(''))+_lgvBarQb+'<div class="bka-kpi-slot" id="qb-bka-kpi"></div></div>';
+              +qbChartRow(false,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(''))+'<div class="bka-kpi-slot" id="qb-bka-kpi"></div></div>';
           }else{
             const tsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
             const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);
@@ -49403,7 +49450,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<span class="qbx-lg-short">'+(hasBookOnly&&hasBookPx?'book only / book price = no fill':(hasBookOnly?'book only = no order':'book price = no fill price'))+'</span></span>'):'')
               +'</div>'):'';
             // LEDGER step 12: the caption and the key sit under the chart, in the shared chart foot (the same place on every board)
-            equityHtml='<div class="qb-chart-wrap'+(_lgvEffQb==='whatif'?' lgv-whatif':'')+'">'+_lgvBarQb
+            equityHtml='<div class="qb-chart-wrap'+(_lgvEffQb==='whatif'?' lgv-whatif':'')+'">'+qbCtlRow
               +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'
               +qbChartRow(true,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords))+'<div class="bka-kpi-slot" id="qb-bka-kpi"></div></div>';
           }
