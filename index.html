@@ -1786,6 +1786,19 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .qbx-st-tog[aria-expanded="true"] .qbx-st-chev{transform:rotate(180deg)}
 .qbx-st1 .qbx-st-rf,.lg-frame .qbx-st1 .qbx-st-rf{height:22px;padding:0 7px;font-size:12px;letter-spacing:0;border-color:var(--border2)}
 .qbx-st-chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-start;padding-top:4px}
+/* board 183 stage 2: the list's extras behind '...', and the strategies list as plain lines */
+.lg-tl-more{display:inline-block;position:relative}
+.lg-tl-more>summary{list-style:none;cursor:pointer;padding:0 6px;color:var(--text5);font-size:13px;line-height:1}
+.lg-tl-more>summary::-webkit-details-marker{display:none}
+.lg-tl-more>summary:hover{color:var(--text3)}
+.lg-tl-more-body{position:absolute;z-index:40;top:calc(100% + 4px);right:0;display:flex;align-items:center;gap:8px;
+  padding:8px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.lg-paper .lg-row{padding:4px 6px;border-bottom:1px solid color-mix(in srgb,var(--border2) 35%,transparent);border-radius:0}
+.lg-paper .lg-row-name{font-size:11px;font-weight:400;letter-spacing:.2px}
+.lg-paper .lg-row .lg-sw,.lg-paper .lg-row .lg-row-sw{opacity:0;transition:opacity .12s}
+.lg-paper .lg-row:hover .lg-sw,.lg-paper .lg-row:focus-within .lg-sw,
+.lg-paper .lg-row:hover .lg-row-sw,.lg-paper .lg-row:focus-within .lg-row-sw{opacity:1}
+@media (hover:none){.lg-paper .lg-row .lg-sw,.lg-paper .lg-row .lg-row-sw{opacity:1}}
 /* ══ BOARD 183 (owner 11-25: 'less stimulating, more Robinhood-esque minimalist') ══════════════
    The paper ledgers keep every number - daily bars, strategy lines, every ledger trade, the
    calendar where it is. This sheet changes only the look: one small type scale, normal weight,
@@ -2314,7 +2327,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.36';
+const VERSION='92.37';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4859,11 +4872,13 @@ function ledgerTradeListHtml(o){
   }
   const chips=LEDGER_TL_CHIPS.map(k=>({k:k,label:k})).concat(o.chips||[]);
   const total=o.total!=null?o.total:rows.length;
-  const bar='<div class="lg-tl-bar">'
+  const _rhL=(id==='qb'||id==='p2');   // board 183: the paper ledgers read as a plain list; the extras sit behind '...'
+  const bar='<div class="lg-tl-bar'+(_rhL?' lg-tl-rh':'')+'">'
     +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+real(rows).length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
+    +(_rhL?'<details class="lg-tl-more"><summary title="list or table, and the per-trade charts" aria-label="more list options"><span aria-hidden="true">&#8943;</span></summary><div class="lg-tl-more-body">':'')
     +'<span class="lg-tl-views" data-lgviews="'+esc(id)+'"><span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span>'+(o.viewX||'')
     +(o.charts?'<button type="button" class="lg-fchip lg-tl-chartsbtn'+(chartsOn?' active':'')+'" data-lgcharts="'+esc(id)+'" aria-pressed="'+(chartsOn?'true':'false')+'" title="draw a small candle chart under every trade on this list, with the entry and the exit marked. A chart is drawn only once its row reaches the screen, and kept after that, so turning this on does not fetch twenty charts at once.">CHARTS</button>':'')
-    +'</span></div>'
+    +'</span>'+(_rhL?'</div></details>':'')+'</div>'
     +'<div class="lg-tl-find"><input type="text" id="'+esc(id)+'-search" data-lgsearch class="lg-tl-search" autocomplete="off" spellcheck="false" placeholder="'+esc(o.placeholder||'Search symbol, setup, note...')+'" aria-label="Search trades" value="'+esc(o.query)+'">'
     +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div>'+(o.findX||'')+'</div>'
     +(o.slot?'<div class="lg-tl-slot">'+o.slot+'</div>':'')+'</div>';
@@ -8864,7 +8879,7 @@ function lgvBarHtml(b,o){o=o||{};const v=lgvView(b),s=lgvSize(b),ok=!!o.whatifOk
   const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const hint='Switch a shadow leg on in the Books panel (or a shadow row in Strategies) to compare.';
   const btn=(k,val,lab,on,tip,dis)=>'<button type="button" data-lgvboard="'+b+'" data-lgv'+k+'="'+val+'" class="'+(on?'active':'')+'" aria-pressed="'+(on?'true':'false')+'" title="'+esc(tip)+'"'+(dis?' disabled aria-disabled="true"':'')+'>'+lab+'</button>';
-  const _rh=(b==='qb'||b==='nt');   // board 183: the paper ledgers put these two groups behind '...'
+  const _rh=(b==='qb'||b==='p2');   // board 183: the two paper ledgers (Webull, NT8) put these groups behind '...'
   return '<div class="lgv-bar'+(_rh?' lgv-rh':'')+'" data-lgvbar="'+b+'" data-lgveff="'+eff+'" data-lgvsizenow="'+s+'">'
     +(_rh?('<details class="lgv-more" data-lgvmore="'+b+'"><summary title="View and sizing: '
       +(eff==='whatif'?'WHAT-IF':'LIVE')+', '+(s==='fixed'?'FIXED':(s.slice(1)+' % risk'))+'" aria-label="view and sizing">'
