@@ -1803,6 +1803,10 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-paper .lg-pills button:hover,.lg-uni.lg-paper .lg-pills button:hover{color:var(--text3);background:color-mix(in srgb,var(--text) 6%,transparent)}
 .lg-paper .lg-pills button.active,.lg-uni.lg-paper .lg-pills button.active{
   color:var(--text);background:color-mix(in srgb,var(--text) 12%,transparent);border-bottom-color:transparent}
+/* board 183 round 2 item 8b: the ledger draws as a TABLE here, so the row rules had to name it */
+.lg-paper .lg-tl table td,.lg-paper .lg-tl table td *{font-size:9px}
+.lg-paper .lg-tl table th{font-size:8.5px;letter-spacing:.3px;color:var(--text5);font-weight:400}
+.lg-paper .lg-tl .lg-tl-dayhdrow td,.lg-paper .lg-tl .lg-tl-dayhdrow td *{font-size:8.5px;color:var(--text5)}
 /* board 183 round 2 (owner 11-25) item 6: the warnings are one small row in the tab header; the
    hero block stays in the page for screen readers (and the board probe) but draws nothing. */
 .tbdot-chips{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:6px;vertical-align:middle}
@@ -2370,7 +2374,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.46';
+const VERSION='92.47';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
