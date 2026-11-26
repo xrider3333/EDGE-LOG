@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.87';
+const VERSION='92.88';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.88',date:'2026-11-26',notes:['RESULTS, TEARSHEET report: less clicking and scrolling (owner 11-26). Six tabs are now three. SUMMARY is one page with everything that decides a run: the four numbers, equity and drawdown beside the IS / WF / LB table, then folds, years, an ML card (each version on net over max DD against no ML) and a Checks card (only the flags and cautions, the rest counted) side by side, then monthly net beside where the money comes from. DEEP DIVE holds the detail on one page with jump links: trades (distribution, MAE / MFE), config search (3-D surface and the rest), ML in full, and every check. SETUP is unchanged. The seven layout buttons in the report header are now one small dropdown, and the charts are a little shorter so the summary fits a screen. Books get the same treatment: one Summary page with legs and checks on it, plus Setup.']},
 {v:'92.87',date:'2026-11-26',notes:['RESULTS, TEARSHEET report, three additions (owner 11-26). (1) A new ML tab: one table that answers whether ML earns its keep - the plain strategy, the picked gate, the best sizing tilt, the best gate plus sizing, and KEEL, each with trades kept, average size, net over max DD, net, PF and Sortino before LB, plus WF + LB and LB net; then the ten best gate models tried; then the full ML readout that used to sit at the bottom of Robustness. The summary line now says in one sentence whether a gate beat the plain strategy. (2) Books now open in the TEARSHEET too: headline numbers for the whole book, equity and drawdown with LB shaded, IS / LB / whole book table with the marked-daily drawdown, net by slice, the worst fall split by leg, a Legs tab, the checks, and a Setup tab. (3) The older panels shown inside the tabs (config search, 3-D surface, MAE / MFE, distributions) now use the report typeface and flat cards so they match the rest.']},
 {v:'92.85',date:'2026-11-26',notes:['WEBULL and NT8 trade charts: a NOISE trade draws the VWAP bold from entry to exit, the line it closes on, and the VWAP legend says bold = exit line.']},
 {v:'92.84',date:'2026-11-26',notes:['RESULTS: the run list has a new look, the RUN RAIL (owner 11-26). It is a slim list down the left of the report: one status dot (green pass, amber weak, red fail), the run number and family, the file, market and date beneath, and one number on the right - ROC at $30k, or whatever you sort by. Above it: search, a family picker, a sort picker (newest, ROC at $30k, WF Sortino, WF DD pct, WF DD5, net, score), a new All / Pass / Weak / Fail filter, and links for champions, starred, archived and clear filters. It uses the same filters, search and paging as before, so the same runs are listed. The rail comes on by itself with the TEARSHEET report; click table view on the rail to get the full table with every column back, and the RAIL button on the table to return.']},
@@ -32319,7 +32320,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       +'.tear .tmeta{display:flex;flex-wrap:wrap;gap:3px 14px;font-size:12px;color:var(--text3);margin:0 0 10px}'
       +'.tear .tsum{color:var(--text2);max-width:86ch;margin:0 0 14px}.tear .tsum b{color:var(--text);font-weight:600}'
       +'.tear .tkpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));border:1px solid var(--border);border-radius:10px;background:var(--bg2);overflow:hidden;margin:0 0 14px}'
-      +'.tear .tkpi{padding:11px 13px;border-right:1px solid var(--border);min-width:0}.tear .tkpi:last-child{border-right:0}'
+      +'.tear .tkpi .tl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em}'
+      +'.tear .tkpi{padding:11px 11px;border-right:1px solid var(--border);min-width:0}.tear .tkpi:last-child{border-right:0}'
       +'.tear .tkpi .v{font-size:21px;font-weight:600;letter-spacing:-.01em;margin-top:2px;white-space:nowrap}'
       +'.tear .tkpi.sm .v{font-size:16px;margin-top:6px;font-weight:500}'
       +'.tear .tkpi .s{font-size:11px;color:var(--text4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
@@ -32363,6 +32365,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       +'.tear .tlg .hero-card{border-radius:10px!important;border:1px solid var(--border)!important;background:var(--bg2)!important;box-shadow:none!important}'
       +'.tear .tlg table{font-variant-numeric:tabular-nums}'
       +'.tear .tnote{font-size:12px;color:var(--text3);margin:0 0 14px;max-width:96ch}'
+      +'.tear .tg4{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}'
+      +'.tear .tlay{background:var(--bg1);color:var(--text3);border:1px solid var(--border);border-radius:6px;height:26px;padding:0 6px;font:12px Inter,system-ui,sans-serif;letter-spacing:0;outline:0;cursor:pointer}'
+      +'.tear .tlay option{background:var(--bg2);color:var(--text)}'
+      +'.tear .tjump{position:sticky;top:0;z-index:4;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--bg);padding:6px 0 8px;margin:0 0 6px;font-size:12px;color:var(--text4)}'
+      +'.tear .tjump span[data-tearjump]{cursor:pointer;border:1px solid var(--border);border-radius:999px;padding:3px 11px;color:var(--text2);background:var(--bg2)}'
+      +'.tear .tjump span[data-tearjump]:hover{color:var(--text);border-color:var(--text4)}'
+      +'.tear .tsech{font-size:15px;font-weight:600;margin:22px 0 10px;padding-top:6px;scroll-margin-top:44px;color:var(--text)}'
+      +'.tear .tmore{display:block;padding:8px 14px 0;font-size:12px;color:var(--text4);cursor:pointer;text-decoration:underline;text-underline-offset:2px}.tear .tmore:hover{color:var(--text)}'
+      +'.tear table.tt.tcmp th,.tear table.tt.tcmp td{padding:5px 9px}'
       +'.tear .tlgrow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}.tear .tlgrow>.tlg{flex:1 1 380px;min-width:0}'
       +'@container (max-width:1000px){.tear .tkpis{grid-template-columns:repeat(4,minmax(0,1fr))}.tear .tkpi:nth-child(4){border-right:0}.tear .tkpi:nth-child(-n+4){border-bottom:1px solid var(--border)}.tear .tg2,.tear .tg11{grid-template-columns:minmax(0,1fr)}}'
       +'@container (max-width:560px){.tear .tkpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tear .tkpi{border-bottom:1px solid var(--border)}.tear .tkpi:nth-child(2n){border-right:0}}'
@@ -32393,7 +32404,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         let dd5=null,ddp=null,so=null;
         try{if(eq){const D5=_dd5Of(eq,5);if(D5&&D5.n)dd5=D5.dd5;const p=_ddPctPeakOf(eq,1,DD_PCT_START_USD);if(p&&isFinite(p.pct))ddp=p.pct;}}catch(e){}
         try{const O=_wfOosOf(d,mlt);if(O&&n(O.sortino)!=null)so=+O.sortino;}catch(e){}
-        const tab=({overview:1,legs:1,robust:1,setup:1}[APREF.tearTab])?APREF.tearTab:'overview';
+        const tab=(APREF.tearTab==='setup')?'setup':'overview';
         const chips=(X.chips||[]),nWarn=chips.filter(c=>c.st==='warn').length,nBad=chips.filter(c=>c.st==='bad').length;
         const vd=String(V.verdict||'').toUpperCase(),vdCls=vd==='PASS'?'ok':(vd==='WEAK'?'warn':(vd==='FAIL'?'bad':''));
         const nm=String(B.name||d.strategy||'Book').replace(/[^\x20-\x7e]/g,'').trim();
@@ -32402,7 +32413,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +'<h2><span class="tid">#'+E(d.id)+'</span><span>'+E(nm)+'</span></h2>'
           +(vd?('<span class="tverd"><span class="tdot '+vdCls+'"></span>'+E(vd)+'</span>'):'')
           +'<span id="res-pills" style="display:none"></span>'
-          +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-family:\'JetBrains Mono\',monospace">'+(X.lay||'')+(X.act||'')+'</span></div>';
+          +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-family:\'JetBrains Mono\',monospace">'+((X.layOpts&&X.layOpts.length)?('<select class="tlay" data-replaysel title="report layout">'+X.layOpts.map(o=>'<option value="'+o[0]+'"'+(o[0]==='tear'?' selected':'')+'>'+o[1].charAt(0)+o[1].slice(1).toLowerCase()+'</option>').join('')+'</select>'):(X.lay||''))+(X.act||'')+'</span></div>';
         const meta='<div class="tmeta">'+['Book of '+B.legs.length+' legs',(dF&&dT)?(mYr(dF)+' to '+mYr(dT)):'',lbF?('LB from '+mYr(lbF)):'',n(B.trading_days)!=null?(fi(B.trading_days)+' trading days'):'',d.timestamp?('run '+E(String(d.timestamp).slice(0,10))):'']
           .filter(x=>x&&x.trim()).map(x=>'<span>'+x+'</span>').join('')+'</div>';
         const WS=B.worst_stretch||null;
@@ -32422,7 +32433,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +kpi('Trades',fi(S.all.n),(S.all.n&&S.all.yrs)?(fi(S.all.n/S.all.yrs)+' a year'):'','',1)
           +kpi('LB net',S.lb?fk(S.lb.net):'&ndash;',S.lb?(S.lb.pf!=null?('PF '+fn(S.lb.pf)):''):'not run',S.lb?cl(S.lb.net):'',1)
           +'</div>';
-        const tabsDef=[['overview','Overview'],['legs','Legs',String(B.legs.length)],['robust','Robustness',chips.length?((nBad?(nBad+' flag'+(nBad>1?'s':'')+' · '):'')+nWarn+' caution'+(nWarn===1?'':'s')):''],['setup','Setup']];
+        const tabsDef=[['overview','Summary'],['setup','Setup']];
         const tabs='<div class="ttabs">'+tabsDef.map(t=>'<span class="ttab'+(tab===t[0]?' on':'')+'" data-teartab="'+t[0]+'">'+t[1]+(t[2]?('<small>'+t[2]+'</small>'):'')+'</span>').join('')+'</div>';
         const card=(title,note,body,pad)=>'<section class="tc"><header><h3>'+title+'</h3>'+(note?('<p>'+note+'</p>'):'')+'</header>'+(pad===false?('<div class="tw">'+body+'</div>'):('<div class="tb">'+body+'</div>'))+'</section>';
         const legNm=l=>E(String(l.strategy||l.leg||'').replace(/\.py$/,''));
@@ -32448,21 +32459,23 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               +'</tbody></table>',false);}
           if(sCard||wCard)body+='<div class="tgrid '+((sCard&&wCard)?'tg11':'')+'">'+sCard+wCard+'</div>';
           if(MT.note)body+='<p class="tnote">'+E(MT.note)+'</p>';
-        }else if(tab==='legs'){
+        }
+        if(tab==='overview'){
           const tot=B.legs.reduce((s,l)=>s+Math.abs(+l.net||0),0)||1,mxl=Math.max.apply(null,B.legs.map(l=>Math.abs(+l.net||0)))||1;
           body+='<div class="tgrid">'+card('Legs','each leg at the size it holds in this book &middot; largest first',
             '<table class="tt"><thead><tr><th>Leg</th><th>Market</th><th>Size</th><th>Trades</th><th>Net</th><th>% of book</th><th class="l" style="width:130px">Share</th><th>Cost pts</th><th class="l">Data</th></tr></thead><tbody>'
             +B.legs.slice().sort((a,c)=>(+c.net||0)-(+a.net||0)).map(l=>{const u=(+l.net||0)*mlt;return '<tr><td>'+legNm(l)+'</td><td>'+E((l.instrument||'')+' '+(l.timeframe||''))+'</td><td>'+(n(l.weight)!=null?('x'+(+l.weight)):'')+'</td><td>'+fi(n(l.trades))+'</td><td class="'+cl(u)+'" style="font-weight:600">'+f$(u)+'</td><td>'+fp(Math.abs(+l.net||0)/tot*100,0)+'</td><td class="l"><span class="tbar" style="width:'+Math.max(2,Math.abs(+l.net||0)/mxl*110).toFixed(0)+'px;background:var(--'+(u<0?'red':'green')+')"></span></td><td>'+(n(l.cost_pts)!=null?l.cost_pts:'&ndash;')+'</td><td class="l tmut">'+E(l.master||l.source||'')+'</td></tr>';}).join('')
             +'</tbody></table>',false)+'</div>';
           if(Array.isArray(B.inert_legs)&&B.inert_legs.length)body+='<p class="tnote">Legs that made no trades in this book: '+E(B.inert_legs.map(l=>typeof l==='string'?l:(l.strategy||l.leg||'')).join(', '))+'.</p>';
-        }else if(tab==='robust'){
+        }
+        if(tab==='overview'){
           const ord={bad:0,warn:1,info:2,ok:3},lab={ok:'Pass',warn:'Caution',bad:'Flag',info:'Note'},openK=window._diagOpenKey;
           if(chips.length)body+='<div class="tgrid"><section class="tc" style="'+(X.semVars||'')+'"><header><h3>Checks</h3><p>flags and cautions first &middot; click a row for its full readout</p></header><div class="tw"><table class="tt"><thead><tr><th>Check</th><th class="l">Status</th><th class="l">Reading</th><th class="l">What it asks</th></tr></thead><tbody>'
             +chips.slice().sort((a,c)=>(ord[a.st]==null?9:ord[a.st])-(ord[c.st]==null?9:ord[c.st])).map(c=>'<tr class="clk" data-diagchip="'+E(c.k)+'"><td>'+E(plain(c.nm))+'</td><td class="l"><span class="tst"><span class="tdot '+(c.st==='ok'?'ok':(c.st==='warn'?'warn':(c.st==='bad'?'bad':'')))+'"></span>'+(lab[c.st]||'Note')+'</span></td><td class="l" style="font-weight:600">'+E(plain(c.chip))+'</td><td class="why">'+E(plain(c.q))+'</td></tr>'
               +((openK===c.k&&c.html)?('<tr><td colspan="4" style="white-space:normal;padding:0 14px 12px"><div class="tlg" style="margin:0">'+c.html+'</div></td></tr>'):'')).join('')
             +'</tbody></table></div></section></div>';
-          else body='<div class="tmut">This book saved no robustness checks.</div>';
-        }else{
+        }
+        if(tab==='setup'){
           const dl=rows=>'<dl class="tdl">'+rows.filter(r=>r[1]!=null&&r[1]!=='').map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>';
           const DR=B.day_rule||{};
           body+='<div class="tgrid tg11">'
@@ -32494,7 +32507,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(S.wf&&O&&n(O.mar)!=null){S.wf.mar=+O.mar;S.wf.roc=30*O.mar;}
       let dd5=null;try{if(O&&O.curve&&O.curve.length>1){const D5=_dd5Of(O.curve,5);if(D5&&D5.n)dd5=D5.dd5;}}catch(e){}
       const H=S.wf||S.all||{},hName=S.wf?'walk-forward':'whole run';
-      const tab=({overview:1,trades:1,configs:1,ml:1,robust:1,setup:1}[APREF.tearTab])?APREF.tearTab:'overview';
+      const tab=(APREF.tearTab==='deep'||APREF.tearTab==='setup')?APREF.tearTab:'overview';
       const chips=(X.chips||[]),nWarn=chips.filter(c=>c.st==='warn').length,nBad=chips.filter(c=>c.st==='bad').length;
       const plain=h=>String(h==null?'':h).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
       // ---- header
@@ -32504,7 +32517,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +'<h2><span class="tid">#'+E(d.id)+'</span>'+stratTag(d.strategy,'20px',600)+'</h2>'
         +(vd?('<span class="tverd"><span class="tdot '+vdCls+'"></span>'+E(vd)+((n(V.n_pass)!=null&&n(V.n_gates)!=null)?(' <span class="tmut" style="font-weight:400">'+V.n_pass+' of '+V.n_gates+' gates</span>'):'')+'</span>'):'')
         +'<span id="res-pills" style="display:none"></span>'
-        +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-family:\'JetBrains Mono\',monospace">'+(X.lay||'')+(X.act||'')+'</span></div>';
+        +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-family:\'JetBrains Mono\',monospace">'+((X.layOpts&&X.layOpts.length)?('<select class="tlay" data-replaysel title="report layout">'+X.layOpts.map(o=>'<option value="'+o[0]+'"'+(o[0]==='tear'?' selected':'')+'>'+o[1].charAt(0)+o[1].slice(1).toLowerCase()+'</option>').join('')+'</select>'):(X.lay||''))+(X.act||'')+'</span></div>';
       const meta='<div class="tmeta">'+[E(String(d.scope||'').replace(/[^\x20-\x7e]/g,'').trim()),E((d.instrument||'')+' '+(d.timeframe||'')),(d.date_from&&dTo)?(mYr(d.date_from)+' to '+mYr(dTo)):'',n(d.cost_pts)!=null?('cost '+d.cost_pts+' pt'):'',n(d.n_evaluated)!=null?(fi(d.n_evaluated)+' configs'+(n(d.elapsed_s)!=null?(', '+Math.max(1,Math.round(d.elapsed_s/60))+' min'):'')):'',d.timestamp?('run '+E(String(d.timestamp).slice(0,10))):'']
         .filter(x=>x&&x.trim()).map(x=>'<span>'+x+'</span>').join('')+'</div>';
       // ---- one plain summary
@@ -32530,7 +32543,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +kpi('Trades',fi(H.n),(H.n&&H.yrs)?(fi(H.n/H.yrs)+' a year'):'','',1)
         +kpi('LB net',S.lb?fk(S.lb.net):'&ndash;',S.lb?(S.lb.pf!=null?('PF '+fn(S.lb.pf)):''):'not run',S.lb?cl(S.lb.net):'',1)
         +'</div>';
-      const tabsDef=[['overview','Overview'],['trades','Trades'],['configs','Configs',n(d.n_evaluated)!=null?fi(d.n_evaluated):''],['ml','ML',hasML?((G&&G.gate_earns_pre===true)?'gate earns':((G&&G.gate_earns_pre===false)?'no lift':'')):'none'],['robust','Robustness',chips.length?((nBad?(nBad+' flag'+(nBad>1?'s':'')+' · '):'')+nWarn+' caution'+(nWarn===1?'':'s')):''],['setup','Setup']];
+      const tabsDef=[['overview','Summary'],['deep','Deep dive','trades, config search, ML, checks'],['setup','Setup']];
       const tabs='<div class="ttabs">'+tabsDef.map(t=>'<span class="ttab'+(tab===t[0]?' on':'')+'" data-teartab="'+t[0]+'">'+t[1]+(t[2]?('<small>'+t[2]+'</small>'):'')+'</span>').join('')+'</div>';
       const card=(title,note,body,pad)=>'<section class="tc"><header><h3>'+title+'</h3>'+(note?('<p>'+note+'</p>'):'')+'</header>'+(pad===false?('<div class="tw">'+body+'</div>'):('<div class="tb">'+body+'</div>'))+'</section>';
       const lg=h=>(h&&String(h).replace(/\s/g,''))?('<div class="tlg"><div style="'+X.colStyle+'">'+h+'</div></div>'):'';
@@ -32558,26 +32571,55 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           fCard=card('Walk-forward folds','each fold re-tuned, then traded unseen &middot; '+fGreen+' of '+folds.length+' green','<div class="tchart" data-tearc="folds"></div>');}
         if(Array.isArray(R.year)&&R.year.length){TD.years=R.year.map(y=>({v:(+y.pnl||0)*mlt,l:"'"+String(y.bucket).slice(2),s:'',tip:y.bucket+'\n'+plain(f$((+y.pnl||0)*mlt))+' - '+(y.n||0)+' trades - PF '+y.pf}));
           yCard=card('Net by year',R.year.filter(y=>y.pnl>0).length+' of '+R.year.length+' years green','<div class="tchart" data-tearc="years"></div>');}
-        if(fCard||yCard)body+='<div class="tgrid '+((fCard&&yCard)?'tg11':'')+'">'+fCard+yCard+'</div>';
+        // ML at a glance: the same trades filtered or re-sized, judged on net / max DD before LB
+        let mlCard='';
+        if(hasML&&G.ungated_pre){const bo=a=>(Array.isArray(a)&&a.length)?a.slice().sort((x,y)=>(n(y.pre_rec)||-1e9)-(n(x.pre_rec)||-1e9))[0]:null;
+          const CH=G.chosen||null,cc=CH?(G.candidates||[]).filter(c=>c.model===CH.model&&c.threshold===CH.threshold)[0]:null,TL=bo(G.tilts),HY=bo(G.hybrids),K=G.keel||null,u=n(G.ungated_pre_rec);
+          const rws=[['No ML',u,n(G.ungated_pre.total_pnl),1]];
+          if(CH)rws.push(['Gate &middot; '+E(CH.model),n(cc&&cc.pre_rec),n(CH.pre&&CH.pre.total_pnl)]);
+          if(TL)rws.push(['Sizing tilt &middot; '+E(TL.model),n(TL.pre_rec),n(TL.pre&&TL.pre.total_pnl)]);
+          if(HY)rws.push(['Gate + sizing &middot; '+E(HY.model),n(HY.pre_rec),n(HY.pre&&HY.pre.total_pnl)]);
+          if(K)rws.push(['KEEL'+(K.version?(' '+E(K.version)):''),n(K.pre_rec),n(K.pre&&K.pre.total_pnl)]);
+          mlCard='<section class="tc"><header><h3>ML</h3><p>'+(G.gate_earns_pre===false?'<span class="tst"><span class="tdot warn"></span>No lift</span>':(G.gate_earns_pre===true?'<span class="tst"><span class="tdot ok"></span>Gate earns</span>':''))+'</p></header><div class="tw"><table class="tt tcmp"><thead><tr><th>Version</th><th class="wf">Net / max DD</th><th>vs no ML</th><th>Net</th></tr></thead><tbody>'
+            +rws.map(r=>'<tr><td>'+r[0]+'</td><td class="wf">'+fn(r[1])+'</td><td class="'+((r[3]||r[1]==null||u==null)?'':(r[1]>=u?'tpos':'tneg'))+'">'+((r[3]||r[1]==null||u==null)?'&ndash;':((r[1]>=u?'+':'')+(r[1]-u).toFixed(2)))+'</td><td>'+fk(r[2]!=null?r[2]*mlt:null)+'</td></tr>').join('')
+            +'</tbody></table><span class="tmore" data-tearjump="ml">IS + WF, before LB &middot; full ML readout</span></div></section>';}
+        // checks at a glance: only what needs a look, the rest counted
+        let ckCard='',ckOpen='';
+        if(chips.length){const ordK={bad:0,warn:1},flg=chips.filter(c=>c.st==='bad'||c.st==='warn').sort((a,c)=>ordK[a.st]-ordK[c.st]),nOk=chips.filter(c=>c.st==='ok').length;
+          ckCard='<section class="tc" style="'+(X.semVars||'')+'"><header><h3>Checks</h3><p>'+(flg.length?(nOk+' of '+chips.length+' pass'):('all '+chips.length+' clear'))+'</p></header><div class="tw">'
+            +(flg.length?('<table class="tt tcmp"><tbody>'+flg.map(c=>'<tr class="clk" data-diagchip="'+E(c.k)+'" title="'+E(plain(c.q))+'"><td><span class="tst" style="font-weight:400"><span class="tdot '+(c.st==='bad'?'bad':'warn')+'"></span>'+E(plain(c.nm))+'</span></td><td style="font-weight:600">'+E(plain(c.chip))+'</td></tr>').join('')+'</tbody></table>'):'<div class="tmut" style="padding:6px 14px">Nothing flagged.</div>')
+            +'<span class="tmore" data-tearjump="robust">all '+chips.length+' checks</span></div></section>';
+          const oc=chips.filter(c=>c.k===window._diagOpenKey&&c.html)[0];
+          if(oc)ckOpen='<div class="tgrid"><section class="tc" style="'+(X.semVars||'')+'"><header><h3>'+E(plain(oc.nm))+'</h3><p>'+E(plain(oc.q))+'</p></header><div class="tb"><div class="tlg" style="margin:0">'+oc.html+'</div></div></section></div>';}
+        if(fCard||yCard||mlCard||ckCard)body+='<div class="tgrid tg4">'+fCard+yCard+mlCard+ckCard+'</div>'+ckOpen;
+        let mCard='',bkCard='';
         // monthly heatmap
         const mr=(R.monthly&&Array.isArray(R.monthly.rows))?R.monthly.rows:[];
         if(mr.length){const all=[];mr.forEach(r=>(r.months||[]).forEach(v=>{if(v!=null)all.push(Math.abs(v*mlt));}));all.sort((a,b)=>a-b);const cap=all[Math.floor(all.length*.97)]||1;
           const cell=(v,l)=>{if(v==null)return '<td></td>';v=v*mlt;return '<td title="'+l+': '+plain(f$(v))+'" style="background:color-mix(in srgb,var(--'+(v<0?'red':'green')+') '+Math.round(8+Math.min(1,Math.sqrt(Math.abs(v)/cap))*62)+'%,transparent)">'+(v/1e3).toFixed(Math.abs(v)>=9950?0:1)+'</td>';};
-          body+='<div class="tgrid">'+card('Monthly net','$ thousands, one contract &middot; shade scales with size','<table class="tt theat"><thead><tr><th class="y">Year</th>'+MON.map(m=>'<th>'+m+'</th>').join('')+'<th style="text-align:right;padding-right:14px">Year</th></tr></thead><tbody>'
-            +mr.map(r=>{const t=(r.months||[]).reduce((s,v)=>s+(v||0),0)*mlt;return '<tr><td class="y">'+r.year+'</td>'+(r.months||[]).map((v,i)=>cell(v,MON[i]+' '+r.year)).join('')+'<td class="tot '+cl(t)+'">'+fk(t)+'</td></tr>';}).join('')+'</tbody></table>',false)+'</div>';}
-      }else if(tab==='trades'){
+          mCard=card('Monthly net','$ thousands, one contract &middot; shade scales with size','<table class="tt theat"><thead><tr><th class="y">Year</th>'+MON.map(m=>'<th>'+m+'</th>').join('')+'<th style="text-align:right;padding-right:14px">Year</th></tr></thead><tbody>'
+            +mr.map(r=>{const t=(r.months||[]).reduce((s,v)=>s+(v||0),0)*mlt;return '<tr><td class="y">'+r.year+'</td>'+(r.months||[]).map((v,i)=>cell(v,MON[i]+' '+r.year)).join('')+'<td class="tot '+cl(t)+'">'+fk(t)+'</td></tr>';}).join('')+'</tbody></table>',false);}
         const dims=[['hour','Hour'],['dow','Day'],['side','Side'],['hold','Hold time'],['vol','Volatility'],['trend','Trend'],['tod','Session'],['month','Month'],['year','Year']].filter(x=>Array.isArray(R[x[0]])&&R[x[0]].length);
         if(dims.length){const cur=(dims.filter(x=>x[0]===APREF.tearBrk)[0]||dims[0]),a=R[cur[0]],mx=Math.max.apply(null,a.map(x=>Math.abs(+x.pnl||0)))||1;
-          body+='<div class="tgrid"><section class="tc"><header><h3>Where the money comes from</h3><span class="tseg">'+dims.map(x=>'<span data-tearbrk="'+x[0]+'" class="'+(x[0]===cur[0]?'on':'')+'">'+x[1]+'</span>').join('')+'</span></header><div class="tw"><table class="tt"><thead><tr><th>'+cur[1]+'</th><th>Trades</th><th>Win %</th><th>PF</th><th>Avg trade</th><th>Net</th><th class="l" style="width:130px">Share</th></tr></thead><tbody>'
+          bkCard='<section class="tc"><header><h3>Where the money comes from</h3><span class="tseg">'+dims.map(x=>'<span data-tearbrk="'+x[0]+'" class="'+(x[0]===cur[0]?'on':'')+'">'+x[1]+'</span>').join('')+'</span></header><div class="tw"><table class="tt"><thead><tr><th>'+cur[1]+'</th><th>Trades</th><th>Win %</th><th>PF</th><th>Avg trade</th><th>Net</th><th class="l" style="width:130px">Share</th></tr></thead><tbody>'
             +a.map(x=>{const net=(+x.pnl||0)*mlt,avg=(+x.avg||0)*mlt;return '<tr><td>'+E(x.bucket)+'</td><td>'+fi(x.n)+'</td><td>'+(x.wr!=null?fp(x.wr,0):'&ndash;')+'</td><td>'+fn(n(x.pf))+'</td><td class="'+cl(avg)+'">'+f$(avg)+'</td><td class="'+cl(net)+'" style="font-weight:600">'+f$(net)+'</td><td class="l"><span class="tbar" style="width:'+Math.max(2,Math.abs(net)/mx*110).toFixed(0)+'px;background:var(--'+(net<0?'red':'green')+')"></span></td></tr>';}).join('')
-            +'</tbody></table></div></section></div>';}
-        body+='<div class="tsec">Distribution, MAE / MFE and context</div>'+lgRaw(X.P.distInner);
-      }else if(tab==='configs'){
+            +'</tbody></table></div></section>';}
+        if(mCard||bkCard)body+='<div class="tgrid '+((mCard&&bkCard)?'tg2':'')+'">'+mCard+bkCard+'</div>';
+      }
+      if(tab==='deep'){
+        body+='<div class="tjump"><span>Jump to</span>'+[['trades','Trades'],['configs','Config search'],['ml','ML'],['robust','Checks']].map(j=>'<span data-tearjump="'+j[0]+'">'+j[1]+'</span>').join('')+'</div>';
+        body+='<h3 class="tsech" id="tear-s-trades" style="margin-top:4px">Trades</h3>';
+        body+=(lgRaw(X.P.distInner)||'<div class="tmut">This run saved no trade distribution.</div>');
+      }
+      if(tab==='deep'){
+        body+='<h3 class="tsech" id="tear-s-configs">Config search</h3>';const _b0=body.length;
         body+=lgRaw(X.P.matrix)+lgRow([X.P.funnel,X.P.corr])+lgRow([X.P.p3,X.P.surr])+lg(X.P.top)+lgRow([X.P.nb,X.P.dist]);
-        if(!body)body='<div class="tmut">This run saved no config search.</div>';
-      }else if(tab==='ml'){
+        if(body.length===_b0)body+='<div class="tmut">This run saved no config search.</div>';
+      }
+      if(tab==='deep'){
+        body+='<h3 class="tsech" id="tear-s-ml">ML</h3>';
         // ML: does a trade filter or a sizing model beat the plain strategy? every row is the SAME trades, filtered or re-sized
-        if(!hasML)body='<div class="tmut">This run has no ML test. A validate run adds one: gate models that skip trades, and sizing models that lean on the better ones.</div>';
+        if(!hasML)body+='<div class="tmut">This run has no ML test. A validate run adds one: gate models that skip trades, and sizing models that lean on the better ones.</div>';
         else{
           const gs=o=>(o&&typeof o==='object')?{net:n(o.total_pnl!=null?o.total_pnl:(o.pnl!=null?o.pnl:o.net)),pf:n(o.profit_factor!=null?o.profit_factor:o.pf),so:n(o.sortino),n:n(o.num_trades!=null?o.num_trades:o.trades)}:{net:null,pf:null,so:null,n:null};
           const bestOf=a=>(Array.isArray(a)&&a.length)?a.slice().sort((x,y)=>(n(y.pre_rec)||-1e9)-(n(x.pre_rec)||-1e9))[0]:null;
@@ -32605,7 +32647,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const full=lgRaw(X.P.gate);
           if(full)body+='<div class="tsec">Full ML readout: every model, cutoff sweep and curves</div>'+full;
         }
-      }else if(tab==='robust'){
+      }
+      if(tab==='deep'){
+        body+='<h3 class="tsech" id="tear-s-robust">Checks</h3>';const _b1=body.length;
         const ord={bad:0,warn:1,info:2,ok:3},lab={ok:'Pass',warn:'Caution',bad:'Flag',info:'Note'};
         const openK=window._diagOpenKey;
         if(chips.length){body+='<div class="tgrid"><section class="tc" style="'+(X.semVars||'')+'"><header><h3>Checks</h3><p>flags and cautions first &middot; click a row for its full readout</p></header><div class="tw"><table class="tt"><thead><tr><th>Check</th><th class="l">Status</th><th class="l">Reading</th><th class="l">What it asks</th></tr></thead><tbody>'
@@ -32613,8 +32657,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               +((openK===c.k&&c.html)?('<tr><td colspan="4" style="white-space:normal;padding:0 14px 12px"><div class="tlg" style="margin:0">'+c.html+'</div></td></tr>'):'')).join('')
             +'</tbody></table></div></section></div>';}
         body+=lg(X.P.dsr);
-        if(!body)body='<div class="tmut">This run saved no robustness checks.</div>';
-      }else{
+        if(body.length===_b1)body+='<div class="tmut">This run saved no robustness checks.</div>';
+      }
+      if(tab==='setup'){
         const dl=rows=>'<dl class="tdl">'+rows.filter(r=>r[1]!=null&&r[1]!=='').map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>';
         const bp=(d.best_params&&typeof d.best_params==='object')?d.best_params:{},FP=d.data_fp||{},RS=d.roll_stamp||{};
         body+='<div class="tgrid tg11">'
@@ -32642,7 +32687,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           g+='<rect x="'+x+'" y="'+Math.min(y0,y1)+'" width="'+w+'" height="'+h+'" rx="2" fill="var(--'+(it.v<0?'red':'green')+')"><title>'+esc(it.tip||'')+'</title></rect>';
           if(i%every===0)g+='<text x="'+(x+w/2)+'" y="'+(H-pB+15)+'" text-anchor="middle">'+esc(it.l)+'</text>'+(it.s?('<text x="'+(x+w/2)+'" y="'+(H-pB+29)+'" text-anchor="middle" style="fill:var(--text3)">'+esc(it.s)+'</text>'):'');});
         el.innerHTML='<svg viewBox="0 0 '+Wd+' '+H+'" height="'+H+'">'+g+'</svg>';};
-      const equity=(el,Q)=>{const e=Q.e,N=e.length,Wd=el.clientWidth||700,pL=52,pR=10,pT=24,eh=206,gap=16,dh=58,H=pT+eh+gap+dh+24,iw=Wd-pL-pR;
+      const equity=(el,Q)=>{const e=Q.e,N=e.length,Wd=el.clientWidth||700,pL=52,pR=10,pT=24,eh=176,gap=14,dh=46,H=pT+eh+gap+dh+24,iw=Wd-pL-pR;
         let pk=-1e18;const dd=e.map(v=>{pk=Math.max(pk,v,0);return v-pk;});
         const mx=Math.max.apply(null,e),mn=Math.min.apply(null,[0].concat(e)),stp=nice(mx-mn,4),top=Math.ceil(mx/stp)*stp||stp,bot=mn<-stp*.2?Math.floor(mn/stp)*stp:mn;
         const x=i=>pL+i/(N-1)*iw,y=v=>pT+(top-v)/((top-bot)||1)*eh,dmin=Math.min.apply(null,dd)||-1,yd=v=>pT+eh+gap+(v/dmin)*dh,xt=t=>pL+t/Q.nTr*iw;
@@ -32667,7 +32712,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           tp.style.display='';const px=ev.clientX-er.left,py=ev.clientY-er.top;tp.style.left=Math.max(0,Math.min(er.width-tp.offsetWidth-4,px+14))+'px';tp.style.top=Math.max(0,py-tp.offsetHeight-10)+'px';};
         hit.onmouseleave=()=>{xh.style.display='none';xd.style.display='none';tp.style.display='none';};};
       root.querySelectorAll('[data-tearc]').forEach(el=>{try{const k=el.getAttribute('data-tearc');
-        if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,210);else if(Array.isArray(TD[k])&&TD[k].length)bars(el,TD[k],210);}catch(e){console.error('tearsheet chart failed',e);}});
+        if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,176);else if(Array.isArray(TD[k])&&TD[k].length)bars(el,TD[k],176);}catch(e){console.error('tearsheet chart failed',e);}});
     };
     if(!window._tearRz){window._tearRz=1;let _tz;window.addEventListener('resize',()=>{clearTimeout(_tz);_tz=setTimeout(()=>{if(document.querySelector('[data-tearc]'))window._tearDraw(document);},150);});}
     const runDetail=(d)=>{
@@ -33142,7 +33187,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // v73.30 (owner: "revamp the results tab... modernize... make it its new tab so we dont
       //   loose the old one"): NEO = the CLASSIC report wearing a scoped modern skin (see the
       //   _neoCss block above the classic return). Same DOM, so the rail entry is all it needs.
-      const _layOpts=[['tear','TEARSHEET','one calm page: verdict, the four numbers, then five tabs (overview, trades, configs, robustness, setup). Every chart from CLASSIC is under a tab'],['classic','CLASSIC'],['neo','NEO','the modern skin - the CLASSIC report restyled: glass panels, neon hairlines, blueprint grid. Same charts, sections, splitters and columns; flip back any time'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
+      const _layOpts=[['tear','TEARSHEET','one page: verdict, the four numbers, equity, stretches, folds, years, ML and checks together. Every chart from CLASSIC is under Deep dive'],['classic','CLASSIC'],['neo','NEO','the modern skin - the CLASSIC report restyled: glass panels, neon hairlines, blueprint grid. Same charts, sections, splitters and columns; flip back any time'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
       const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+(o[2]||o[1]));}).join(''));
       const _colSel='<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;margin-right:1px">COLUMNS</span>'+_railWrap('var(--blue)',[['3','3'],['2','2'],['1','1']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]+(o[0]==='2'?' (two per row)':(o[0]==='1'?' (every tile full width)':' across')));}).join(''));
       // v71.86 (owner: "finish the ui on the last four buttons - we adjusted the view and column
@@ -34240,7 +34285,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       }
       // TEARSHEET (owner 11-26): its own shell, the existing panels brought over under tabs. A run it cannot lay out
       //   or any throw falls through to CLASSIC, so this layout can never blank a report.
-      if(_repLay==='tear'){try{const _tearOut=tearsheetHtml(d,mlt,{lay:_laySel,act:_actSelHtml(),chips:_chips,semVars:_semVars,colStyle:_colStyle,banner:valBannerHtml(d),code:runCodeHtml(d),
+      if(_repLay==='tear'){try{const _tearOut=tearsheetHtml(d,mlt,{lay:_laySel,layOpts:_layOpts,act:_actSelHtml(),chips:_chips,semVars:_semVars,colStyle:_colStyle,banner:valBannerHtml(d),code:runCodeHtml(d),
         P:{equity:_panelEquity,matrix:_panelMatrix,distInner:_distTile,funnel:_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):'')]),corr:_corr,p3:_p3inner,surr:_surrInner,top:_topInner,nb:_nbInner,dist:_dist,gate:_gateCard,dsr:_dsrInner}});
         if(_tearOut)return _tearOut;}catch(_te){console.error('tearsheet layout failed, showing CLASSIC',_te);}}
       if(_repLay==='dense')return hdrHtml+valBannerHtml(d)+_warnHtml+_dense+runCodeHtml(d);
@@ -58925,6 +58970,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-g2heat]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('g2heat',(+(APREF.g2heat||0))?0:1);renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
       content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
+      content.querySelectorAll('[data-replaysel]').forEach(s=>{s.onchange=()=>{savePref('repLayout',s.value);renderApp();};});
+      // TEARSHEET jump links: go to a section of Deep dive (switching to it first when on Summary)
+      content.querySelectorAll('[data-tearjump]').forEach(j=>{j.onclick=(e)=>{e.stopPropagation();const k=j.dataset.tearjump,t=document.getElementById('tear-s-'+k);if(t){t.scrollIntoView({block:'start',behavior:'smooth'});return;}window._tearJump=k;savePref('tearTab','deep');renderApp();};});
+      if(window._tearJump){const _tj=window._tearJump;window._tearJump=null;setTimeout(()=>{const t=document.getElementById('tear-s-'+_tj);if(t)t.scrollIntoView({block:'start'});},60);}
       // TEARSHEET: tab + breakdown picks are saved settings; its charts draw now, at the real width
       content.querySelectorAll('[data-teartab]').forEach(b=>{b.onclick=()=>{savePref('tearTab',b.dataset.teartab);renderApp();};});
       content.querySelectorAll('[data-tearbrk]').forEach(b=>{b.onclick=()=>{savePref('tearBrk',b.dataset.tearbrk);renderApp();};});
