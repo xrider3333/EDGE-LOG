@@ -121,3 +121,38 @@ def test_keel_state_unit_tops_up_first_and_never_blocks():
     assert pre == ["ExecStartPre=-__EDGELOG_VENV__/bin/python -u tools/nq_box_topup.py "
                    "--nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv"]
     assert lines.index(pre[0]) < [i for i, ln in enumerate(lines) if ln.startswith("ExecStart=")][0]
+
+
+def test_holiday_and_half_day_bars_skipped(tmp_path):
+    # 11-26 Thanksgiving (CME short session), 11-27 half day: both left for the PC push, and
+    # nothing after them is added either (no hole in the master)
+    p = _write_master(tmp_path, _session("2026-11-25"))
+    before = open(p, "rb").read()
+    yahoo = pd.concat([_session("2026-11-25"), _session("2026-11-26", 90.0, end="12:55"),
+                       _session("2026-11-27", 91.0, end="13:10"), _session("2026-11-30", 92.0)])
+    assert T.run(p, now_s=_ts("2026-11-30", "18:15"), fetch=lambda: yahoo) == 0
+    assert open(p, "rb").read() == before
+
+
+def test_full_days_after_pc_filled_half_day_added(tmp_path):
+    p = _write_master(tmp_path, pd.concat([_session("2026-11-25"), _session("2026-11-27", end="13:10")]))
+    yahoo = pd.concat([_session("2026-11-27", end="13:10"), _session("2026-11-30", 92.0),
+                       _session("2026-12-01", 93.0, end="12:00")])
+    assert T.run(p, now_s=_ts("2026-12-01", "18:15"), fetch=lambda: yahoo) == 78
+
+
+def test_pc_push_mid_run_not_overwritten(tmp_path):
+    p = _write_master(tmp_path, _session("2026-11-23"))
+    pc = _session("2026-11-23")
+
+    def fetch():
+        # a PC push lands while the top-up is pulling Yahoo
+        _write_master(tmp_path, pd.concat([pc, _session("2026-11-24", 150.0)]))
+        return pd.concat([_session("2026-11-23"), _session("2026-11-24", 101.0)])
+
+    n = T.run(p, now_s=NOW, fetch=fetch)
+    assert n == 0
+    df = pd.read_csv(p)
+    assert len(df) == 156 and (df["close"].iloc[78:] == 150.0).all()
+    assert set(df["source"]) == {"nt_hist"}
+    assert not [f for f in os.listdir(tmp_path) if f.startswith(".topup_")]

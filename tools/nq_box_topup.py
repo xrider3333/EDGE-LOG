@@ -43,6 +43,7 @@ SOURCE_TAG = "yahoo_box_topup"
 TF = "5m"
 SESSION_CLOSE_MIN = 16 * 60          # 16:00 ET
 LAST_BAR_MIN = 15 * 60 + 55          # 15:55 ET bar start = the session's final 5m bar
+FULL_BARS = 78                       # 09:30..15:55 ET, a full RTH session of 5m bars
 
 
 def _log(msg):
@@ -64,6 +65,29 @@ def _closed_sessions_only(df, now_s, settle_s=None):
     return df[(close_s + settle_s <= now_s).values].reset_index(drop=True)
 
 
+def _full_sessions_only(df):
+    """Only FULL regular sessions: a day is added only when it is an exchange session, not a
+    CME holiday short session (augur_engine.session_calendar), AND Yahoo has all 78 bars
+    09:30..15:55 ET. Every partial day - Thanksgiving (PC master: 42 bars to 12:55), Black
+    Friday / Dec 24 / Jul 3 (45 bars to 13:10), or a Yahoo gap - is left for the PC push,
+    whose NT bars set the shape. Nothing is ever added past a skipped day (no holes)."""
+    if not len(df):
+        return df
+    from augur_engine.session_calendar import is_exchange_session, is_holiday_session
+    days = _et(df["time"]).dt.date
+    counts = days.value_counts()
+    keep = []
+    for d in sorted(set(days)):
+        if not (is_exchange_session(d) and not is_holiday_session(d) and counts[d] == FULL_BARS):
+            break                      # stop at the first partial day: never leave a hole
+        keep.append(d)
+    return df[days.isin(keep).values].reset_index(drop=True)
+
+
+class MasterChanged(RuntimeError):
+    """The master file changed (a PC push landed) between our read and our write."""
+
+
 def _fmt(v):
     return repr(float(v))
 
@@ -78,6 +102,7 @@ def new_bars(cur_last, yahoo_tv, now_s, settle_s=None):
     new = R._rth(new)
     new = _closed_sessions_only(new, now_s, settle_s)
     new = new[new["time"] > cur_last].sort_values("time").drop_duplicates("time").reset_index(drop=True)
+    new = _full_sessions_only(new)
     if not len(new):
         return new, None
     new, hit = R.roll_guard.split_tv_frame(new, after_time=cur_last, root="NQ")
@@ -87,8 +112,10 @@ def new_bars(cur_last, yahoo_tv, now_s, settle_s=None):
     return new, note
 
 
-def append_bars(path, new, columns, raw):
-    """Write `raw` (the file's existing bytes, untouched) + one line per new bar, atomically."""
+def append_bars(path, new, columns, raw, st0=None):
+    """Write `raw` (the file's existing bytes, untouched) + one line per new bar, atomically.
+    `st0` = os.stat of the master when `raw` was read: if the file changed since (a PC push
+    landed mid-run), raise MasterChanged and leave the PC's file alone."""
     nl = _detect_newline(raw)
     lines = []
     for r in new.itertuples(index=False):
@@ -111,6 +138,10 @@ def append_bars(path, new, columns, raw):
             os.chmod(tmp, os.stat(path).st_mode & 0o777)
         except OSError:
             pass
+        if st0 is not None:
+            st1 = os.stat(path)
+            if (st1.st_ino, st1.st_size, st1.st_mtime_ns) != (st0.st_ino, st0.st_size, st0.st_mtime_ns):
+                raise MasterChanged("master changed since read (PC push?) - not overwriting")
         os.replace(tmp, path)
     except Exception:
         try:
@@ -131,6 +162,7 @@ def _yahoo_tv():
 def run(nq_file, now_s=None, fetch=_yahoo_tv, settle_s=None):
     """Returns the number of bars appended (0 = no-op)."""
     now_s = int(time.time()) if now_s is None else int(now_s)
+    st0 = os.stat(nq_file)
     with open(nq_file, "rb") as fh:
         raw = fh.read()
     cur = pd.read_csv(nq_file)
@@ -154,7 +186,10 @@ def run(nq_file, now_s=None, fetch=_yahoo_tv, settle_s=None):
         _log(note)
     if not len(new):
         _log("nothing new after %s ET - no-op" % last_et); return 0
-    append_bars(nq_file, new, list(cur.columns), raw)
+    try:
+        append_bars(nq_file, new, list(cur.columns), raw, st0=st0)
+    except MasterChanged as e:
+        _log(str(e)); return 0
     a, b = _et([new["time"].iloc[0]]).iloc[0], _et([new["time"].iloc[-1]]).iloc[0]
     _log("+%d bars (%s .. %s ET) -> %d rows" % (len(new), a, b, len(cur) + len(new)))
     return len(new)
