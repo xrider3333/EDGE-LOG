@@ -9,7 +9,7 @@ from augur_engine.paths import blotter_dir
 
 FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
           "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side", "size",
-          "stop_px", "target_px", "be_px", "be_time", "stop_moves", "exit_why"]
+          "stop_px", "target_px", "be_px", "be_time", "stop_moves", "exit_why", "exit_line"]
 
 # 2026-11-26 (owner: "the SL visualisation doesn't show price moving there"): a file that folds its own
 # size into t[2] (NOISE's tilt, the v12 fixed tilts: pts = S*raw - (S-1)*c) says so with trade_sizes +
@@ -42,6 +42,42 @@ def _wants_levels(strategy):
         return LEVELS_MARK in inspect.signature(mod.run_backtest).parameters
     except Exception:
         return False
+
+
+def _exit_line(strategy, params):
+    """'vwap' when the run closes its trades on a bar closing across the VWAP (NOISE's exit_mode 'vwap' - the
+    only files with that knob), else ''. The champion's own value first, then the file's DEFAULT_PARAMS (a value
+    or a {"default": ...} spec), then run_backtest's own default. The charts draw that line bold while the
+    trade is open (owner 2026-11-26: "highlight it"). Never raises."""
+    try:
+        v = (params or {}).get("exit_mode")
+        if v is None:
+            import inspect
+            mod = strategy if hasattr(strategy, "run_backtest") else ae.load_strategy(strategy)
+            seen = set()
+            # a wrapper file pins its parent's knobs in a frozen dict (NOISE_1_8_CT304H's _FROZEN) and holds the
+            # parent module as _p / _base: walk that chain, first answer wins
+            while mod is not None and id(mod) not in seen and v is None:
+                seen.add(id(mod))
+                fz = getattr(mod, "_FROZEN", None)
+                v = fz.get("exit_mode") if isinstance(fz, dict) else None
+                if v is None:
+                    dp = getattr(mod, "DEFAULT_PARAMS", None)
+                    d = dp.get("exit_mode") if isinstance(dp, dict) else None
+                    v = d.get("default") if isinstance(d, dict) else d
+                if v is None and hasattr(mod, "run_backtest"):
+                    p = inspect.signature(mod.run_backtest).parameters.get("exit_mode")
+                    v = p.default if (p is not None and p.default is not inspect.Parameter.empty) else None
+                nxt = None
+                for a in ("_p", "_base", "_B", "_parent"):
+                    c = getattr(mod, a, None)
+                    if c is not None and hasattr(c, "run_backtest"):
+                        nxt = c
+                        break
+                mod = nxt
+        return "vwap" if str(v) == "vwap" else ""
+    except Exception:
+        return ""
 
 
 def _raw_level(px, adj_entry, raw_entry, method):
@@ -143,6 +179,7 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
     a = load_master_arrays(m, date_from=date_from, date_to=date_to)
     idx, close = a["index"], a["close"]
     want_lv = _wants_levels(strategy)
+    xline = _exit_line(strategy, params)
     bt = None
     if want_lv:     # the same run plus its levels record; a file that chokes on it falls back below
         try:
@@ -209,6 +246,8 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
                      "side": "long" if side == 1 else "short", "size": round(s, 4)})
         if levels is not None:
             rows[-1].update(_level_cols(levels[i - 1], t, ep, side, round(exit_px, 2), roll_method, idx))
+        if xline:
+            rows[-1]["exit_line"] = xline
     if return_raw:
         return rows, meta, raw_trades
     return rows, meta
@@ -511,6 +550,11 @@ def load_blotter_rows(root, payload, log=print):
                 log(f"    -> blotter {pth} predates the stop columns and its file reports stops: rebuilding")
                 stale_sized = True
                 break
+            if rows and "exit_line" not in rows[0] and payload.get("params") \
+                    and _exit_line(_strategy_file(root, payload), payload.get("params")):
+                log(f"    -> blotter {pth} predates the exit-line column and its run exits on the VWAP: rebuilding")
+                stale_sized = True
+                break
             if rows:
                 log(f"    -> blotter served from {pth} ({len(rows)} trades)")
                 extra = {"source": os.path.basename(os.path.dirname(pth)) + "/" + name}
@@ -552,6 +596,16 @@ def load_blotter_rows(root, payload, log=print):
     log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid} "
         f"from master '{bmeta.get('master')}'" + (" (was a stale cache)" if stale_sized else ""))
     return _cap(rows, {"regenerated": True, "master": bmeta.get("master")})
+
+
+def _strategy_file(root, payload):
+    """The run's plugin filename (augur_strategies/...), for a cheap module look; '' when unknown."""
+    try:
+        strat = _resolve_strategy(root, payload.get("strategy") or "")
+        fn = strat if str(strat).endswith(".py") else str(strat) + ".py"
+        return fn if os.path.isfile(os.path.join(root, "augur_strategies", fn)) else ""
+    except Exception:
+        return ""
 
 
 def _folds_size_source(root, payload, mark=SIZE_MARK):
