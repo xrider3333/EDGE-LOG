@@ -96,18 +96,29 @@ def _detect_newline(raw):
     return "\r\n" if b"\r\n" in raw[:4096] else "\n"
 
 
-def new_bars(cur_last, yahoo_tv, now_s, settle_s=None):
-    """Pure: the TV-format bars to append after `cur_last`. Returns (frame, note)."""
+def new_bars(cur_last, yahoo_tv, now_s, settle_s=None, prev_close=None):
+    """Pure: the TV-format bars to append after `cur_last`. Returns (frame, note).
+    `prev_close` = the master's last close, for the feed-hole spike guard."""
     new = R._drop_unclosed(yahoo_tv, TF, now_s, margin_s=settle_s)
     new = R._rth(new)
     new = _closed_sessions_only(new, now_s, settle_s)
     new = new[new["time"] > cur_last].sort_values("time").drop_duplicates("time").reset_index(drop=True)
+    # SPIKE GUARD - the same shared function as refresh_noadj_yahoo (v92.89): hold back from the
+    # first bar that opens > 2 pct from the prior close after an intraday feed hole (the
+    # 2026-10-30 15:03 NQ print). Runs before the full-day filter, so the cut day is dropped.
+    spike_note = None
+    sp = R.first_spike(new, prev_time=cur_last, prev_close=prev_close, bar_s=300)
+    if sp is not None:
+        r = new.loc[sp]
+        spike_note = "REFUSED a bar that jumps after a feed hole: %s open %s - held back from there" % (
+            _et([int(r["time"])]).iloc[0], r["open"])
+        new = new.iloc[:sp]
     new = _full_sessions_only(new)
     if not len(new):
-        return new, None
+        return new, spike_note
     new, hit = R.roll_guard.split_tv_frame(new, after_time=cur_last, root="NQ")
     new = _full_sessions_only(new)     # a roll-guard cut mid-day must not leave a partial day
-    note = None
+    note = spike_note
     if hit is not None:
         note = "REFUSED an in-bar contract switch: " + R.roll_guard.describe(hit)
     return new, note
@@ -182,7 +193,8 @@ def run(nq_file, now_s=None, fetch=_yahoo_tv, settle_s=None):
         _log("Yahoo pull failed: %s - no-op" % str(e)[:120]); return 0
     if yt is None or not len(yt):
         _log("no Yahoo data - no-op"); return 0
-    new, note = new_bars(cur_last, yt, now_s, settle_s)
+    prev_close = float(cur.loc[cur["time"].idxmax(), "close"])
+    new, note = new_bars(cur_last, yt, now_s, settle_s, prev_close=prev_close)
     if note:
         _log(note)
     if not len(new):

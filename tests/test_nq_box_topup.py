@@ -167,3 +167,29 @@ def test_roll_guard_cut_mid_day_adds_no_partial_day(tmp_path, monkeypatch):
     yahoo = pd.concat([_session("2026-11-23"), _session("2026-11-24", 101.0)])
     assert T.run(p, now_s=NOW, fetch=lambda: yahoo) == 0
     assert open(p, "rb").read() == before
+
+
+def test_spike_after_feed_hole_held_back(tmp_path):
+    # 11-24 has a 15-min hole at 15:00 then a bar opening 5 pct off: nothing from that day lands,
+    # and the guard trims at the spike even when the full-day filter is bypassed.
+    p = _write_master(tmp_path, _session("2026-11-23"))
+    before = open(p, "rb").read()
+    d = _session("2026-11-24")
+    d = d[~d["time"].isin([_ts("2026-11-24", "15:00"), _ts("2026-11-24", "15:05")])].copy()
+    d.loc[d["time"] == _ts("2026-11-24", "15:10"), "open"] = 105.0
+    assert T.run(p, now_s=NOW, fetch=lambda: d) == 0
+    assert open(p, "rb").read() == before
+    orig = T._full_sessions_only
+    T._full_sessions_only = lambda df: df
+    try:
+        out, note = T.new_bars(_ts("2026-11-23", "15:55"), d, NOW, prev_close=100.0)
+    finally:
+        T._full_sessions_only = orig
+    assert int(out["time"].max()) == _ts("2026-11-24", "14:55") and "jumps" in note
+
+
+def test_overnight_gap_is_not_a_spike():
+    # 09:30 open 5 pct above the prior 15:55 close is a real gap (hole > 55 min), not a spike.
+    d = _session("2026-11-24", 105.0)
+    out, note = T.new_bars(_ts("2026-11-23", "15:55"), d, NOW, prev_close=100.0)
+    assert len(out) == 78 and note is None
