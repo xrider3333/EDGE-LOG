@@ -2815,6 +2815,29 @@ def maybe_run_eod(q, *, force=False, dry_run=False):
         return None
 
 
+EOD_GAP_DAYS = 10
+_gap_checked = {}   # uid -> target day already gap-checked in this process (caps reads at ~8/day)
+
+
+def _missing_report_days(db, uid, target_date, days=EOD_GAP_DAYS):
+    """Weekdays in the `days` before target_date (oldest first) that have no paper_reports doc.
+    Never earlier than PAPER_START. A market holiday gets a (flat) report once, then never again."""
+    out = []
+    col = db.collection("users").document(uid).collection("paper_reports")
+    for k in range(days, 0, -1):
+        d = target_date - timedelta(days=k)
+        if d.weekday() >= 5 or d.isoformat() < str(PAPER_START)[:10]:
+            continue
+        try:
+            snap = col.document(d.isoformat()).get()
+            _note_reads_other(1)
+            if not getattr(snap, "exists", False):
+                out.append(d)
+        except Exception:
+            continue
+    return out
+
+
 def _run_eod_check(q, *, force=False, dry_run=False):
     et_now = _et_now()
     # No weekday/time-of-day early return here: _last_completed_trading_day already
@@ -2827,6 +2850,18 @@ def _run_eod_check(q, *, force=False, dry_run=False):
     reports = {}
     for uid in list(getattr(q, "allow", None) or []):
         try:
+            # GAP FILL (2026-11-26, MANAGER): the catch-up used to run only the latest completed
+            # day, so a day the PC was off (11-19..11-23) never got a paper_reports doc and its NT
+            # fills were never compared. Before the target day, re-run any of the last
+            # EOD_GAP_DAYS weekdays with no report doc (one doc read each, once per trading day).
+            if not dry_run and _gap_checked.get(uid) != target_date_s:
+                _gap_checked[uid] = target_date_s
+                for gd in _missing_report_days(q.db, uid, target_date):
+                    try:
+                        _run_one_uid(q, uid, gd, dry_run=False)
+                        _log(f"uid={uid} gap-filled {gd.isoformat()}")
+                    except Exception as e:
+                        _log(f"uid={uid} gap {gd.isoformat()} failed: {type(e).__name__}: {e}")
             already_ran = False
             if not force and not dry_run:
                 state = _get_state(q.db, uid)
