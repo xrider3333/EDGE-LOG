@@ -11751,7 +11751,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const fl=()=>{if(xs.length>1)out+='<path data-mk="exit-line" d="'+pathFromXY(xs,ys)+'" fill="none" stroke="'+col+'" stroke-width="3.2" stroke-linecap="round" opacity="0.95"/>';xs=[];ys=[];};
     for(let i=i0;i<=i1;i++){if(i>i0&&newDay[i])fl();const v=arr[i];if(v===null||v===undefined){fl();continue;}const y=yScale(v);xs.push(xCenter(i));ys.push(y);ax.push(xCenter(i));ay.push(y);}
     fl();
-    if(ax.length>=6){const k=Math.floor(ax.length/2);   // a trade of a few bars: the bold line alone (its plate would sit on the stop's)const lb=String(markers.exitLine.label||'exit line');out+=_plate(ax[k]-lb.length*2.7,Math.max(margin.t+9,Math.min(margin.t+plotH-3,ay[k]-7)),lb,col,'start',true);}
+    // a trade of a few bars gets the bold line alone - its plate would sit on the stop's
+    if(ax.length>=6){const k=Math.floor(ax.length/2);const lb=String(markers.exitLine.label||'exit line');out+=_plate(ax[k]-lb.length*2.7,Math.max(margin.t+9,Math.min(margin.t+plotH-3,ay[k]-7)),lb,col,'start',true);}
   }
   if(_mE&&_mX){
     const yE=yScale(markers.entryPrice),yX=yScale(markers.exitPrice);
