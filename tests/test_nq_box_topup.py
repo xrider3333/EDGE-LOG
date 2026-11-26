@@ -156,3 +156,14 @@ def test_pc_push_mid_run_not_overwritten(tmp_path):
     assert len(df) == 156 and (df["close"].iloc[78:] == 150.0).all()
     assert set(df["source"]) == {"nt_hist"}
     assert not [f for f in os.listdir(tmp_path) if f.startswith(".topup_")]
+
+
+def test_roll_guard_cut_mid_day_adds_no_partial_day(tmp_path, monkeypatch):
+    p = _write_master(tmp_path, _session("2026-11-23"))
+    before = open(p, "rb").read()
+    cut = _ts("2026-11-24", "12:00")
+    monkeypatch.setattr(T.R.roll_guard, "split_tv_frame",
+                        lambda df, after_time, root: (df[df["time"] < cut].reset_index(drop=True), None))
+    yahoo = pd.concat([_session("2026-11-23"), _session("2026-11-24", 101.0)])
+    assert T.run(p, now_s=NOW, fetch=lambda: yahoo) == 0
+    assert open(p, "rb").read() == before

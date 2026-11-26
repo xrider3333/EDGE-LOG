@@ -106,6 +106,7 @@ def new_bars(cur_last, yahoo_tv, now_s, settle_s=None):
     if not len(new):
         return new, None
     new, hit = R.roll_guard.split_tv_frame(new, after_time=cur_last, root="NQ")
+    new = _full_sessions_only(new)     # a roll-guard cut mid-day must not leave a partial day
     note = None
     if hit is not None:
         note = "REFUSED an in-bar contract switch: " + R.roll_guard.describe(hit)
