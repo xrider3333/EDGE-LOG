@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.63';
+const VERSION='92.64';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.64',date:'2026-11-26',notes:['1A FUNNEL TOP 3: the drawdown strip matches the lines above (owner 11-26). One thin underwater line per family #1, in its family colour, on the same timeline; one dashed line + pill marks the deepest. Key rows now show each family #1 worst drawdown. The champion filled area and Monte-Carlo floor stay in ONE CURVE.']},
 {v:'92.61',date:'2026-11-26',notes:['1A CONFIG FUNNEL, CLEANED UP (owner 11-26: the funnel looked messed up). New default view TOP 3: the three highest-ending lines of every family - raw, gate, tilt, KEEL, hybrid, hybrid recycled - each drawn whole from the first trade to the lockbox end as one thin solid line in its family colour.','One $ axis fits every line, so nothing runs off the top any more. Raw dollars: EQUAL RISK does not apply in this view (ONE CURVE still has it).','Key: one row per family with its three ending figures; click a row to dim / hide it, hover to spotlight it. ONE CURVE and DOORS are unchanged, one click away.','Date ticks: the lockbox-start date no longer prints on top of the end date.']},
 {v:'92.59',date:'2026-11-26',notes:['NT8 PAPER TRADE CHART, SAME CLEANUP AS WEBULL (owner 11-26, board 185). The title is the strategy alone, and the line under it reads side, contracts, times once, time held and the source.','Markers read Buy 1 / Sell 1 like the Webull fills, and the exit names the level it hit when the exit reason says so.','One fills table under the chart: the engine price (the P&L of record) against the NinjaTrader demo fill, the slip, and why it closed. Under it is one line with the NT8 P&L against the engine, or why NinjaTrader has no fill.','NT8 and Webull now draw that table with the same code.']},
 {v:'92.57',date:'2026-11-26',notes:['TRADE CHART: STOPS AND TARGETS THAT MOVE (owner 11-26). A trailing or breakeven stop is drawn bar by bar: the zone is red while the stop still risks money and turns green once it locks profit.','The stop is a solid step line and a moved target a dashed one, with a dot at each move. The first risk stays as a faint dashed box. Labels say where each level started (left) and ended (right), with the dollars locked.','Hover a bar inside the trade to read the stop and target in force; on the bar one moved it reads old to new and why (breakeven, trail, target).','The exit marker says stopped, trail hit or target hit. The fills table adds one line: stop A to B with the number of moves.','The box now publishes the target ladder and the reason for each move, and keeps at most 60 steps per trade. Strategies only show a trail once they write a LEVELS row on each move.']},
@@ -27322,7 +27323,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   whole - in-sample, walk-forward and lockbox - as one solid thin line in its family colour, bent at the lockbox
         //   door exactly where ALL CONFIGS bends it. One $ axis fitted to every drawn line, so nothing is held at the
         //   plot edge. Raw $ (EQUAL RISK is off in this view). Anything that throws leaves ONE CURVE as it was.
-        let _t3Layer=null,_t3Gut=null,_t3Key=null;
+        let _t3Layer=null,_t3Gut=null,_t3Key=null,_t3DD=null;
         if(_a2T3On()){try{
           const S=Array.isArray(window._a2EqSeries)?window._a2EqSeries:[];
           const FAM=[['t3raw','RAW','#1d9e75'],['t3gate','GATE','#e24b4a'],['t3tilt','TILT','#f0b429'],['t3keel','KEEL','#38bdf8'],['t3hyb','HYBRID','#c084fc'],['t3hyb2','HYBRID &#9851;','#f0abfc']];
@@ -27357,13 +27358,30 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             Ly+='<g data-kg="'+F[0]+'">'+g+'</g>';
             pills.push({y:YT(a[0].end),col:F[2],kg:F[0],txt:_kUsd(a[0].end)});
             rows.push(F.concat([a]));});
-          if(_ddYv&&_ddWorst!=null)pills.push({y:_ddYv(_ddWorst),col:'#d6557a',kg:'dd',txt:_kUsd(_ddWorst)});
-          if(_ddYv&&_ddMc!=null)pills.push({y:_ddYv(_ddMc),col:'#f5c842',kg:'dd',txt:_kUsd(_ddMc)});
+          // the drawdown strip (owner 11-26: "Yes, redo DD strip"): one thin underwater line per family's #1, on the same x as
+          //   its equity line and in the same key group, so a key click hides both. The pane reaches the deepest of them; one
+          //   dashed reference + pill marks that worst. The champion's filled area and the Monte-Carlo floor stay in ONE CURVE.
+          const dT=eqB+3,dB=H-pd-1,ddL=[];
+          FAM.forEach(F=>{const o=pick[F[0]][0];if(!o)return;const A=o.s.eq,n=A.length,dv=new Array(n);let pk=-Infinity,w=0;
+            for(let j=0;j<n;j++){if(A[j]>pk)pk=A[j];dv[j]=A[j]-pk;if(dv[j]<w)w=dv[j];}
+            ddL.push({F:F,o:o,dv:dv,worst:w});});
+          const ddFl=Math.min(-1,Math.min.apply(null,ddL.map(L=>L.worst)))*1.06;
+          const DY=v=>dT+(dB-dT)*Math.min(1,v/ddFl);
+          const deep=ddL.reduce((m,L)=>(!m||L.worst<m.worst)?L:m,null);
+          let dS='<g data-kg="dd"><rect x="0" y="'+(eqB+1).toFixed(1)+'" width="'+W+'" height="'+Math.max(0,dT-eqB-2).toFixed(1)+'" fill="var(--bg2)"/>'
+            +'<line x1="'+xL.toFixed(1)+'" y1="'+dT.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+dT.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>'
+            +(hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+dT.toFixed(1)+'" x2="'+xFull.toFixed(1)+'" y2="'+dB.toFixed(1)+'" stroke="#a78bfa" stroke-width="0.6" opacity="0.75"/>'):'')
+            +(deep?('<line x1="'+xL.toFixed(1)+'" y1="'+DY(deep.worst).toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+DY(deep.worst).toFixed(1)+'" stroke="'+deep.F[2]+'" stroke-width="0.6" stroke-dasharray="3,2" opacity="0.7"/>'):'')+'</g>';
+          ddL.forEach(L=>{const n=L.dv.length,P=[];
+            for(let j=0;j<n;j++)P.push((j?'L':'M')+xOf(j/Math.max(1,n-1),L.o.sp).toFixed(1)+' '+DY(L.dv[j]).toFixed(1));
+            dS+='<g data-kg="'+L.F[0]+'"><path d="'+P.join('')+'" fill="none" stroke="'+L.F[2]+'" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round"><title>'+L.F[1]+' #1 drawdown &middot; '+_esc(L.o.s.label)+' &middot; worst '+_kUsd(L.worst)+'</title></path></g>';});
+          if(deep)pills.push({y:DY(deep.worst),col:deep.F[2],kg:'dd',txt:_kUsd(deep.worst)});
+          const ddOf={};ddL.forEach(L=>{ddOf[L.F[0]]=L.worst;});
           pills.sort((p,q)=>p.y-q.y);for(let i=1;i<pills.length;i++)if(pills[i].y-pills[i-1].y<5)pills[i].y=pills[i-1].y+5;
           const gs=_niceE((mxT-mnT)/5)||1,gls=[];for(let L=Math.ceil(mnT/gs)*gs;L<=mxT+1e-6;L+=gs)gls.push(L);
           _t3Gut='<div style="width:44px;min-width:44px;position:relative;overflow:visible;font-size:8px;color:var(--text5)">'
             +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
-            +((_ddTop!=null&&!gls.some(L=>Math.abs(YT(L)-_ddTop)<7))?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
+            +((!gls.some(L=>Math.abs(YT(L)-dT)<7))?('<span style="position:absolute;left:3px;top:'+((dT/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
             +gls.filter(L=>!pills.some(p=>Math.abs(p.y-YT(L))<6)).map(L=>'<span style="position:absolute;left:1px;font-size:7px;top:'+(YT(L)/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>').join('')
             +pills.map(L=>'<span data-pg="'+L.kg+'" style="position:absolute;right:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
             +'</div></div>';
@@ -27374,13 +27392,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +'<div data-a2keybody="1" style="display:'+(kOpen?'block':'none')+'">'
             +rows.map(r=>'<div data-a2k="'+r[0]+'" title="'+r[3].map((o,i)=>'#'+(i+1)+' '+_esc(o.s.label)+' ends '+_kUsd(o.end)).join(' · ')+' · click: dim / hide / show · hover: spotlight" style="cursor:pointer;white-space:nowrap;color:'+r[2]+'">'
               +'<span style="display:inline-block;width:10px;height:0;border-top:1.5px solid '+r[2]+';vertical-align:middle;margin-right:4px"></span>'
-              +'<b>'+r[1]+'</b> <span style="color:var(--text3)">'+r[3].map(o=>_kUsd(o.end)).join(' &middot; ')+'</span></div>').join('')
-            +'<div style="color:var(--text5);padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">ranked by ending $ &middot; fainter = #2, #3</div>'
+              +'<b>'+r[1]+'</b> <span style="color:var(--text3)">'+r[3].map(o=>_kUsd(o.end)).join(' &middot; ')+'</span>'
+              +((ddOf[r[0]]!=null)?(' <span style="color:var(--text5)">&middot; DD '+_kUsd(ddOf[r[0]])+'</span>'):'')+'</div>').join('')
+            +'<div style="color:var(--text5);padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">ranked by ending $ &middot; fainter = #2, #3 &middot; DD = worst drawdown of #1 (lower strip)</div>'
             +'</div></div>';
-          _t3Layer=Ly;_t3Sc={mn:mnT,mx:mxT};
-        }catch(_t3e){_t3Layer=null;_t3Gut=null;_t3Key=null;_t3Sc=null;console.warn('top 3 view skipped - showing one curve',_t3e);}}
+          _t3Layer=Ly;_t3DD=dS;_t3Sc={mn:mnT,mx:mxT};
+        }catch(_t3e){_t3Layer=null;_t3Gut=null;_t3Key=null;_t3DD=null;_t3Sc=null;console.warn('top 3 view skipped - showing one curve',_t3e);}}
         if(_t3Layer!=null){_gutterHtml=_t3Gut;_keyBox=_t3Key;}
-        selSvg=_ddStrip+((_t3Layer!=null)?_t3Layer:(_dzLayer!=null)?_dzLayer:(_hwOv
+        selSvg=((_t3Layer!=null&&_t3DD!=null)?_t3DD:_ddStrip)+((_t3Layer!=null)?_t3Layer:(_dzLayer!=null)?_dzLayer:(_hwOv
           +(_acOv?('<g data-kg="allcfg"'+(_acOn?'':' style="display:none"')+'>'+_acOv+'</g>'):'')
           +'<g data-kg="wf"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+wf+'</g>'
           +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_keelOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'))+_dimOv;}
