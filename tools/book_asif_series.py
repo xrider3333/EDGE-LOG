@@ -1057,6 +1057,9 @@ def requested_legs(db):
 
 
 # ── nightly refresh of the side-panel extension panels ───────────────────────────────────────────────────
+STOCK_MASTER_SYMBOLS = "SPY,GLD,QQQ"   # the 5m alpaca_split_rth masters the stock panels and PICK6 clock read
+
+
 def stock_master_end():
     """The last session (YYYY-MM-DD) of the SPY 5m RTH stock master (alpaca_split_rth) - the clock PICK6 runs on and
     the stocks the three panels are pulled with; None when not registered."""
@@ -1099,6 +1102,19 @@ def refresh_ext_panels(leg_ids, say=print, runner=None):
     except Exception as e:
         say("panel refresh: no stock master (%s) - skipped" % e)
         return []
+    # 11-26: the SPY / GLD / QQQ 5m stock masters had no scheduled extend (last a one-off pull on 11-21), so every
+    # panel stayed capped at 11-20 for four sessions. Extend them here first when they end before the last session.
+    if mend and mend < _last_completed_session_et() and not runner:
+        start = (dt.date.fromisoformat(mend) - dt.timedelta(days=5)).isoformat()
+        cmd = [sys.executable, os.path.join(HERE, "tools", "import_alpaca_stocks.py"), "--symbols", STOCK_MASTER_SYMBOLS,
+               "--timeframe", "5Min", "--start", start, "--rth"]
+        say("stock master ends %s - extending %s" % (mend, STOCK_MASTER_SYMBOLS))
+        try:
+            rc = subprocess.run(cmd, cwd=HERE, timeout=PANEL_BUILD_TIMEOUT).returncode
+            mend = stock_master_end()
+            say("stock master extend -> rc %s, now ends %s" % (rc, mend))
+        except Exception as e:
+            say("stock master extend failed: %s: %s" % (type(e).__name__, e))
     stamp = _load_json(PANEL_STAMP, {}) or {}
     target = min(mend or "", _last_completed_session_et())
     todo = panels_to_refresh(leg_ids, mend, stamp, _last_completed_session_et())
