@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.73';
+const VERSION='92.74';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.74',date:'2026-11-26',notes:['RUN BLOTTER and CHART GALLERY: on a run that sizes its trades (NOISE tilts, run #555), the exit price is now where price actually went. It used to be worked out as if every trade were one contract, so a 2.6x trade drew its exit 2.6x too far from the entry, past every bar.','Each sized trade now shows its size (for example LONG 2.63 ct). Blotters saved before today for those runs are rebuilt the first time they are opened. The dollar P&L never changed.']},
 {v:'92.73',date:'2026-11-26',notes:['1A FUNNEL ONE CURVE: KEEL gets its end pill in the gutter like every other family line (owner 11-26).']},
 {v:'92.72',date:'2026-11-26',notes:['WEBULL PAPER breakdown fits the sidebar: the backtest table sits above the Webull table instead of side by side.']},
 {v:'92.71',date:'2026-11-26',notes:['1A FUNNEL ONE CURVE with EQUAL RISK on: the $ axis now fits every line at its equal-risk size (owner 11-26: "why is the one curve still messed up"). The x5 tilt / hybrid lines used to be held flat along the top edge as off scale; now they draw in full, and the raw lines read flatter beside them. EQUAL RISK off is unchanged.']},
@@ -14972,6 +14973,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   };
 
+// a blotter row's own size (owner 11-26: run #555 trades are sized 1.5x / 1.75x / up to 3x; the blotter writes `size` since then):
+// shown as contracts beside the side, and only when it is not one, so an unsized run reads as before
+function _blotQty(x){const v=(x&&x.size!=null&&x.size!=='')?+x.size:NaN;return (isFinite(v)&&v>0&&Math.abs(v-1)>1e-9)?+v.toFixed(2):undefined;}
 // ── CHART GALLERY (v71.80, owner: "load the top 10 wins / loss / recents WITH THEIR CHARTS in
 //    one scrollable window, with load more, instead of one at a time") — stacks a real candle
 //    chart per trade in one scrolling window, fetches the whole batch at once, and appends the
@@ -15047,7 +15051,7 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel,opts){
   const card=x=>'<div data-gal="'+x._no+'" style="border:1px solid var(--border2);border-radius:8px;margin-bottom:12px;overflow:hidden">'
     +'<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--bg2);font-size:10px;letter-spacing:.5px">'
     +'<b style="color:var(--text2)">#'+x._no+'</b><span style="color:var(--text4)">'+x._et+'</span>'
-    +'<span style="color:var(--text5)">'+(sideOf(x)==='long'?'LONG':'SHORT')+'</span>'
+    +'<span style="color:var(--text5)">'+(sideOf(x)==='long'?'LONG':'SHORT')+(x._qty!=null?(' '+x._qty+' ct'):'')+'</span>'
     +'<b style="margin-left:auto;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</b>'
     +'<span data-galzoom="'+x._no+'" style="font-size:8px;color:var(--text5);letter-spacing:.4px"></span>'
     +'<span data-galtrade="'+x._no+'" title="frame the held window" style="cursor:pointer;border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:8px;color:var(--text3)">&#128269; TRADE</span>'
@@ -15196,7 +15200,7 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel,opts){
 window.openBlotterModal=async function(B){
   if(!B||B.run_id==null){console.warn('openBlotterModal: no blotter payload');return;}
   const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
-  const map=rows=>rows.map(x=>({_no:+x.trade_no,_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null)}));
+  const map=rows=>rows.map(x=>({_no:+x.trade_no,_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null),_qty:_blotQty(x)}));
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9998;display:flex;align-items:center;justify-content:center;padding:26px';
   // v71.88 (owner: "modernize this - text everywhere and confusing"): the header was one long
@@ -15750,7 +15754,7 @@ window.expandEquity=function(host){
   //   marks the source in the meta line (a run's blotter is deterministic, so the saved copy
   //   never goes stale; Shift+click the TRADES button to force a fresh regenerate anyway).
   const _applyBlot=(r,cached)=>{
-    const rows=(r.rows||[]).map(x=>({_no:+x.trade_no,_t:_ms(x.entry_time),_tx:_ms(x.exit_time),_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null)}));
+    const rows=(r.rows||[]).map(x=>({_no:+x.trade_no,_t:_ms(x.entry_time),_tx:_ms(x.exit_time),_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null),_qty:_blotQty(x)}));
     if(!rows.length)throw new Error('blotter came back empty');
     blotRows=rows;
     // ── swap in the FULL-RESOLUTION line: per-trade cum-$ at real trade times replaces the

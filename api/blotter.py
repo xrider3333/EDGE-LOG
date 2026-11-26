@@ -8,7 +8,24 @@ from augur_engine.data import find_master, load_master_arrays
 from augur_engine.paths import blotter_dir
 
 FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
-          "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side"]
+          "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side", "size"]
+
+# 2026-11-26 (owner: "the SL visualisation doesn't show price moving there"): a file that folds its own
+# size into t[2] (NOISE's tilt, the v12 fixed tilts: pts = S*raw - (S-1)*c) says so with trade_sizes +
+# size_cost_pts. The exit price used to be inverted as if every trade were ONE contract, so a 2.6x trade's
+# exit was drawn 2.6x as far from the entry as the price ever went (run #555 #4592: 24,611 drawn, about
+# 24,810 traded). A blotter row now carries `size`; a cached CSV without that column, for a file that
+# folds a size, is rebuilt instead of served (see _folds_size_source).
+SIZE_MARK = "trade_sizes"
+
+
+def _row_size(sizes, i):
+    """The size of trade i (0-based) when the file reports aligned sizes, else 1.0."""
+    try:
+        s = float(sizes[i]) if sizes is not None else 1.0
+    except Exception:
+        return 1.0
+    return s if s > 0 else 1.0
 
 
 def champion_blotter(strategy, instrument, timeframe, session="rth", params=None,
@@ -45,6 +62,13 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
                          arrays=a, params=params or {}, cost_pts=float(cost_pts or 0),
                          return_trades=True)
     raw_trades = list((bt or {}).get("trades") or [])
+    sizes = (bt or {}).get("trade_sizes")
+    fold_c = float((bt or {}).get("size_cost_pts") or 0.0)
+    try:
+        if sizes is None or len(sizes) != len(raw_trades):
+            sizes, fold_c = None, 0.0
+    except Exception:
+        sizes, fold_c = None, 0.0
     rows, cum = [], 0.0
     for i, t in enumerate(raw_trades, 1):
         eb, xb, pnl = int(t[0]), int(t[1]), float(t[2])
@@ -60,7 +84,10 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
         # the real fill price. The trade tuple never carries a true exit price either, so
         # reconstruct it by cost-inversion: net pnl + cost = gross points moved, and
         # inverting that arithmetic recovers the exact fill the simulator used.
-        gross = pnl + float(cost_pts or 0)
+        # A sized trade (see SIZE_MARK above): net = S*g - (S-1)*fold_c - cost_pts, so one contract's
+        # gross move g = (net + cost_pts + (S-1)*fold_c) / S. S = 1 is the old arithmetic exactly.
+        s = _row_size(sizes, i - 1)
+        gross = (pnl + float(cost_pts or 0) + (s - 1.0) * fold_c) / s
         if side_flag is not None:
             side = 1 if side_flag >= 0 else -1
         else:
@@ -75,7 +102,7 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
         rows.append({"trade_no": i, "entry_time": str(idx[eb])[:16], "exit_time": str(idx[xb])[:16],
                      "hold_bars": xb - eb, "entry_px": round(ep, 2), "exit_px": round(exit_px, 2),
                      "pnl_pts": round(pnl, 2), "pnl_usd": round(usd, 2), "cum_usd": round(cum, 0),
-                     "side": "long" if side == 1 else "short"})
+                     "side": "long" if side == 1 else "short", "size": round(s, 4)})
     if return_raw:
         return rows, meta, raw_trades
     return rows, meta
@@ -360,10 +387,17 @@ def load_blotter_rows(root, payload, log=print):
             out["readings"] = blotter_readings(rows, payload)
         return out
 
+    stale_sized = False
     for pth in cands:
         if os.path.isfile(pth):
             with open(pth, newline="", encoding="utf-8") as f:
                 rows = [dict(r) for r in csv.DictReader(f)]
+            if rows and "size" not in rows[0] and payload.get("params") and _folds_size_source(root, payload):
+                # written before 2026-11-26 by a file that folds a size: its exit_px is one-contract
+                # arithmetic on a sized trade (drawn far past the bars). Rebuild it below.
+                log(f"    -> blotter {pth} predates per-trade size and its file folds a size: rebuilding")
+                stale_sized = True
+                break
             if rows:
                 log(f"    -> blotter served from {pth} ({len(rows)} trades)")
                 extra = {"source": os.path.basename(os.path.dirname(pth)) + "/" + name}
@@ -403,5 +437,21 @@ def load_blotter_rows(root, payload, log=print):
     except Exception:
         pass
     log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid} "
-        f"from master '{bmeta.get('master')}'")
+        f"from master '{bmeta.get('master')}'" + (" (was a pre-size cache)" if stale_sized else ""))
     return _cap(rows, {"regenerated": True, "master": bmeta.get("master")})
+
+
+def _folds_size_source(root, payload):
+    """True when the run's strategy source reports per-trade sizes (the text `trade_sizes`): its plugin
+    file when it still exists, else the run's code snapshot. A cheap text check - no import, no run."""
+    try:
+        strat = _resolve_strategy(root, payload.get("strategy") or "")
+        fn = strat if str(strat).endswith(".py") else str(strat) + ".py"
+        pth = os.path.join(root, "augur_strategies", fn)
+        if os.path.isfile(pth):
+            with open(pth, encoding="utf-8", errors="replace") as f:
+                if SIZE_MARK in f.read():
+                    return True
+        return SIZE_MARK in str(payload.get("code") or "")
+    except Exception:
+        return False
