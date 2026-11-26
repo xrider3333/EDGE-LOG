@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.90';
+const VERSION='92.91';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.91',date:'2026-11-26',notes:['RESULTS, TEARSHEET report, rebuilt around one main chart (owner 11-26: the ML versions were an afterthought; put them on the main P and L chart, top 3 of each family, with daily P and L bars). The Summary now opens with P and L, EVERY VERSION: one chart on a real date axis with the three highest-ending lines of every family - raw, gate, sizing tilt, gate plus sizing, gate plus sizing resized, KEEL - in the same family colours as the config funnel, IS / WF / LB shaded, the crowned raw line heaviest, and each family best line labelled with where it ends. Under it, the fall below the high for each family best line; under that, daily P and L bars for the walk-forward days at one contract (when the run has a daily series; when it does not the chart says so and offers to build it). Click a family chip to hide or show it. ACTUAL $ / EQUAL RISK switch: equal risk resizes every line to a 30k worst fall before LB so sized versions compare fairly. Hover reads every family on that date plus the day. Beside the IS / WF / LB table there is now a VERSIONS ON THE CHART table: every drawn line with where it ends, before LB, LB, worst fall before LB and net over worst fall against the crowned raw line. The small ML card is gone - ML is the chart and that table. Runs with no family lines keep the single equity chart.']},
 {v:'92.88',date:'2026-11-26',notes:['RESULTS, TEARSHEET report: less clicking and scrolling (owner 11-26). Six tabs are now three. SUMMARY is one page with everything that decides a run: the four numbers, equity and drawdown beside the IS / WF / LB table, then folds, years, an ML card (each version on net over max DD against no ML) and a Checks card (only the flags and cautions, the rest counted) side by side, then monthly net beside where the money comes from. DEEP DIVE holds the detail on one page with jump links: trades (distribution, MAE / MFE), config search (3-D surface and the rest), ML in full, and every check. SETUP is unchanged. The seven layout buttons in the report header are now one small dropdown, and the charts are a little shorter so the summary fits a screen. Books get the same treatment: one Summary page with legs and checks on it, plus Setup.']},
 {v:'92.87',date:'2026-11-26',notes:['RESULTS, TEARSHEET report, three additions (owner 11-26). (1) A new ML tab: one table that answers whether ML earns its keep - the plain strategy, the picked gate, the best sizing tilt, the best gate plus sizing, and KEEL, each with trades kept, average size, net over max DD, net, PF and Sortino before LB, plus WF + LB and LB net; then the ten best gate models tried; then the full ML readout that used to sit at the bottom of Robustness. The summary line now says in one sentence whether a gate beat the plain strategy. (2) Books now open in the TEARSHEET too: headline numbers for the whole book, equity and drawdown with LB shaded, IS / LB / whole book table with the marked-daily drawdown, net by slice, the worst fall split by leg, a Legs tab, the checks, and a Setup tab. (3) The older panels shown inside the tabs (config search, 3-D surface, MAE / MFE, distributions) now use the report typeface and flat cards so they match the rest.']},
 {v:'92.85',date:'2026-11-26',notes:['WEBULL and NT8 trade charts: a NOISE trade draws the VWAP bold from entry to exit, the line it closes on, and the VWAP legend says bold = exit line.']},
@@ -15302,15 +15303,17 @@ window.openBlotterModal=async function(B){
     if(view==='recent')return a.sort((p,q)=>q._no-p._no).slice(0,shown);
     // ALL is PAGED too (owner: clicking ALL dumped 5,616 rows in one go and shoved the
     // controls off screen) — same LOAD MORE, just a bigger page.
-    return a.sort((p,q)=>q._no-p._no).slice(0,shown);
+    // owner 11-26 ("only see top 10ish trades? no overall list?"): ALL is the whole list, newest first. The table body
+    //   scrolls under a fixed header, so the controls stay put however long it is.
+    return a.sort((p,q)=>q._no-p._no);
   };
   const draw=()=>{
     // SEGMENTED switch (one connected control) instead of four look-alike buttons in a row,
     // then the actions on the right. No hint sentences — they moved onto the tooltips.
     const vs=[['recent','RECENT'],['wins','WINS'],['losses','LOSSES'],['all','ALL']];
-    const seg=vs.map((v2,i)=>'<span data-bmv="'+v2[0]+'" title="'+(v2[0]==='recent'?'newest trades first':v2[0]==='wins'?'the 10 biggest winners':v2[0]==='losses'?'the 10 biggest losers':'every trade, 25 at a time')+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 12px;color:'+(view===v2[0]?'var(--bg1)':'var(--text4)')+';background:'+(view===v2[0]?'var(--blue)':'transparent')+(i?';border-left:1px solid var(--border)':'')+'">'+v2[1]+'</span>').join('');
+    const seg=vs.map((v2,i)=>'<span data-bmv="'+v2[0]+'" title="'+(v2[0]==='recent'?'newest trades first':v2[0]==='wins'?'the 10 biggest winners':v2[0]==='losses'?'the 10 biggest losers':'every trade, newest first, in one scrolling list')+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 12px;color:'+(view===v2[0]?'var(--bg1)':'var(--text4)')+';background:'+(view===v2[0]?'var(--blue)':'transparent')+(i?';border-left:1px solid var(--border)':'')+'">'+v2[1]+'</span>').join('');
     viewsEl.innerHTML='<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+seg+'</span>'
-      +(((view==='recent'||view==='all')&&rows&&shown<rows.length)?'<span data-bmv="more" title="add 25 more rows" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--border2);color:var(--text3)">+25</span>':'')
+      +((view==='recent'&&rows&&shown<rows.length)?'<span data-bmv="more" title="add 25 more rows" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--border2);color:var(--text3)">+25</span>':'')
       +'<span style="flex:1 1 auto"></span>'
       +'<span style="width:100%;height:0"></span>'
       +'<span style="font-size:8px;color:var(--text5);letter-spacing:.6px;align-self:center">BOOK</span>'
@@ -15362,7 +15365,7 @@ window.openBlotterModal=async function(B){
       +chip('NET '+$(net),net>=0?'var(--green)':'var(--red)')
       +chip(Math.round(wins/rows.length*100)+'% WIN')
       +(masterName?chip(masterName):'')
-      +(((view==='recent'||view==='all'))?chip('SHOWING '+Math.min(shown,rows.length)+' OF '+rows.length,'var(--blue)'):chip(cur.length+' SHOWN','var(--blue)'));
+      +(((view==='recent'||view==='all'))?chip('SHOWING '+(view==='all'?rows.length:Math.min(shown,rows.length))+' OF '+rows.length,'var(--blue)'):chip(cur.length+' SHOWN','var(--blue)'));
     body.querySelectorAll('[data-bmrow]').forEach(tr=>{tr.onclick=()=>{
       const x=rows.find(q=>q._no===+tr.dataset.bmrow);if(!x)return;
       window._openTradeCandles(x,null,{B:B,all:()=>rows,order:()=>slice()});
@@ -32366,6 +32369,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       +'.tear .tlg table{font-variant-numeric:tabular-nums}'
       +'.tear .tnote{font-size:12px;color:var(--text3);margin:0 0 14px;max-width:96ch}'
       +'.tear .tg4{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}'
+      +'.tear .tsw{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:8px}'
+      +'.tear .tfams{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0}'
+      +'.tear .tfam{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--text2);background:var(--bg1);white-space:nowrap}'
+      +'.tear .tfam i{width:9px;height:9px;border-radius:50%;display:inline-block}.tear .tfam b{font-weight:600;color:var(--text)}'
+      +'.tear .tfam.off{opacity:.45}.tear .tfam.off i{background:transparent!important;box-shadow:inset 0 0 0 1.5px var(--text4)}'
+      +'.tear .tdaily{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text4);padding:8px 0 0 56px}'
+      +'.tear .tdaily button{font:12px Inter,system-ui,sans-serif;letter-spacing:0;background:var(--bg1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer}'
+      +'.tear .ttip i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}.tear .ttip div{display:flex;justify-content:space-between;gap:16px}.tear .ttip div span:first-child{color:var(--text3)}'
+      +'.tear table.tt tr.fam0 td{border-top:1px solid var(--border)}'
       +'.tear .tlay{background:var(--bg1);color:var(--text3);border:1px solid var(--border);border-radius:6px;height:26px;padding:0 6px;font:12px Inter,system-ui,sans-serif;letter-spacing:0;outline:0;cursor:pointer}'
       +'.tear .tlay option{background:var(--bg2);color:var(--text)}'
       +'.tear .tjump{position:sticky;top:0;z-index:4;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--bg);padding:6px 0 8px;margin:0 0 6px;font-size:12px;color:var(--text4)}'
@@ -32558,12 +32570,61 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           TD.eq={e:eqPts.map(v=>+v*mlt),nTr:nTr,cuts:(cuts&&cuts[1]<=nTr*1.02)?cuts:null,d0:mYr(d.date_from),d1:mYr(win.wf_split),d2:mYr(lb0),d3:mYr(dTo)};
           eqCard=card('Equity and drawdown','whole run, by trade &middot; saved curve, so the drawdown pane reads a touch shallow','<div class="tchart" data-tearc="eq"></div>');}
         else eqCard=lgRaw(X.P.equity);
+        // MAIN CHART (owner 11-26: "the MLs seem like an afterthought ... they should be on the main pnl chart. top 3 of each
+        //   family (raw, hybrid etc). daily pnl bars too"). One P&L chart for the whole run: the three highest-ending lines of
+        //   every family from the SAME payload the config funnel draws (window._a2EqSeries, real dates, dollars), the fall
+        //   below the high of each family's best line under it, and the walk-forward daily P&L bars under that.
+        let heroCard='',verCard='';
+        try{const SR=Array.isArray(window._a2EqSeries)?window._a2EqSeries:null;
+          if(SR&&SR.length){
+            const FAM=[['raw','Raw','#1d9e75'],['gate','Gate','#e24b4a'],['tilt','Sizing tilt','#f0b429'],['hyb','Gate + sizing','#c084fc'],['hyb2','Gate + sizing, resized','#f0abfc'],['keel','KEEL','#38bdf8']];
+            const famOf=s=>(!s||s.dim||s.gateChosen||!Array.isArray(s.eq)||s.eq.length<2)?null:(s.id==='keel'?'keel':s.gateCand?'gate':s.tiltCand?'tilt':s.hybRcy?'hyb2':s.hybCand?'hyb':(/^cfg/.test(String(s.id||''))?'raw':null));
+            const BD=window._a2Bands||{},pms=x=>{const t=Date.parse(x);return isFinite(t)?t:null;};
+            const wfMs=n(BD.wfFrom)!=null?+BD.wfFrom:pms(win.wf_split),lbMs=n(BD.lbFrom)!=null?+BD.lbFrom:pms(lb0),T0=pms(d.date_from),T1=pms(dTo);
+            const nmOf=s=>String(s.label||s.id||'').replace(/\s*·\s*/g,', ').replace(/[^\x20-\x7e]/g,'').replace(/^\s*(gate|tilt|hybrid)\s*:\s*/i,'').replace(/^[\s,]+|[\s,]+$/g,'').replace(/\s+/g,' ');
+            // net over worst fall before LB: the run's own stored figure for every line that has one (the drawn curves are
+            //   thinned, so a fall read off them runs shallow - and by a different amount per family); '~' marks the rest
+            const recS=(s,f)=>{try{const id=String(s.id||'');let m;
+              if(f==='raw')return (s.id==='cfg1')?n(G.ungated_pre_rec):null;
+              if(f==='keel')return n(G.keel&&G.keel.pre_rec);
+              if(f==='gate'&&(m=/^gc-(.+)-(\d+)$/.exec(id))){const c=(G.candidates||[]).filter(c=>c.model===m[1]&&Math.round(c.threshold*100)===+m[2])[0];return c?n(c.pre_rec):null;}
+              if(f==='tilt'&&(m=/^tilt-(.+)-([a-z]+)$/.exec(id))){const c=(G.tilts||[]).filter(c=>c.model===m[1]&&c.scheme===m[2])[0];return c?n(c.pre_rec):null;}
+              if((f==='hyb'&&(m=/^hyb-(.+)$/.exec(id)))||(f==='hyb2'&&(m=/^hybr-(.+)$/.exec(id)))){const c=(G.hybrids||[]).filter(c=>c.model===m[1])[0];return c?n(c.pre_rec):null;}
+              return null;}catch(e){return null;}};
+            const pick={};FAM.forEach(F=>{pick[F[0]]=[];});
+            SR.forEach(s=>{const f=famOf(s);if(!f)return;const A=s.eq,N=A.length;if(!isFinite(+A[N-1]))return;
+              let ts=(Array.isArray(s.ts)&&s.ts.length===N)?s.ts:null;
+              if(!ts){if(T0==null||T1==null)return;ts=A.map((v,k)=>T0+(T1-T0)*k/(N-1));}
+              let di=N-1;if(lbMs!=null){di=0;for(let k=0;k<N;k++){if(+ts[k]<lbMs)di=k;else break;}}
+              let pk=0,dd=0;for(let k=0;k<=di;k++){if(A[k]>pk)pk=A[k];if(pk-A[k]>dd)dd=pk-A[k];}
+              const rq=recS(s,f),exact=(rq!=null&&rq>0&&A[di]>0);if(exact)dd=+A[di]/rq;
+              pick[f].push({s:s,ts:ts,end:+A[N-1],door:+A[di],hasLb:di<N-1,preDD:dd,exact:exact,crown:(f==='raw'&&(s.id==='cfg1'||/👑/.test(String(s.label||''))))});});
+            const eqr=+(APREF.tearEqr||0)===1,off=String(APREF.tearFamOff||'').split(',').filter(Boolean);
+            const lines=[],vrows=[],chipsH=[];
+            FAM.forEach(F=>{const a=pick[F[0]];if(!a.length)return;a.sort((x,y)=>((y.crown?1:0)-(x.crown?1:0))||(y.end-x.end));const top=a.slice(0,3),isOff=off.indexOf(F[0])>=0;
+              top.forEach((o,rk)=>{o.f=(eqr&&o.preDD>0)?Math.min(25,30000/o.preDD):1;o.rk=rk;o.nm=nmOf(o.s)||('#'+(rk+1));
+                if(!isOff)lines.push({fam:F[0],fn:F[1],col:F[2],rk:rk,crown:o.crown,nm:o.nm,ts:o.ts,v:o.f===1?o.s.eq:o.s.eq.map(v=>v*o.f)});
+                vrows.push([F,o,isOff]);});
+              chipsH.push('<span class="tfam'+(isOff?' off':'')+'" data-tearfam="'+F[0]+'" title="'+(isOff?'show':'hide')+' the '+F[1]+' lines"><i style="background:'+F[2]+'"></i>'+F[1]+' <b>'+fk(top[0].end*top[0].f)+'</b></span>');});
+            if(vrows.length){
+              TD.hero={lines:lines,wf:wfMs,lb:lbMs,id:String(d.id),hasWf:(typeof rtsHasWf==='function')?rtsHasWf(d):false,eqr:eqr};
+              heroCard='<section class="tc"><header><h3>P&amp;L, every version</h3><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+                +(hasML?(G.gate_earns_pre===false?'<span class="tst" style="font-weight:400;color:var(--text3)"><span class="tdot warn"></span>ML: no lift before LB</span>':(G.gate_earns_pre===true?'<span class="tst" style="font-weight:400;color:var(--text3)"><span class="tdot ok"></span>ML: a gate earns its keep</span>':'')):'')
+                +'<span class="tseg" title="Actual $ = every line at the size it traded. Equal risk = each line resized so its worst fall before LB is $30k, so the sized versions can be compared with the plain ones."><span data-teareqr="0" class="'+(eqr?'':'on')+'">Actual $</span><span data-teareqr="1" class="'+(eqr?'on':'')+'">Equal risk</span></span></span></header>'
+                +'<div class="tfams">'+chipsH.join('')+'</div><div class="tb"><div class="tchart" data-tearc="hero"></div></div></section>';
+              const rec=o=>o.preDD>0?(o.door/o.preDD):null;const base=vrows.filter(r=>r[1].crown)[0],bRec=base?rec(base[1]):null;
+              verCard='<section class="tc"><header><h3>Versions on the chart</h3><p>top 3 of each family by ending $'+(eqr?' &middot; each resized to a $30k worst fall before LB':' &middot; at the size each traded')+'</p></header><div class="tw"><table class="tt tcmp"><thead><tr><th>Version</th>'+(eqr?'<th>Size</th>':'')+'<th>Ends</th><th>LB</th><th>Worst fall<small>before LB</small></th><th class="wf">Net / fall<small>before LB</small></th></tr></thead><tbody>'
+                +vrows.map(r=>{const F=r[0],o=r[1],q=rec(o),e=o.end*o.f,dr=o.door*o.f,lbv=o.hasLb?(o.end-o.door)*o.f:null;
+                  return '<tr class="'+(o.rk===0?'fam0':'')+'" style="'+(r[2]?'opacity:.45':'')+'"><td><span class="tsw" style="background:'+F[2]+';opacity:'+[1,.6,.4][o.rk]+'"></span>'+(o.rk===0?('<b style="font-weight:600">'+F[1]+'</b> '):'')+'<span class="tmut">'+E(o.nm)+(o.crown?', crowned':'')+'</span></td>'+(eqr?('<td>x'+(o.f>=10?o.f.toFixed(0):o.f.toFixed(1))+'</td>'):'')
+                    +'<td class="'+cl(e)+'" style="font-weight:600">'+fk(e)+'</td><td class="'+cl(lbv)+'">'+(lbv==null?'&ndash;':fk(lbv))+'</td><td class="tneg">'+(o.preDD>0?((o.exact?'':'~')+fk(-o.preDD*o.f)):'&ndash;')+'</td><td class="wf">'+((q!=null&&!o.exact)?'~':'')+fn(q,1)+((q!=null&&bRec!=null&&!o.crown&&o.exact)?(' <span class="'+(q>=bRec?'tpos':'tneg')+'" style="font-weight:400;font-size:11px">'+(q>=bRec?'+':'')+(q-bRec).toFixed(1)+'</span>'):'')+'</td></tr>';}).join('')
+                +'</tbody></table><span class="tmore" data-tearjump="ml">daily bars: WF days, one contract &middot; ~ = read off the thinned curve, runs shallow &middot; full ML readout</span></div></section>';}
+          }}catch(_he){console.error('tearsheet main chart failed',_he);heroCard='';verCard='';TD.hero=null;}
         const cols=[['is','IS',S.is,mYr(op0),mYr(win.wf_split)],['wf','WF',S.wf,mYr(win.wf_split),mYr(lb0||(win.optimize||[])[1])],['lb','LB',S.lb,mYr(lb0),mYr(lb1)],['all','Whole run',S.all,mYr(d.date_from),mYr(dTo)]].filter(c=>c[2]);
         const yr=s=>String(s||'').slice(-4);
         const rows=[['Net',x=>fk(x.net),x=>cl(x.net)],['Max drawdown',x=>x.dd!=null?fk(-x.dd):'&ndash;',x=>'tneg'],['ROC at $30k',x=>fp(x.roc)],['DD % from high',x=>fp(x.ddp)],['MAR',x=>fn(x.mar)],['Sortino',x=>fn(x.so)],['Sharpe',x=>fn(x.sh)],['Profit factor',x=>fn(x.pf)],['Win %',x=>x.wr!=null?fp(x.wr,0):'&ndash;'],['Avg trade',x=>f$(x.avg),x=>cl(x.avg)],['Avg win',x=>f$(x.aw)],['Avg loss',x=>f$(x.al)],['Trades',x=>fi(x.n)],['Years',x=>x.yrs!=null?x.yrs.toFixed(1):'&ndash;']];
         const stage=cols.length?('<table class="tt"><thead><tr><th>Metric</th>'+cols.map(c=>'<th class="'+(c[0]==='wf'?'wf':'')+'">'+c[1]+((c[3]&&c[4])?('<small>'+yr(c[3])+'&ndash;'+yr(c[4])+'</small>'):'')+'</th>').join('')+'</tr></thead><tbody>'
           +rows.map(r=>'<tr><td>'+r[0]+'</td>'+cols.map(c=>'<td class="'+(c[0]==='wf'?'wf ':'')+(r[2]?r[2](c[2]):'')+'">'+r[1](c[2])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'):'';
-        body+='<div class="tgrid tg2">'+eqCard+(stage?card('By stretch',S.wf?'WF is the score &middot; one contract':'one contract',stage,false):'')+'</div>';
+        body+=(heroCard?('<div class="tgrid">'+heroCard+'</div>'):'')+'<div class="tgrid tg2">'+(heroCard?verCard:eqCard)+(stage?card('By stretch',S.wf?'WF is the score &middot; one contract':'one contract',stage,false):'')+'</div>';
         // folds + years
         let fCard='',yCard='';
         if(folds.length){const t10=Array.isArray(d.top10_results)&&d.top10_results.length===folds.length?d.top10_results:[];
@@ -32591,7 +32652,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +'<span class="tmore" data-tearjump="robust">all '+chips.length+' checks</span></div></section>';
           const oc=chips.filter(c=>c.k===window._diagOpenKey&&c.html)[0];
           if(oc)ckOpen='<div class="tgrid"><section class="tc" style="'+(X.semVars||'')+'"><header><h3>'+E(plain(oc.nm))+'</h3><p>'+E(plain(oc.q))+'</p></header><div class="tb"><div class="tlg" style="margin:0">'+oc.html+'</div></div></section></div>';}
-        if(fCard||yCard||mlCard||ckCard)body+='<div class="tgrid tg4">'+fCard+yCard+mlCard+ckCard+'</div>'+ckOpen;
+        if(fCard||yCard||mlCard||ckCard)body+='<div class="tgrid tg4">'+fCard+yCard+(heroCard?'':mlCard)+ckCard+'</div>'+ckOpen;
         let mCard='',bkCard='';
         // monthly heatmap
         const mr=(R.monthly&&Array.isArray(R.monthly.rows))?R.monthly.rows:[];
@@ -32711,11 +32772,72 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           tp.textContent=(Q.unit||'Trade')+' '+t.toLocaleString('en-US')+(c?(' - '+(t<c[0]?bn[0]:(t<c[1]?bn[1]:bn[2]))):'')+'\nEquity '+f$(e[i])+'\nBelow high '+f$(dd[i]);
           tp.style.display='';const px=ev.clientX-er.left,py=ev.clientY-er.top;tp.style.left=Math.max(0,Math.min(er.width-tp.offsetWidth-4,px+14))+'px';tp.style.top=Math.max(0,py-tp.offsetHeight-10)+'px';};
         hit.onmouseleave=()=>{xh.style.display='none';xd.style.display='none';tp.style.display='none';};};
+      // MAIN CHART: family lines on a real date axis, underwater of each family's best line, daily P&L bars (WF, one contract)
+      const hero=(el,Q)=>{const Wd=el.clientWidth||900,pL=56,pR=78,pT=22,eh=300,g1=12,dh=48,g2=22,bh=66,iw=Wd-pL-pR;
+        const C=(window._rtsCache||{})[Q.id],DS=(C&&C.st==='ok'&&C.S&&C.S.daily&&Array.isArray(C.S.daily.d)&&C.S.daily.d.length>1)?C.S.daily:null;
+        if(Q.hasWf&&!C&&typeof rtsLoad==='function'&&!el._tearAsk){el._tearAsk=1;try{rtsLoad(Q.id);}catch(e){}
+          let k=0;const iv=setInterval(()=>{const c=(window._rtsCache||{})[Q.id];k++;if((c&&c.st!=='loading')||k>80){clearInterval(iv);if(window._tearD&&window._tearD.hero&&window._tearD.hero.id===Q.id&&document.querySelector('[data-tearc="hero"]'))window._tearDraw(document);}},250);}
+        if(!Q.lines.length){el.innerHTML='<div class="tmut" style="padding:30px 0;text-align:center">Every family is hidden. Click a family above to show it.</div>';return;}
+        const H=pT+eh+g1+dh+(DS?(g2+bh):0)+24,yB=pT+eh+g1+dh+(DS?(g2+bh):0);
+        let t0=Infinity,t1=-Infinity,mn=0,mx=0;Q.lines.forEach(l=>{t0=Math.min(t0,+l.ts[0]);t1=Math.max(t1,+l.ts[l.ts.length-1]);l.v.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;});});
+        const stp=nice(mx-mn,5),top=Math.ceil(mx/stp)*stp||stp,bot=(mn<-stp*.2)?Math.floor(mn/stp)*stp:Math.min(0,mn);
+        const x=t=>pL+(t-t0)/((t1-t0)||1)*iw,y=v=>pT+(top-v)/((top-bot)||1)*eh;
+        let g='';
+        const cut=[t0];if(Q.wf!=null&&Q.wf>t0&&Q.wf<t1)cut.push(Q.wf);const hasWfB=cut.length===2;if(Q.lb!=null&&Q.lb>cut[cut.length-1]&&Q.lb<t1)cut.push(Q.lb);const hasLbB=(Q.lb!=null&&cut[cut.length-1]===Q.lb);cut.push(t1);
+        const nmB=(hasWfB&&hasLbB)?['IS','WF','LB']:(hasWfB?['IS','WF']:(hasLbB?['','LB']:['']));
+        for(let i=0;i<cut.length-1;i++){const x0=x(cut[i]),x1=x(cut[i+1]);
+          if(i)g+='<rect x="'+x0+'" y="'+pT+'" width="'+Math.max(0,x1-x0)+'" height="'+(yB-pT)+'" fill="var(--text)" opacity="'+(nmB[i]==='LB'?.085:.04)+'"/>';
+          if(nmB[i]&&x1-x0>26)g+='<text x="'+((x0+x1)/2)+'" y="'+(pT-9)+'" text-anchor="middle" style="font-weight:600;letter-spacing:.05em">'+nmB[i]+'</text>';}
+        for(let v=Math.ceil(bot/stp)*stp;v<=top+1e-9;v+=stp)g+='<line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--border)" stroke-width="'+(Math.abs(v)<1e-9?1.2:.6)+'"/><text x="'+(pL-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+fk(v)+'</text>';
+        const y0=new Date(t0).getUTCFullYear()+1,y1=new Date(t1).getUTCFullYear(),ev=Math.max(1,Math.ceil((y1-y0+1)/Math.max(1,Math.floor(iw/48))));
+        for(let yy=y0;yy<=y1;yy++){const xx=x(Date.UTC(yy,0,1));g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+yB+'" y2="'+(yB+4)+'" stroke="var(--border)"/>';if((yy-y0)%ev===0&&xx<Wd-pR-14)g+='<text x="'+xx+'" y="'+(H-6)+'" text-anchor="middle">'+yy+'</text>';}
+        // lines: runners-up first, each family's best on top, the crowned raw line heaviest
+        const ord=Q.lines.slice().sort((a,c)=>(c.rk-a.rk)||((a.crown?1:0)-(c.crown?1:0)));
+        ord.forEach(l=>{g+='<path d="'+l.v.map((v,i)=>(i?'L':'M')+x(+l.ts[i]).toFixed(1)+' '+y(v).toFixed(1)).join('')+'" fill="none" stroke="'+l.col+'" stroke-width="'+(l.crown?2.2:(l.rk===0?1.6:1))+'" stroke-linejoin="round" opacity="'+[1,.6,.4][l.rk]+'"><title>'+esc(l.fn+' - '+l.nm+' - ends '+fk(l.v[l.v.length-1]))+'</title></path>';});
+        // fall below the high, one thin line per family's best
+        const best=Q.lines.filter(l=>l.rk===0);let dmin=-1;
+        best.forEach(l=>{let pk=0;l.u=l.v.map(v=>{pk=Math.max(pk,v);return v-pk;});l.u.forEach(v=>{if(v<dmin)dmin=v;});});
+        const yd=v=>pT+eh+g1+(v/dmin)*dh;
+        g+='<line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+yd(0)+'" y2="'+yd(0)+'" stroke="var(--border)"/><text x="'+(pL-8)+'" y="'+(yd(0)+4)+'" text-anchor="end">$0</text><text x="'+(pL-8)+'" y="'+(yd(dmin)+4)+'" text-anchor="end">'+fk(dmin)+'</text>'
+          +'<text x="'+(Wd-pR+12)+'" y="'+(yd(0)+4)+'" style="fill:var(--text4)">below high</text>';
+        best.forEach(l=>{g+='<path d="'+l.u.map((v,i)=>(i?'L':'M')+x(+l.ts[i]).toFixed(1)+' '+yd(v).toFixed(1)).join('')+'" fill="none" stroke="'+l.col+'" stroke-width="1" stroke-linejoin="round" opacity=".9"/>';});
+        // end labels, pushed apart so they never sit on each other
+        const lab=best.map(l=>({yy:y(l.v[l.v.length-1]),l:l})).sort((a,c)=>a.yy-c.yy);
+        for(let i=1;i<lab.length;i++)if(lab[i].yy-lab[i-1].yy<13)lab[i].yy=lab[i-1].yy+13;
+        const ovr=lab.length?(lab[lab.length-1].yy-(pT+eh)):0;if(ovr>0)lab.forEach(a=>{a.yy-=ovr;});
+        lab.forEach(a=>{const l=a.l,ye=y(l.v[l.v.length-1]);g+='<circle cx="'+x(+l.ts[l.ts.length-1])+'" cy="'+ye+'" r="3" fill="'+l.col+'"/><line x1="'+(Wd-pR+3)+'" x2="'+(Wd-pR+9)+'" y1="'+ye+'" y2="'+a.yy+'" stroke="'+l.col+'" stroke-width="1"/><text x="'+(Wd-pR+12)+'" y="'+(a.yy+4)+'" style="fill:var(--text);font-weight:600">'+fk(l.v[l.v.length-1])+'</text>';});
+        // daily P&L bars: walk-forward days at one contract, clipped at the 99th percentile so one day cannot flatten the rest
+        let DT=null,cap=1,yz=0;
+        if(DS){DT=DS.d.map(s=>Date.parse(s+'T00:00:00Z'));const ab=DS.p.map(v=>Math.abs(+v||0)).filter(v=>v>0).sort((a,c)=>a-c);cap=ab.length?ab[Math.min(ab.length-1,Math.floor(ab.length*.99))]:1;
+          const yt=pT+eh+g1+dh+g2;yz=yt+bh/2;const bw=Math.max(1,Math.min(6,iw/((t1-t0)/864e5)*.8));let pp='',pn='';
+          DS.p.forEach((v,i)=>{v=+v||0;if(!v||DT[i]<t0||DT[i]>t1)return;const hh=Math.max(1,Math.min(1,Math.abs(v)/cap)*(bh/2)),xx=x(DT[i]).toFixed(1);if(v>0)pp+='M'+xx+' '+yz+'V'+(yz-hh).toFixed(1);else pn+='M'+xx+' '+yz+'V'+(yz+hh).toFixed(1);});
+          g+='<line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+yz+'" y2="'+yz+'" stroke="var(--border)"/><text x="'+(pL-8)+'" y="'+(yt+8)+'" text-anchor="end">'+fk(cap)+'</text><text x="'+(pL-8)+'" y="'+(yt+bh)+'" text-anchor="end">'+fk(-cap)+'</text>'
+            +'<text x="'+(Wd-pR+12)+'" y="'+(yz+4)+'" style="fill:var(--text4)">daily P&amp;L</text>'
+            +'<path d="'+pp+'" stroke="var(--green)" stroke-width="'+bw+'" fill="none"/><path d="'+pn+'" stroke="var(--red)" stroke-width="'+bw+'" fill="none"/>';}
+        let st='';
+        if(!DS){const c=C||null;
+          st=!Q.hasWf?'Daily P&amp;L bars need a walk-forward run.'
+            :(!c||c.st==='loading')?'Reading the daily P&amp;L series ...'
+            :c.st==='err'?('Daily P&amp;L could not be read: '+esc(c.why||''))
+            :(c.status&&c.status.state==='refused')?('No daily P&amp;L: the replay did not reproduce this run, so nothing was built.')
+            :c.asked?'Daily P&amp;L asked for. The desktop builds it on its next pass.'
+            :('No daily P&amp;L series is built for this run yet. <button type="button" data-rts-req="'+esc(Q.id)+'">Build daily series</button>');}
+        el.innerHTML='<svg viewBox="0 0 '+Wd+' '+H+'" height="'+H+'">'+g+'<line data-xh y1="'+pT+'" y2="'+yB+'" stroke="var(--text4)" stroke-dasharray="3 3" style="display:none"/><rect data-hit x="'+pL+'" y="'+pT+'" width="'+iw+'" height="'+(yB-pT)+'" fill="transparent"/></svg><div class="ttip" style="display:none;white-space:normal"></div>'+(st?('<div class="tdaily">'+st+'</div>'):'');
+        const hit=el.querySelector('[data-hit]'),xh=el.querySelector('[data-xh]'),tp=el.querySelector('.ttip');
+        const near=(A,t)=>{let lo=0,hi=A.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(+A[m]<=t)lo=m;else hi=m;}return (Math.abs(+A[hi]-t)<Math.abs(+A[lo]-t))?hi:lo;};
+        hit.onmousemove=ev=>{const r=hit.getBoundingClientRect(),t=t0+Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width))*(t1-t0),er=el.getBoundingClientRect();
+          xh.style.display='';xh.setAttribute('x1',x(t));xh.setAttribute('x2',x(t));
+          let h='<div style="font-weight:600;color:var(--text)"><span style="color:var(--text)">'+new Date(t).toISOString().slice(0,10)+'</span><span>'+((Q.lb!=null&&t>=Q.lb)?'LB':((Q.wf!=null&&t>=Q.wf)?'WF':(Q.wf!=null?'IS':'')))+'</span></div>';
+          best.slice().sort((a,c)=>c.v[near(c.ts,t)]-a.v[near(a.ts,t)]).forEach(l=>{const i=near(l.ts,t);h+='<div><span><i style="background:'+l.col+'"></i>'+esc(l.fn)+'</span><span>'+f$(l.v[i])+'</span></div>';});
+          if(DS&&t>=DT[0]&&t<=DT[DT.length-1]+864e5){const i=near(DT,t),v=+DS.p[i]||0;h+='<div><span>Day '+esc(DS.d[i])+'</span><span class="'+(v<0?'tneg':(v>0?'tpos':''))+'">'+f$(v)+((DS.n&&DS.n[i])?(' &#183; '+DS.n[i]+' tr'):'')+'</span></div>';}
+          tp.innerHTML=h;tp.style.display='';const px=ev.clientX-er.left,py=ev.clientY-er.top;tp.style.left=Math.max(0,Math.min(er.width-tp.offsetWidth-4,px+14))+'px';tp.style.top=Math.max(0,py-tp.offsetHeight-10)+'px';};
+        hit.onmouseleave=()=>{xh.style.display='none';tp.style.display='none';};};
       root.querySelectorAll('[data-tearc]').forEach(el=>{try{const k=el.getAttribute('data-tearc');
-        if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,176);else if(Array.isArray(TD[k])&&TD[k].length)bars(el,TD[k],176);}catch(e){console.error('tearsheet chart failed',e);}});
+        if(k==='hero'){if(TD.hero)hero(el,TD.hero);}else if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,176);else if(Array.isArray(TD[k])&&TD[k].length)bars(el,TD[k],176);}catch(e){console.error('tearsheet chart failed',e);}});
     };
     if(!window._tearRz){window._tearRz=1;let _tz;window.addEventListener('resize',()=>{clearTimeout(_tz);_tz=setTimeout(()=>{if(document.querySelector('[data-tearc]'))window._tearDraw(document);},150);});}
     const runDetail=(d)=>{
+      window._a2EqSeries=null;   // rebuilt below by the config-funnel payload; the TEARSHEET main chart reads it
       _mtxDocNow=d||null;window._1aRidNow=(d&&d.id!=null)?String(d.id):null;   // round 3: the 1E labels read THIS report's document (see _mtxCfgId)
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
       const _champNetTip=d.validate?'the single best parameter set, measured across the WHOLE tune period (one config, all dates). The matrix below instead splits the timeline into 3 sections — its IN-SAMPLE column is only the first (un-shaded) section, so that is a smaller number than this.':'';
@@ -58971,6 +59093,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
       content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
       content.querySelectorAll('[data-replaysel]').forEach(s=>{s.onchange=()=>{savePref('repLayout',s.value);renderApp();};});
+      // TEARSHEET main chart: show / hide a family, actual $ or equal risk; a daily-series request redraws the chart's status line
+      content.querySelectorAll('[data-tearfam]').forEach(c=>{c.onclick=()=>{const k=c.dataset.tearfam,a=String(APREF.tearFamOff||'').split(',').filter(Boolean),i=a.indexOf(k);if(i>=0)a.splice(i,1);else a.push(k);savePref('tearFamOff',a.join(','));renderApp();};});
+      content.querySelectorAll('[data-teareqr]').forEach(c=>{c.onclick=()=>{savePref('tearEqr',+c.dataset.teareqr);renderApp();};});
+      if(!window._tearReqL){window._tearReqL=1;document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.target.closest('.tear [data-rts-req]');if(t)setTimeout(()=>{try{window._tearDraw(document);}catch(_e){}},80);});}
       // TEARSHEET jump links: go to a section of Deep dive (switching to it first when on Summary)
       content.querySelectorAll('[data-tearjump]').forEach(j=>{j.onclick=(e)=>{e.stopPropagation();const k=j.dataset.tearjump,t=document.getElementById('tear-s-'+k);if(t){t.scrollIntoView({block:'start',behavior:'smooth'});return;}window._tearJump=k;savePref('tearTab','deep');renderApp();};});
       if(window._tearJump){const _tj=window._tearJump;window._tearJump=null;setTimeout(()=>{const t=document.getElementById('tear-s-'+_tj);if(t)t.scrollIntoView({block:'start'});},60);}
@@ -58980,6 +59106,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       if(window._tearDraw&&content.querySelector('[data-tearc]'))window._tearDraw(content);
       // v71.39: the same two picks, now as dropdowns riding the report header row.
       content.querySelectorAll('[data-replaysel]').forEach(s=>{s.onchange=()=>{savePref('repLayout',s.value);renderApp();};});
+      // TEARSHEET main chart: show / hide a family, actual $ or equal risk; a daily-series request redraws the chart's status line
+      content.querySelectorAll('[data-tearfam]').forEach(c=>{c.onclick=()=>{const k=c.dataset.tearfam,a=String(APREF.tearFamOff||'').split(',').filter(Boolean),i=a.indexOf(k);if(i>=0)a.splice(i,1);else a.push(k);savePref('tearFamOff',a.join(','));renderApp();};});
+      content.querySelectorAll('[data-teareqr]').forEach(c=>{c.onclick=()=>{savePref('tearEqr',+c.dataset.teareqr);renderApp();};});
+      if(!window._tearReqL){window._tearReqL=1;document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.target.closest('.tear [data-rts-req]');if(t)setTimeout(()=>{try{window._tearDraw(document);}catch(_e){}},80);});}
       content.querySelectorAll('[data-repcolsel]').forEach(s=>{s.onchange=()=>{savePref('repCols',s.value);renderApp();};});
       // REPORT COLUMNS toggle: 3 ⇄ 2×2 ⇄ 1 (value-generic, same pattern as repLayout above)
       content.querySelectorAll('[data-repcolbtn]').forEach(b=>{b.onclick=()=>{savePref('repCols',b.dataset.repcolbtn);renderApp();};});
