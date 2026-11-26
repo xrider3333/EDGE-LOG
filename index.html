@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.60',date:'2026-11-26',notes:['1A CONFIG FUNNEL, CLEANED UP (owner 11-26: the funnel looked messed up). New default view TOP 3: the three highest-ending lines of every family - raw, gate, tilt, KEEL, hybrid, hybrid recycled - each drawn whole from the first trade to the lockbox end as one thin solid line in its family colour.','One $ axis fits every line, so nothing runs off the top any more. Raw dollars: EQUAL RISK does not apply in this view (ONE CURVE still has it).','Key: one row per family with its three ending figures; click a row to dim / hide it, hover to spotlight it. ONE CURVE and DOORS are unchanged, one click away.','Date ticks: the lockbox-start date no longer prints on top of the end date.']},
 {v:'92.59',date:'2026-11-26',notes:['NT8 PAPER TRADE CHART, SAME CLEANUP AS WEBULL (owner 11-26, board 185). The title is the strategy alone, and the line under it reads side, contracts, times once, time held and the source.','Markers read Buy 1 / Sell 1 like the Webull fills, and the exit names the level it hit when the exit reason says so.','One fills table under the chart: the engine price (the P&L of record) against the NinjaTrader demo fill, the slip, and why it closed. Under it is one line with the NT8 P&L against the engine, or why NinjaTrader has no fill.','NT8 and Webull now draw that table with the same code.']},
 {v:'92.57',date:'2026-11-26',notes:['TRADE CHART: STOPS AND TARGETS THAT MOVE (owner 11-26). A trailing or breakeven stop is drawn bar by bar: the zone is red while the stop still risks money and turns green once it locks profit.','The stop is a solid step line and a moved target a dashed one, with a dot at each move. The first risk stays as a faint dashed box. Labels say where each level started (left) and ended (right), with the dollars locked.','Hover a bar inside the trade to read the stop and target in force; on the bar one moved it reads old to new and why (breakeven, trail, target).','The exit marker says stopped, trail hit or target hit. The fills table adds one line: stop A to B with the number of moves.','The box now publishes the target ladder and the reason for each move, and keeps at most 60 steps per trade. Strategies only show a trail once they write a LEVELS row on each move.']},
 {v:'92.53',date:'2026-11-25',notes:['TRADE CHART, CLEANED UP (owner 11-25: full of duplicate info). Each fact now shows once.','Header: the leg name, side and size, the times once, how long it was held, and the net as the one bold number.','Toolbar: timeframes, then ETH / INDICATORS / REPLAY, then TRADE / FIT. TradingView, PNG, log scale and reset scale moved to the ... menu.','On the chart: the entry and exit lines run across the trade only, with their price tags on the axis. The book in / out lines, the second stop line and the session row are gone. Markers read Sell 10 / Buy 10 with points on the exit.','Under the chart: one small fills table - entry and exit rows with the signal bar, backtest, book, Webull, Webull vs backtest, and why it closed. The bar source sits in the footer.']},
@@ -24960,7 +24961,10 @@ function renderApp(){
               endUsd:(held==null)?null:held*fr.f,heldUsd:held,
               wfUsd:(wf==null)?null:wf*fr.f,lbUsd:(lb==null)?null:lb*fr.f,
               hind:_eqrHind(cfg,budget,mult)};};
-    const _eqrOn=()=>+(APREF.a2eqr||0)===1;
+    // TOP 3 (owner 2026-11-26): the funnel's default view - the three highest-ending lines of every family, raw $.
+    //   DOORS still wins when picked; EQUAL RISK does not apply inside TOP 3 (its strip is hidden there).
+    const _a2T3On=()=>(APREF.a2top3==null?1:+APREF.a2top3)===1&&+(APREF.a2doors||0)!==1;
+    const _eqrOn=()=>+(APREF.a2eqr||0)===1&&!_a2T3On();
     // The budget: $30k by default, or matched to the crowned ML line's own in-sample drawdown so
     //   every line is read at the risk that line actually ran.
     const _eqrBudget=(crownedMl,mult)=>{
@@ -26226,7 +26230,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
             +(Math.abs(hy-wy)>7?'<text x="'+(xR+4).toFixed(1)+'" y="'+(hy+2.2).toFixed(1)+'" font-size="4.4" fill="#3a9bdc" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+fmtUsd(Math.round(_hiV))+' ◂ highest end (rank '+(_hiI+1)+')</text>':'');}}}
       // selMode funnel: the two doors, the top-K walk-forward continuation, the crowned/IS-max
       //   full-length traces, the top-3 lockbox continuation, and compact right-gutter $ labels.
-      let selSvg='',selBands='',_gutterHtml='',_keyBox='',gateOv='',_gateChip='',_ddLabHtml='';
+      let selSvg='',selBands='',_gutterHtml='',_keyBox='',gateOv='',_gateChip='',_ddLabHtml='',_t3Sc=null;
       // v71.13: the drawdown pane publishes its scale so the gutter can pill its two reference
       //   lines, and the high-water-mark overlay rides alongside the equity curves.
       let _hwOv='',_ddYv=null,_ddTop=null,_ddWorst=null,_ddMc=null;
@@ -27311,7 +27315,72 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           // commit everything together, last, so a failure anywhere above leaves ONE CURVE whole
           _dzLayer=Ly;_dzCloud=cloudStr;_dzLab=labs2;_dzScales=scales;_gutterHtml=gut;
         }catch(_dze){_dzLayer=null;_dzCloud=null;_dzLab='';_dzScales=null;console.warn('doors view skipped - showing one curve',_dze);}}
-        selSvg=_ddStrip+((_dzLayer!=null)?_dzLayer:(_hwOv
+        // TOP 3 (owner 2026-11-26, run #555: "the past runs funnel chart seems messed up ... id like the top 3 configs of
+        //   every type (raw, gate, tilt, hybrid, keel, etc) shown from start to finish here. just solid thin lines with
+        //   their respective colors"). Its own layer, like DOORS: from the very series payload the fullscreen explorer
+        //   reads, each family's three highest-ENDING lines (lines that reach the lockbox end rank first), every one drawn
+        //   whole - in-sample, walk-forward and lockbox - as one solid thin line in its family colour, bent at the lockbox
+        //   door exactly where ALL CONFIGS bends it. One $ axis fitted to every drawn line, so nothing is held at the
+        //   plot edge. Raw $ (EQUAL RISK is off in this view). Anything that throws leaves ONE CURVE as it was.
+        let _t3Layer=null,_t3Gut=null,_t3Key=null;
+        if(_a2T3On()){try{
+          const S=Array.isArray(window._a2EqSeries)?window._a2EqSeries:[];
+          const FAM=[['t3raw','RAW','#1d9e75'],['t3gate','GATE','#e24b4a'],['t3tilt','TILT','#f0b429'],['t3keel','KEEL','#38bdf8'],['t3hyb','HYBRID','#c084fc'],['t3hyb2','HYBRID &#9851;','#f0abfc']];
+          const famOf=s=>(!s||s.dim||s.gateChosen||!Array.isArray(s.eq)||s.eq.length<2)?null
+            :(s.id==='keel'?'t3keel':s.gateCand?'t3gate':s.tiltCand?'t3tilt':s.hybRcy?'t3hyb2':s.hybCand?'t3hyb'
+              :(/^cfg/.test(String(s.id||''))?'t3raw':null));
+          const _rSp=hasLB?_ungSplit(null):null;
+          // the lockbox door of one line as a fraction of its own points: the stitched ML door, else the run-level ML
+          //   trade split (ML lines), else the first point dated inside the lockbox (raw lines); 1 = no lockbox piece
+          const spOf=(s,fam)=>{if(!hasLB)return 1;
+            if(fam!=='t3raw'){if(s.sp!=null&&isFinite(+s.sp))return Math.max(0.02,Math.min(1,+s.sp));if(_rSp!=null)return _rSp;}
+            const q=Array.isArray(s.ts)?s.ts:null;if(!(q&&q.length===s.eq.length&&_lbStartMs!=null))return 1;
+            for(let k=0;k<q.length;k++){if(+q[k]>=_lbStartMs)return k/Math.max(1,q.length-1);}return 1;};
+          const pick={};FAM.forEach(F=>{pick[F[0]]=[];});
+          S.forEach(s=>{const fam=famOf(s);if(!fam)return;const e=+s.eq[s.eq.length-1];if(!isFinite(e))return;
+            const sp=spOf(s,fam);pick[fam].push({s:s,end:e,sp:sp,full:(!hasLB||sp<1)});});
+          let mnT=0,mxT=0,nT=0;
+          FAM.forEach(F=>{const a=pick[F[0]];a.sort((x,y)=>((y.full?1:0)-(x.full?1:0))||(y.end-x.end));pick[F[0]]=a.slice(0,3);
+            pick[F[0]].forEach(o=>{nT++;o.s.eq.forEach(v=>{if(v<mnT)mnT=v;if(v>mxT)mxT=v;});});});
+          if(!nT)throw new Error('no family lines');
+          mxT+=(mxT-mnT)*0.03;const rgT=(mxT-mnT)||1;
+          const YT=v=>eqB-(eqB-pt)*(v-mnT)/rgT;
+          const xOf=(f,sp)=>(sp>=1||f<=sp)?(xL+(xFull-xL)*(sp>0?Math.min(1,f/sp):1)):(xFull+(xR-xFull)*((f-sp)/(1-sp)));
+          const _rkOp=[1,0.72,0.5];
+          const _esc=t=>String(t||'').replace(/[<>&"]/g,'');
+          let Ly='';const pills=[],rows=[];
+          FAM.forEach(F=>{const a=pick[F[0]];if(!a.length)return;
+            let g='';
+            a.slice().reverse().forEach(o=>{const rk=a.indexOf(o),n=o.s.eq.length,P=[];
+              for(let k=0;k<n;k++)P.push(xOf(k/Math.max(1,n-1),o.sp).toFixed(1)+' '+YT(o.s.eq[k]).toFixed(1));
+              g+='<polyline points="'+P.join(' ')+'" fill="none" stroke="'+F[2]+'" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round" opacity="'+_rkOp[rk]+'"><title>'+F[1]+' #'+(rk+1)+' &middot; '+_esc(o.s.label)+' &middot; ends '+_kUsd(o.end)+(o.full?'':' (no lockbox piece - ends at the door)')+'</title></polyline>';});
+            Ly+='<g data-kg="'+F[0]+'">'+g+'</g>';
+            pills.push({y:YT(a[0].end),col:F[2],kg:F[0],txt:_kUsd(a[0].end)});
+            rows.push(F.concat([a]));});
+          if(_ddYv&&_ddWorst!=null)pills.push({y:_ddYv(_ddWorst),col:'#d6557a',kg:'dd',txt:_kUsd(_ddWorst)});
+          if(_ddYv&&_ddMc!=null)pills.push({y:_ddYv(_ddMc),col:'#f5c842',kg:'dd',txt:_kUsd(_ddMc)});
+          pills.sort((p,q)=>p.y-q.y);for(let i=1;i<pills.length;i++)if(pills[i].y-pills[i-1].y<5)pills[i].y=pills[i-1].y+5;
+          const gs=_niceE((mxT-mnT)/5)||1,gls=[];for(let L=Math.ceil(mnT/gs)*gs;L<=mxT+1e-6;L+=gs)gls.push(L);
+          _t3Gut='<div style="width:44px;min-width:44px;position:relative;overflow:visible;font-size:8px;color:var(--text5)">'
+            +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
+            +((_ddTop!=null&&!gls.some(L=>Math.abs(YT(L)-_ddTop)<7))?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
+            +gls.map(L=>'<span style="position:absolute;left:1px;font-size:7px;top:'+(YT(L)/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>').join('')
+            +pills.map(L=>'<span data-pg="'+L.kg+'" style="position:absolute;right:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
+            +'</div></div>';
+          const kOpen=+(APREF.a2keyOpen||0)===1;
+          _t3Key='<div data-a2krow data-a2keyopen="'+(kOpen?1:0)+'" style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
+            +'<div data-a2keytog="1" title="'+(kOpen?'fold the key away from the lines':'open the key: each family, its three lines and where they end')+'" style="cursor:pointer;white-space:nowrap;font-weight:700;letter-spacing:.5px;color:var(--text3)">KEY '+(kOpen?'&#9662;':'&#9656;')
+            +(kOpen?'':(' <span style="font-weight:400;color:var(--text5)">'+rows.length+' families &middot; top 3 each</span>'))+'</div>'
+            +'<div data-a2keybody="1" style="display:'+(kOpen?'block':'none')+'">'
+            +rows.map(r=>'<div data-a2k="'+r[0]+'" title="'+r[3].map((o,i)=>'#'+(i+1)+' '+_esc(o.s.label)+' ends '+_kUsd(o.end)).join(' · ')+' · click: dim / hide / show · hover: spotlight" style="cursor:pointer;white-space:nowrap;color:'+r[2]+'">'
+              +'<span style="display:inline-block;width:10px;height:0;border-top:1.5px solid '+r[2]+';vertical-align:middle;margin-right:4px"></span>'
+              +'<b>'+r[1]+'</b> <span style="color:var(--text3)">'+r[3].map(o=>_kUsd(o.end)).join(' &middot; ')+'</span></div>').join('')
+            +'<div style="color:var(--text5);padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">ranked by ending $ &middot; fainter = #2, #3</div>'
+            +'</div></div>';
+          _t3Layer=Ly;_t3Sc={mn:mnT,mx:mxT};
+        }catch(_t3e){_t3Layer=null;_t3Gut=null;_t3Key=null;_t3Sc=null;console.warn('top 3 view skipped - showing one curve',_t3e);}}
+        if(_t3Layer!=null){_gutterHtml=_t3Gut;_keyBox=_t3Key;}
+        selSvg=_ddStrip+((_t3Layer!=null)?_t3Layer:(_dzLayer!=null)?_dzLayer:(_hwOv
           +(_acOv?('<g data-kg="allcfg"'+(_acOn?'':' style="display:none"')+'>'+_acOv+'</g>'):'')
           +'<g data-kg="wf"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+wf+'</g>'
           +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_keelOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'))+_dimOv;}
@@ -27333,7 +27402,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   its right edge. They are placed per stretch now: five through the optimize window,
         //   one on the lockbox door, one at the end.
         const _tms=[];for(let k=0;k<5;k++)_tms.push(_oS+(_oE-_oS)*(k/5));
-        _tms.push(_lS,_lE);
+        // the door tick printed on top of the end tick when the lockbox is a thin calendar sliver ("7/16/257/16/26")
+        if((_xMs(_lE)-_xMs(_lS))/W>0.09)_tms.push(_lS);
+        _tms.push(_lE);
         let _tk='';
         _tms.forEach((ms,k)=>{const pc=(_xMs(ms)/W)*100,last=(k===_tms.length-1);
           const al=(k===0)?'left:0':(last?'right:0':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%)');
@@ -27380,11 +27451,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   (same saved setting), and the GATE line is switched from its own key row inside the
         //   plot since v71.20 — so neither chip was the only way to reach its setting.
         ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider
-          +_hdrRight(_tabStrip(_tabBtn('data-a2doors="0"','ONE CURVE',+(APREF.a2doors||0)!==1,'every line on one continuous $ scale across the whole run','var(--blue)')
-            +_tabBtn('data-a2doors="1"','DOORS',+(APREF.a2doors||0)===1,'in-sample, walk-forward and lockbox side by side - every line restarts at $0 at its own door and each panel has its own $ scale; the drawdown strip underneath stays one continuous account path','var(--blue)'),false,'var(--blue)')
+          +_hdrRight(_tabStrip(_tabBtn('data-a2doors="0" data-a2top3="1"','TOP 3',_a2T3On(),'the three highest-ending lines of every family (raw, gate, tilt, keel, hybrid, hybrid recycled), each drawn whole from the first trade to the lockbox end as one thin line in its family colour, on one $ axis that fits them all','var(--blue)')
+            +_tabBtn('data-a2doors="0" data-a2top3="0"','ONE CURVE',+(APREF.a2doors||0)!==1&&!_a2T3On(),'every line on one continuous $ scale across the whole run','var(--blue)')
+            +_tabBtn('data-a2doors="1" data-a2top3="0"','DOORS',+(APREF.a2doors||0)===1,'in-sample, walk-forward and lockbox side by side - every line restarts at $0 at its own door and each panel has its own $ scale; the drawdown strip underneath stays one continuous account path','var(--blue)'),false,'var(--blue)')
             // EQUAL RISK (owner 2026-10-07): its OWN strip, not a third option in the one above -
             //   it composes with either of those, so making it exclusive with them would be wrong.
-            +_tabStrip(_tabBtn('data-a2eqr="'+(_eqrOn()?0:1)+'"','EQUAL RISK',_eqrOn(),'resize every family line so its IN-SAMPLE worst drawdown is the same risk budget, then apply that size unchanged to walk-forward and lockbox - so a raw config and an ML config are compared on edge rather than on how big they trade. The size comes from the in-sample stretch only, before the first walk-forward fold, so there is no hindsight in it. Each line is labelled with its factor and its equal-risk ending $; the hover also shows the hindsight factor the whole run would have allowed, marked as hindsight.','var(--violet)'),false,'var(--violet)')
+            +(_a2T3On()?'':_tabStrip(_tabBtn('data-a2eqr="'+(_eqrOn()?0:1)+'"','EQUAL RISK',_eqrOn(),'resize every family line so its IN-SAMPLE worst drawdown is the same risk budget, then apply that size unchanged to walk-forward and lockbox - so a raw config and an ML config are compared on edge rather than on how big they trade. The size comes from the in-sample stretch only, before the first walk-forward fold, so there is no hindsight in it. Each line is labelled with its factor and its equal-risk ending $; the hover also shows the hindsight factor the whole run would have allowed, marked as hindsight.','var(--violet)'),false,'var(--violet)'))
             +(_eqrOn()?_tabStrip(_tabBtn('data-a2eqrb="30k"','$30k',String(APREF.a2eqrb||'')!=='ml','size every line to a $30,000 worst in-sample drawdown - the house yardstick','var(--violet)')
               +_tabBtn('data-a2eqrb="ml"','MATCH ML',String(APREF.a2eqrb||'')==='ml','size every line to the crowned ML line own in-sample drawdown, so each is read at the risk that line actually ran','var(--violet)'),false,'var(--violet)'):''))+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' TOP CONFIGS PNL ')+selDrop+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
@@ -27417,7 +27489,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             for(let k2=0;k2<160;k2++){const fx=k2/159;_se.push(Math.round(_sampAt(_ea,fx)));_sd.push(Math.round(_sampAt(_dd,fx)));}
             const _o=(Wopt&&Wopt[0])||d.date_from||'',_oe=(Wopt&&Wopt[1])||d.date_to||'';
             const _l0=(Wlb&&Wlb[0])||'',_l1=(Wlb&&Wlb[1])||'';
-            return 'data-a2xh2="'+encodeURIComponent(JSON.stringify({fS:+_fS.toFixed(4),o0:_o,o1:_oe,l0:_l0,l1:_l1,eq:_se,dd:_sd,mn:Math.round(mn),mx:Math.round(mx),ptF:+(pt/H).toFixed(4),ebF:+(eqB/H).toFixed(4)}))+'" ';
+            return 'data-a2xh2="'+encodeURIComponent(JSON.stringify({fS:+_fS.toFixed(4),o0:_o,o1:_oe,l0:_l0,l1:_l1,eq:_se,dd:_sd,mn:Math.round(_t3Sc?_t3Sc.mn:mn),mx:Math.round(_t3Sc?_t3Sc.mx:mx),ptF:+(pt/H).toFixed(4),ebF:+(eqB/H).toFixed(4)}))+'" ';
           }catch(_xp){return '';}})()
         // DOORS: each panel's x span and $ range, for the hover $ and the key placement
         +(_dzScales?('data-a2dz="'+encodeURIComponent(JSON.stringify({s:_dzScales,ptF:+(pt/H).toFixed(4),ebF:+(eqB/H).toFixed(4)}))+'" '):'')
@@ -57414,7 +57486,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});
       // v64.49 (owner): 2A "🚪 gated" toggle — overlay the ML Trade Filter gated curve on the funnel.
       content.querySelectorAll('[data-a2gate]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2gate',+b.dataset.a2gate);renderApp();};});
-      content.querySelectorAll('[data-a2doors]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2doors',+b.dataset.a2doors);renderApp();};});
+      content.querySelectorAll('[data-a2doors]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2doors',+b.dataset.a2doors);if(b.dataset.a2top3!=null)savePref('a2top3',+b.dataset.a2top3);renderApp();};});
       content.querySelectorAll('[data-a2eqr]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2eqr',+b.dataset.a2eqr);renderApp();};});
       content.querySelectorAll('[data-a2eqrb]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2eqrb',String(b.dataset.a2eqrb));renderApp();};});
       // GATE SWEEP hover: snap to the nearest 1% cut-off and print every model tuning-years MAR
