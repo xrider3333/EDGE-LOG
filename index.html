@@ -27364,7 +27364,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           _t3Gut='<div style="width:44px;min-width:44px;position:relative;overflow:visible;font-size:8px;color:var(--text5)">'
             +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
             +((_ddTop!=null&&!gls.some(L=>Math.abs(YT(L)-_ddTop)<7))?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
-            +gls.map(L=>'<span style="position:absolute;left:1px;font-size:7px;top:'+(YT(L)/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>').join('')
+            +gls.filter(L=>!pills.some(p=>Math.abs(p.y-YT(L))<6)).map(L=>'<span style="position:absolute;left:1px;font-size:7px;top:'+(YT(L)/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>').join('')
             +pills.map(L=>'<span data-pg="'+L.kg+'" style="position:absolute;right:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
             +'</div></div>';
           const kOpen=+(APREF.a2keyOpen||0)===1;
