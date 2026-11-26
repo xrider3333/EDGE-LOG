@@ -46,7 +46,13 @@ from datetime import date, datetime, timedelta
 # The demo fills at the next bar's open on a 1m/5m chart, and the AddOn stamps the
 # broker's fill time, so a couple of minutes of drift is normal. Wider than this and a
 # "match" starts being a coincidence between two nearby signals.
-TOL_MIN = 3
+# 2026-11-26 (NT-check chips): widened from 3 to one 5-minute bar + 90 s, the same window
+# tools/nt_fill_reconcile.py (TOL_SEC) already used. NinjaTrader's own bars can land ONE bar off
+# the book's master: on 2026-11-13 NZ filled 15:30 / 15:40 ET against book entries 15:35 / 15:45
+# (exits 15:35 / 15:45 vs 15:40 / 15:50), so at 3 min both were filed live-only + shadow-only and
+# the board showed no NT chip on rows NinjaTrader HAD taken. Two book entries a bar either side of
+# a fill are told apart by entry price (see match_day).
+TOL_MIN = 6.5
 
 NY = "America/New_York"
 
@@ -315,7 +321,10 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
                               "reason": f"two legs have a signal inside the tolerance and "
                                         f"the fill's signal {sig!r} names no leg"})
             continue
-        best = min(near, key=lambda c: abs(c["dt"] - ldt))
+        # Nearest in time; a tie (a fill a bar between two book entries) goes to the nearer price.
+        lpx = _num(lv.get("entry"))
+        best = min(near, key=lambda c: (abs(c["dt"] - ldt),
+                                        abs((lpx or 0.0) - (_num(c["s"].get("entry_px")) or 0.0))))
         best["taken"] = True
         s = best["s"]
         # Sizes ride with the pair from here on. shadow_size is the engine's intended
@@ -338,6 +347,7 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
             "pnl_diff_usd": round((lv.get("pnl") or 0) - (s.get("pnl_usd") or 0), 2),
             "shadow_size": ssz, "live_size": lsz,
             "exit_signal": lv.get("exit_signal") or "",
+            "live_exit": lv.get("exitTime"), "live_exit_px": lv.get("exit"),
             "size_ratio": (round(lsz / ssz, 3) if (ssz and lsz is not None) else None),
             "decision_agree": None,
         })

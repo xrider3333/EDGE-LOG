@@ -2460,6 +2460,41 @@ def _stop_fields(lv, idx, n):
     return out
 
 
+# EXIT REASON (2026-11-26, NT-check chips). The paper ledger reads `exit_reason` off each
+# paper_trades row (index.html tagFor: /^EOD/, /signal/, BREAKER, KILL) and no row ever carried
+# one. The strategy tuples hold no reason, so it is DERIVED from what the row already holds:
+# the exit price on the last logged stop = a stop, on the target = the target, an exit at or
+# after 15:55 ET on the entry day = the end-of-day flat, anything else = the strategy's own exit.
+# A held position (`open`) has none. `exit_reason_src` says it was derived, not logged.
+_TICK = 0.25
+_EOD_FLAT = (15, 55)
+
+
+def _exit_reason(entry_dt, exit_dt, exit_px, stop_fields=None, is_open=False):
+    if is_open or exit_dt is None:
+        return None
+    sf = stop_fields or {}
+    try:
+        xp = float(exit_px) if exit_px is not None else None
+    except (TypeError, ValueError):
+        xp = None
+    stops = sf.get("stops") or []
+    if xp is not None and stops and stops[-1].get("px") is not None             and abs(float(stops[-1]["px"]) - xp) <= _TICK + 1e-9:
+        why = str(stops[-1].get("reason") or "").strip()
+        return "stop" + (f" ({why})" if why and why != "initial" else "")
+    tgt = sf.get("target_px")
+    if xp is not None and tgt is not None and abs(float(tgt) - xp) <= _TICK + 1e-9:
+        return "target"
+    try:
+        same_day = pd.Timestamp(exit_dt).date() == pd.Timestamp(entry_dt).date()
+        hm = (pd.Timestamp(exit_dt).hour, pd.Timestamp(exit_dt).minute)
+    except Exception:
+        return "signal exit"
+    if same_day and hm >= _EOD_FLAT:
+        return "EOD flat"
+    return "signal exit"
+
+
 # ── trade conversion (mirrors augur_engine/reconcile.py edgelog_blotter) ─────────
 def _extract_trades(leg, arrays, sized, key=None, levels=None):
     """(trade tuple, size multiplier) pairs -> plain dicts.
@@ -2492,6 +2527,8 @@ def _extract_trades(leg, arrays, sized, key=None, levels=None):
         entry_dt = pd.Timestamp(idx[eb])
         exit_dt = pd.Timestamp(idx[xb])
         lv = (levels or {}).get(eb)
+        _sf = _stop_fields(lv, idx, len(idx)) if lv else {}
+        _open = _xd.is_open(leg, idx, xb)
         out.append({
             "leg": key or leg["key"], "strategy": leg["strategy"], "side": side,
             "entry_dt": entry_dt, "exit_dt": exit_dt,
@@ -2501,9 +2538,11 @@ def _extract_trades(leg, arrays, sized, key=None, levels=None):
             "raw_pts": raw_pts,
             # Still held when the data ends? The strategy files close such a position at the LAST bar,
             # so this is a mark, not a result, and it counts on no day (api/paper_exitday.py).
-            "open": _xd.is_open(leg, idx, xb),
+            "open": _open,
             # STOP LADDER (see above): stop_px / target_px / stops, only when the engine logged one
-            **(_stop_fields(lv, idx, len(idx)) if lv else {}),
+            **_sf,
+            # EXIT REASON (see _exit_reason): derived, None while held
+            "exit_reason": _exit_reason(entry_dt, exit_dt, exit_px, _sf, _open),
         })
     return out
 
@@ -2965,6 +3004,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     # stop_px (initial), target_px (None for ENGU-Q / NOISE), stops [{t, px, reason}].
                     # Absent on a trade whose strategy logs no stop: the board says "not logged".
                     **{k: t[k] for k in ("stop_px", "target_px", "stops", "stops_dropped") if k in t},
+                    # EXIT REASON (2026-11-26): the ledger's exit column / chart note read this field
+                    "exit_reason": t.get("exit_reason"),
+                    "exit_reason_src": "derived" if t.get("exit_reason") else None,
                     # run_date above stays the ENTRY date. These three say where the money counts:
                     # open (still held, a mark), exit_date (ET calendar date of the exit) and close_day
                     # (the report day it counts on; a weekend exit rolls to Monday; None while open).
