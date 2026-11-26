@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.84';
+const VERSION='92.85';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.85',date:'2026-11-26',notes:['WEBULL and NT8 trade charts: a NOISE trade draws the VWAP bold from entry to exit, the line it closes on, and the VWAP legend says bold = exit line.']},
 {v:'92.84',date:'2026-11-26',notes:['RESULTS: the run list has a new look, the RUN RAIL (owner 11-26). It is a slim list down the left of the report: one status dot (green pass, amber weak, red fail), the run number and family, the file, market and date beneath, and one number on the right - ROC at $30k, or whatever you sort by. Above it: search, a family picker, a sort picker (newest, ROC at $30k, WF Sortino, WF DD pct, WF DD5, net, score), a new All / Pass / Weak / Fail filter, and links for champions, starred, archived and clear filters. It uses the same filters, search and paging as before, so the same runs are listed. The rail comes on by itself with the TEARSHEET report; click table view on the rail to get the full table with every column back, and the RAIL button on the table to return.']},
 {v:'92.83',date:'2026-11-26',notes:['RESULTS has a new report layout, TEARSHEET (owner 11-26). Pick it on the layout rail at the top right of any run report; CLASSIC and the others are unchanged and one click away. One page per run: the verdict and gates passed, a two-line plain summary, then the four numbers on the walk-forward stretch (ROC at $30k, DD5, DD pct from the high, Sortino) with LB and IS beneath each. Five tabs replace the long scroll. OVERVIEW: equity and drawdown with IS, WF and LB marked, a by-stretch table, the walk-forward folds, net by year and a monthly grid. TRADES: where the money comes from by hour, day, side, hold time, volatility, trend, session, month or year, then the distribution and MAE / MFE charts. CONFIGS: the config matrix, the funnel, the 3-D surface, knob importance, neighbours and the config spread, all brought over as they are. ROBUSTNESS: every check in one table, flags and cautions first, click a row for its full readout. SETUP: settings, windows, data and the strategy code. A book still opens in CLASSIC.']},
 {v:'92.82',date:'2026-11-26',notes:['1A CONFIG FUNNEL is one view now (owner 11-26): the top 3 lines of every family, start to finish, with one switch - ACTUAL $ or EQUAL RISK. EQUAL RISK keeps the same lines and resizes each so its worst drawdown before the lockbox is $30k, kept through the lockbox; pills show the size (x2.5), the drawdown strip gets a dotted -$30k budget line, and a label on the chart always says which dollars you are looking at. ONE CURVE, DOORS, the configs slider and the $30k / MATCH ML chips are gone.']},
@@ -12762,7 +12763,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
     let rows='';
     // owner 11-25: no Session row (the ETH / RTH toggle in the toolbar already says it) and no MFE / MAE numbers here (the chart labels carry them)
     if(on.sess&&sn!=='rth'&&TFMIN[S.tf]<1440)rows+='<div style="color:var(--text5)">'+({pre:'pre-market',post:'after-hours'}[sn]||sn)+'</div>';
-    if(on.vwap)rows+=row('vwap','VWAP',f2(S.vwAt&&S.vwAt[bar.time]),mono()?'var(--text3)':'var(--vwap)');
+    // owner 11-26: a trade that exits on the VWAP says which line the bold one is
+    const xlv=S.x?(S.x._xline||(S.x._lv&&S.x._lv.xline)||''):'';
+    if(on.vwap)rows+=row('vwap','VWAP',f2(S.vwAt&&S.vwAt[bar.time])+(xlv==='vwap'?' <span style="color:var(--text5)">&middot; bold = exit line</span>':''),mono()?'var(--text3)':'var(--vwap)');
     if(on.orb)rows+=row('orb','OR',ob?('5m '+f2(ob.h5)+' / '+f2(ob.l5)+' &middot; 15m '+f2(ob.h15)+' / '+f2(ob.l15)):'&mdash;');
     if(on.mfe)rows+=row('mfe','MFE / MAE','');
     ro.innerHTML='<b style="color:var(--text2)">'+esc(sym())+'</b> <span style="color:var(--text4)">&middot; '+S.tf+' &middot; '+dt+'</span> '
@@ -12834,7 +12837,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
           if(dd!==d||s!==sess){if(cur&&d!=null)cur.color='rgba(0,0,0,0)';d=dd;sess=s;pv=0;vv=0;}const v=+b.v||0;pv+=(+b.h+ +b.l+ +b.c)/3*v;vv+=v;if(!vv)continue;
           if(lastT!=null&&bt>lastT)break;const val=pv/vv;if(cur&&cur.time===bt)cur.value=val;else{cur={time:bt,value:val};vd.push(cur);}}}
       vd.forEach(p=>{S.vwAt[p.time]=p.value;});S.vw.setData(vd);
-      if(S.vwx){let hx=[];const xl=S.x&&S.x._lv&&S.x._lv.xline;
+      if(S.vwx){let hx=[];const xl=S.x?(S.x._xline||(S.x._lv&&S.x._lv.xline)||''):'';
         if(xl==='vwap'&&S.eI!=null&&S.xI!=null&&S.bars[S.eI]&&S.bars[S.xI]){const t0=S.bars[S.eI].time,t1=S.bars[S.xI].time;
           hx=vd.filter(p=>p.time>=t0&&p.time<=t1).map(p=>({time:p.time,value:p.value}));}
         S.vwx.setData(hx);}}
@@ -15007,6 +15010,10 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
 // a blotter row's own size (owner 11-26: run #555 trades are sized 1.5x / 1.75x / up to 3x; the blotter writes `size` since then):
 // shown as contracts beside the side, and only when it is not one, so an unsized run reads as before
+// owner 11-26 ("do the same for the webull and nt8 trade charts"): a paper leg's exit line by its key. Every NOISE leg the box and
+// NinjaTrader run closes on a bar closing across the VWAP (exit_mode 'vwap'); tests/test_paper_noise_legs_exit_vwap.py fails the
+// day a NOISE leg does not, or another family starts to. The trade chart draws that line bold from entry to exit.
+window._legXline=leg=>String(leg||'').toUpperCase().indexOf('NOISE')===0?'vwap':'';
 function _blotQty(x){const v=(x&&x.size!=null&&x.size!=='')?+x.size:NaN;return (isFinite(v)&&v>0&&Math.abs(v-1)>1e-9)?+v.toFixed(2):undefined;}
 // owner 11-26 ("show the stop line moving on the gallery charts too"): a run blotter row now carries the stop its strategy's own
 // loop compared against (api/blotter.py LEVELS_MARK: stop_px, target_px, be_px + be_time when the stop moved to breakeven,
@@ -50705,7 +50712,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const rpIn=(bIn==null&&wI.px==null)?qbNum(t.real_entry_px):null,rpOut=(bOut==null&&wO.px==null)?qbNum(t.real_exit_px):null;
                 const tf=t._missed?qbLegTf(t.leg):((et&&xt&&et.slice(0,10)!==xt.slice(0,10))?'5m':'1m');
                 return {_no:_qeKey(t),_tid:(t.trade_id?String(t.trade_id):null),_tf:tf,_qbars:1,
-                  _label:qeTradeLegName(t)+(sh!=null?(' · '+sh+' sh'):'')+' · '+(et?et.slice(5):'?'),_leg:qeTradeLegName(t),
+                  _label:qeTradeLegName(t)+(sh!=null?(' · '+sh+' sh'):'')+' · '+(et?et.slice(5):'?'),_leg:qeTradeLegName(t),_xline:window._legXline(t.leg),
                   _srcLbl:(t._missed?'missed signal, not traded &middot; ':'')+'Webull paper trade (QQQ shares)',_et:et,_xt2:xt,
                   _ep:(wI.px!=null?wI.px:(bIn!=null?bIn:rpIn)),_xp:(wO.px!=null?wO.px:(bOut!=null?bOut:rpOut)),
                   _bkIn:bIn,_bkOut:bOut,_wbIn:wI.px,_wbOut:wO.px,_rpIn:rpIn,_rpOut:rpOut,_wbMissed:!!t._missed,_sh:sh,
@@ -52986,7 +52993,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             _lv:{stop_px:(t.stop_px!=null?+t.stop_px:null),target_px:(t.target_px!=null?+t.target_px:null),stops:Array.isArray(t.stops)?t.stops:[]},
             // owner 11-26 (board 185): the chart title is the leg (the time is on the line under it), the size in contracts, why it closed,
             // and the NT8 fill against the engine for the fills table under the chart
-            _leg:(_legLabel[leg]||leg),_qty:+((+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1)).toFixed(2),
+            _leg:(_legLabel[leg]||leg),_xline:window._legXline(leg),_qty:+((+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1)).toFixed(2),
             _why:String(t.exit_reason||t.exitReason||t.reason||''),_ntf:ntfOf(r)};
         };
         // NT8 against the engine for one trade: the reconcile's matched record (entry slip, size, its P&L), or why there is none

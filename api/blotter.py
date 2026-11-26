@@ -69,11 +69,16 @@ def _exit_line(strategy, params):
                     p = inspect.signature(mod.run_backtest).parameters.get("exit_mode")
                     v = p.default if (p is not None and p.default is not inspect.Parameter.empty) else None
                 nxt = None
-                for a in ("_p", "_base", "_B", "_parent"):
+                for a in ("_p", "_base", "_B", "_parent", "_ct"):
                     c = getattr(mod, a, None)
                     if c is not None and hasattr(c, "run_backtest"):
                         nxt = c
                         break
+                if nxt is None and getattr(mod, "_AUGUR_PARENT", None):     # the declared parent file
+                    try:
+                        nxt = ae.load_strategy(str(mod._AUGUR_PARENT))
+                    except Exception:
+                        nxt = None
                 mod = nxt
         return "vwap" if str(v) == "vwap" else ""
     except Exception:
