@@ -814,7 +814,8 @@ def _bucket(usd_by_group, order):
         pf = (gw / gl) if gl > 0 else (float("inf") if gw > 0 else 0.0)
         out.append({"bucket": b, "n": int(len(v)), "pnl": float(v.sum()),
                     "pf": (99.0 if pf == float("inf") else round(pf, 2)),
-                    "avg": float(v.mean())})
+                    "avg": float(v.mean()),
+                    "wr": round(float((v > 0).sum()) / len(v) * 100.0, 1)})
     return out
 
 
@@ -849,6 +850,8 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
     erm = float(day["er20"].median())
 
     vol_g, trend_g, dow_g, tod_g = {}, {}, {}, {}
+    # Full breakdown (owner 2026-11-26): hourly ET slice, long/short, hold time, month, year.
+    hour_g, side_g, hold_g, mon_g, year_g = {}, {}, {}, {}, {}
     monthly = {}   # (year, month) -> sum pnl
     n_used = 0
     for t in trades:   # trades may be 3- or 5-tuples (entry_i, exit_i, pnl[, side, entry_px])
@@ -875,6 +878,26 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
         _tob = ("Open" if 9.5 <= _hb < 10.5 else "Late AM" if 10.5 <= _hb < 12.0
                 else "Midday" if 12.0 <= _hb < 14.0 else "Close" if 14.0 <= _hb < 16.0 else "ETH")
         tod_g.setdefault(_tob, []).append(usd)
+        hour_g.setdefault("%02d:00" % ts.hour, []).append(usd)
+        mon_g.setdefault(ts.strftime("%b"), []).append(usd)
+        year_g.setdefault(str(ts.year), []).append(usd)
+        if len(t) >= 4 and t[3] is not None:
+            sd = t[3]
+            if isinstance(sd, str):
+                sb = "Long" if sd[:1].upper() in ("L", "B") else "Short" if sd[:1].upper() == "S" else None
+            else:
+                try:
+                    sb = "Long" if float(sd) > 0 else "Short" if float(sd) < 0 else None
+                except (TypeError, ValueError):
+                    sb = None
+            if sb:
+                side_g.setdefault(sb, []).append(usd)
+        if 0 <= xb < len(eix):
+            hm = (eix.iloc[xb] - ts).total_seconds() / 60.0
+            hb = ("<5m" if hm < 5 else "5-15m" if hm < 15 else "15-30m" if hm < 30 else
+                  "30-60m" if hm < 60 else "1-2h" if hm < 120 else "2-4h" if hm < 240 else
+                  "Same day 4h+" if eix.iloc[xb].date() == ts.date() else "Overnight+")
+            hold_g.setdefault(hb, []).append(usd)
         monthly[(ts.year, ts.month)] = monthly.get((ts.year, ts.month), 0.0) + usd
         n_used += 1
     if n_used == 0:
@@ -889,6 +912,13 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
             "trend": _bucket(trend_g, ["Trend", "Chop"]),
             "dow": _bucket(dow_g, ["Mon", "Tue", "Wed", "Thu", "Fri"]),
             "tod": _bucket(tod_g, ["Open", "Late AM", "Midday", "Close", "ETH"]),
+            "hour": _bucket(hour_g, sorted(hour_g)),
+            "side": _bucket(side_g, ["Long", "Short"]),
+            "hold": _bucket(hold_g, ["<5m", "5-15m", "15-30m", "30-60m", "1-2h", "2-4h",
+                                     "Same day 4h+", "Overnight+"]),
+            "month": _bucket(mon_g, ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
+                                     "Sep", "Oct", "Nov", "Dec"]),
+            "year": _bucket(year_g, sorted(year_g)),
             "monthly": {"years": years, "rows": mrows},
             "n_trades": int(n_used), "worst_vol": worst}
 

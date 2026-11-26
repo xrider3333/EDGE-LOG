@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.66';
+const VERSION='92.67';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.67',date:'2026-11-26',notes:['FULL BREAKDOWN (owner 11-26). RESULTS run report: a FULL BREAKDOWN table under the regime card - time of day, day, long / short, hold time, volatility, trend, month, year - each with trades, win rate, net, profit factor and average trade. Chips switch the slice.','New runs save hourly time of day, long / short, hold time, month and year. Older runs show what they saved (4 session blocks for time of day) and name the rest as re-run to add.','WEBULL PAPER, More stats: Breakdown - live vs backtest. Pick a strategy (NOISE first); its Webull trades in the range are bucketed the same way beside the run it trades (e.g. NOISE 555). Backtest dollars are the run contract, so compare win rate, PF and shape.']},
 {v:'92.66',date:'2026-11-26',notes:['NT8 PAPER: NOISE #422 no longer reads engine only. NinjaTrader runs it since 11-20 (EdgeLogNOISE422), so its trades now show the nightly match with NinjaTrader - today that is never took it, because no NinjaTrader fill has landed for it yet.']},
 {v:'92.64',date:'2026-11-26',notes:['1A FUNNEL TOP 3: the drawdown strip matches the lines above (owner 11-26). One thin underwater line per family #1, in its family colour, on the same timeline; one dashed line + pill marks the deepest. Key rows now show each family #1 worst drawdown. The champion filled area and Monte-Carlo floor stay in ONE CURVE.']},
 {v:'92.61',date:'2026-11-26',notes:['1A CONFIG FUNNEL, CLEANED UP (owner 11-26: the funnel looked messed up). New default view TOP 3: the three highest-ending lines of every family - raw, gate, tilt, KEEL, hybrid, hybrid recycled - each drawn whole from the first trade to the lockbox end as one thin solid line in its family colour.','One $ axis fits every line, so nothing runs off the top any more. Raw dollars: EQUAL RISK does not apply in this view (ONE CURVE still has it).','Key: one row per family with its three ending figures; click a row to dim / hide it, hover to spotlight it. ONE CURVE and DOORS are unchanged, one click away.','Date ticks: the lockbox-start date no longer prints on top of the end date.']},
@@ -2573,6 +2574,85 @@ const TIMEFRAMES=['—','5s','10s','15s','30s','1m','2m','3m','5m','10m','15m','
 // A trade can carry more than one timeframe (owner: this trade was 10s and 1m). It is kept in
 // the same timeframe field as one string - "10s, 1m", in the order of the list above - so a
 // trade with a single timeframe reads exactly as before.
+// FULL BREAKDOWN (owner 2026-11-26): one table per dimension (time of day, day, long/short,
+//   hold time, volatility, trend, month, year) with trades / win % / net / PF / avg; chips switch
+//   the dimension in place. Optional `live` rows add a LIVE column set beside the backtest
+//   (Webull ledger: paper trades vs the run they came from). Rows: {bucket,n,pnl,pf,wr,avg} in $.
+const BD_DIMS=[['hour','Time of day'],['dow','Day'],['side','Long / short'],['hold','Hold time'],['vol','Volatility'],['trend','Trend'],['month','Month'],['year','Year']];
+function bdRowsFromTrades(trades,dim){
+  const g={};const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  (trades||[]).forEach(t=>{if(!t||t.pnl==null||!t.et)return;const e=t.et;let k=null;
+    if(dim==='hour')k=String(e.h).padStart(2,'0')+':00';
+    else if(dim==='tod'){const hb=e.h+(e.mi||0)/60;k=hb>=9.5&&hb<10.5?'Open':hb>=10.5&&hb<12?'Late AM':hb>=12&&hb<14?'Midday':hb>=14&&hb<16?'Close':'ETH';}
+    else if(dim==='dow')k=DOW[e.dow];
+    else if(dim==='month')k=MON[e.m];
+    else if(dim==='year')k=String(e.y);
+    else if(dim==='side')k=t.side==null?null:(t.side>0?'Long':'Short');
+    else if(dim==='hold'){const m=t.holdMin;if(m==null)k=null;else k=m<5?'<5m':m<15?'5-15m':m<30?'15-30m':m<60?'30-60m':m<120?'1-2h':m<240?'2-4h':(t.sameDay?'Same day 4h+':'Overnight+');}
+    if(k==null)return;(g[k]=g[k]||[]).push(+t.pnl);});
+  const ORD={tod:['Open','Late AM','Midday','Close','ETH'],dow:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],month:MON,side:['Long','Short'],hold:['<5m','5-15m','15-30m','30-60m','1-2h','2-4h','Same day 4h+','Overnight+']};
+  const keys=Object.keys(g).sort((a,b)=>ORD[dim]?ORD[dim].indexOf(a)-ORD[dim].indexOf(b):(a<b?-1:a>b?1:0));
+  return keys.map(k=>{const v=g[k],gw=v.filter(x=>x>0).reduce((a,b)=>a+b,0),gl=-v.filter(x=>x<0).reduce((a,b)=>a+b,0),net=v.reduce((a,b)=>a+b,0);
+    return {bucket:k,n:v.length,pnl:net,pf:gl>0?gw/gl:(gw>0?99:0),wr:v.filter(x=>x>0).length/v.length*100,avg:net/v.length};});
+}
+function bdTableHtml(bt,live,opts){
+  opts=opts||{};const id='bd'+Math.random().toString(36).slice(2,8);
+  const usd=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  const col=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text3)';
+  const dims=BD_DIMS.filter(([k])=>(bt&&bt[k]&&bt[k].length)||(live&&live[k]&&live[k].length));
+  if(!dims.length)return '<div style="font-size:var(--fsxs);color:var(--text4)">'+(opts.empty||'No breakdown saved on this run.')+'</div>';
+  const missing=bt?BD_DIMS.filter(([k])=>!(bt[k]&&bt[k].length)).map(d=>d[1]):[];
+  const th='padding:4px 8px;font-weight:400;color:var(--text4);text-align:right;white-space:nowrap';
+  const td='padding:4px 8px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums';
+  const cells=(r)=>r?('<td style="'+td+'">'+r.n+'</td><td style="'+td+'">'+(r.wr==null?'—':Math.round(r.wr)+'%')+'</td><td style="'+td+';color:'+col(r.pnl)+'">'+usd(r.pnl)+'</td><td style="'+td+'">'+(r.pf==null?'—':(+r.pf).toFixed(2))+'</td><td style="'+td+';color:'+col(r.avg)+'">'+(r.avg==null?'—':usd(r.avg))+'</td>'):'<td style="'+td+';color:var(--text5)" colspan="5">—</td>';
+  const one=([k,lbl],i)=>{const a=(bt&&bt[k])||[],b=(live&&live[k])||[];const keys=[];a.concat(b).forEach(r=>{if(keys.indexOf(r.bucket)<0)keys.push(r.bucket);});
+    const ia=Object.fromEntries(a.map(r=>[r.bucket,r])),ib=Object.fromEntries(b.map(r=>[r.bucket,r]));
+    const mx=Math.max(1,...a.map(r=>Math.abs(r.pnl)),...b.map(r=>Math.abs(r.pnl)));
+    const ordered=(k==='hour'&&keys.every(x=>/^\d\d:/.test(x)))||k==='year'?keys.sort():keys;
+    const hd2='<th style="'+th+'">Trades</th><th style="'+th+'">Win %</th><th style="'+th+'">Net</th><th style="'+th+'">PF</th><th style="'+th+'">Avg</th>';
+    return '<div data-bdp="'+id+'" data-k="'+k+'" style="display:'+(i?'none':'block')+';overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:var(--fsxs)">'
+      +(live&&bt?'<tr><th></th><th colspan="5" style="'+th+';text-align:center">'+(opts.btLabel||'Backtest')+'</th><th style="width:10px"></th><th colspan="5" style="'+th+';text-align:center">'+(opts.liveLabel||'Live')+'</th><th></th></tr>':'')
+      +'<tr><th style="'+th+';text-align:left">'+lbl+'</th>'+(bt?hd2:'')+(live?(bt?'<th></th>':'')+hd2:'')+'<th style="'+th+';width:24%"></th></tr>'
+      +ordered.map(kk=>{const ra=ia[kk],rb=ib[kk],ref=(live?rb:ra)||ra||rb;const w=Math.round(Math.abs(ref.pnl)/mx*100);
+        return '<tr style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"><td style="'+td+';text-align:left;color:var(--text2)">'+kk+'</td>'+(bt?cells(ra):'')+(live?(bt?'<td></td>':'')+cells(rb):'')
+          +'<td style="padding:4px 8px"><div style="height:6px;border-radius:3px;background:color-mix(in srgb,var(--border) 25%,transparent)"><div style="height:100%;width:'+w+'%;border-radius:3px;background:'+col(ref.pnl)+';opacity:.7"></div></div></td></tr>';}).join('')
+      +'</table></div>';};
+  const chips=dims.map(([k,lbl],i)=>'<button data-bdc="'+id+'" data-k="'+k+'" onclick="bdPick(this)" style="font:inherit;font-size:var(--fsxs);padding:3px 10px;border-radius:12px;cursor:pointer;border:1px solid '+(i?'transparent':'var(--border2)')+';background:'+(i?'transparent':'var(--bg3)')+';color:'+(i?'var(--text4)':'var(--text1)')+'">'+lbl+'</button>').join('');
+  return '<div>'+(opts.head||'')+'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">'+chips+'</div>'+dims.map(one).join('')
+    +(missing.length&&opts.missingNote!==false?'<div style="margin-top:6px;font-size:var(--fsxs);color:var(--text5)">'+missing.join(', ')+': not saved on this run (re-run to add).</div>':'')+'</div>';
+}
+function bdPick(btn){const id=btn.getAttribute('data-bdc'),k=btn.getAttribute('data-k');
+  document.querySelectorAll('[data-bdc="'+id+'"]').forEach(b=>{const on=b===btn;b.style.borderColor=on?'var(--border2)':'transparent';b.style.background=on?'var(--bg3)':'transparent';b.style.color=on?'var(--text1)':'var(--text4)';});
+  document.querySelectorAll('[data-bdp="'+id+'"]').forEach(p=>{p.style.display=p.getAttribute('data-k')===k?'block':'none';});}
+// Engine regime block (points) -> breakdown rows in $; old runs fall back to the 4 session blocks for time of day.
+function bdFromRegime(rg,mlt){if(!rg)return null;const o={};const cv=a=>(a||[]).filter(Boolean).map(b=>({bucket:b.bucket,n:b.n,pnl:(b.pnl||0)*mlt,pf:b.pf,wr:b.wr==null?null:b.wr,avg:b.avg==null?((b.pnl||0)*mlt/(b.n||1)):b.avg*mlt}));
+  ['dow','side','hold','vol','trend','month','year'].forEach(k=>{if(rg[k]&&rg[k].length)o[k]=cv(rg[k]);});
+  o.hour=(rg.hour&&rg.hour.length)?cv(rg.hour):cv(rg.tod);return o;}
+// One masked read (regime + multiplier) per run, cached for the session; the run report's full doc is reused when loaded.
+window._bdRun=window._bdRun||{};
+function bdRunRegime(id){
+  id=String(id||'').replace(/^#/,'').split('.')[0];if(!id)return null;
+  if(window._runFull&&window._runFull[id]){const f=window._runFull[id];return {ok:true,regime:f.regime||null,mlt:f.multiplier||20};}
+  const c=window._bdRun[id];if(c)return c.busy?null:c;
+  if(typeof auth==='undefined'||!auth||!auth.currentUser||typeof _runsUid==='undefined'||!_runsUid)return null;
+  window._bdRun[id]={busy:true};
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+_runsUid+'/runs/'+id
+    +'?mask.fieldPaths=regime&mask.fieldPaths=multiplier';
+  _idToken().then(tok=>fetch(url,{headers:{'Authorization':'Bearer '+tok}}))
+    .then(r=>{if(!r.ok)throw new Error('REST '+r.status);return r.json();})
+    .then(doc=>{const f=_fsFields((doc||{}).fields||{});window._bdRun[id]={ok:true,regime:f.regime||null,mlt:f.multiplier||20};renderApp();})
+    .catch(e=>{console.warn('[breakdown] run read failed',id,(e&&e.message)||e);window._bdRun[id]={ok:false};renderApp();});
+  return null;
+}
+// New York clock parts of a UTC stamp ('2026-11-20 15:31:00' or ISO): {y,m,dow,h,day}
+const _bdNyFmt=(typeof Intl!=='undefined')?new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}):null;
+function bdNyParts(ts){
+  const s=String(ts||'');if(!s||!_bdNyFmt)return null;
+  const ms=Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s)?s.replace(' ','T'):s.replace(' ','T')+'Z');if(!isFinite(ms))return null;
+  const p={};_bdNyFmt.formatToParts(new Date(ms)).forEach(x=>{p[x.type]=x.value;});
+  return {y:+p.year,m:+p.month-1,dow:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(p.weekday),h:(+p.hour)%24,mi:+p.minute,day:p.year+'-'+p.month+'-'+p.day};
+}
 function tfList(v){return String(v==null?'':v).split(',').map(x=>x.trim()).filter(x=>x&&x!=='—');}
 function tfJoin(arr){
   const u=[...new Set((arr||[]).filter(x=>x&&x!=='—'))];
@@ -32166,7 +32246,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +_crow('Trend',rg.trend)
           +_crow('Day of week',rg.dow)
           +_crow('Time of day',(rg.tod||rg.hour),'n/a — recorded on the next run · will split net $ by ET hour to gate WHEN time-sensitive setups (e.g. ORB) trade')
-          +'</div>';}
+          +'</div>'
+          +'<div style="margin-top:12px"><div class="lbl" style="margin:0 0 6px">FULL BREAKDOWN</div>'+bdTableHtml(bdFromRegime(rg,mlt),null)+'</div>';}
       let nbHtml='',nbSub='',nbTip='';
       if(d.neighborhood){const nb=d.neighborhood;const pfcol=p=>p>=1?'#1d9e75':'#e24b4a';
         nbSub=nb.verdict+' · '+nb.good+'/'+nb.tot+' neighbours hold PF ≥ 1';
@@ -51138,7 +51219,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // owner 10-31 ('clean this up'): the four tiles, then the CALENDAR (open by default), then the More stats fold under it
         const qbLgStatsHtml=ledgerStatStripHtml(qbLs,{id:'qb-stat-strip',short:true});
         // r2 step 3 (items 2, 40): the ? note no longer repeats the range word; the range goes in so DD5 / ROC know ALL / YTD
-        const qbLgMoreHtml=(ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',range:qbRange||'ALL',
+        // FULL BREAKDOWN (owner 2026-11-26): one strategy at a time, its Webull trades in the chosen range bucketed by time of day,
+        //   day, long / short, hold time, month and year, beside the same buckets from the run it trades (e.g. NOISE #555). The
+        //   backtest is the run's whole-window champion in that run's own contract dollars, so read win %, PF and the shape, not the $.
+        const qbBdGroup=()=>{
+          const rows=qbRangeTrades.filter(t=>t&&!t._lgvWhatIf);
+          const fams=[];rows.forEach(t=>{const k=qbFamOf(t.leg);if(k&&fams.indexOf(k)<0)fams.push(k);});
+          if(!fams.length)return null;
+          let pick=window._qbBdLeg;if(fams.indexOf(pick)<0)pick=fams.indexOf('NOISE555')>=0?'NOISE555':(fams.indexOf('NOISE')>=0?'NOISE':fams[0]);
+          const nm=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:String(k);};
+          const legRows=rows.filter(t=>qbFamOf(t.leg)===pick);
+          const live=legRows.map(t=>{const e=bdNyParts(t.entry_ts),x=bdNyParts(t.exit_ts),sd=String(t.side||'').toLowerCase();
+            return {pnl:qePnlOf(t),et:e,side:/^(long|buy|b|l)/.test(sd)?1:(/^(short|sell|s)/.test(sd)?-1:null),holdMin:qbHoldMins(t),sameDay:!!(e&&x&&e.day===x.day)};});
+          const L={};['hour','dow','side','hold','month','year'].forEach(k=>{L[k]=bdRowsFromTrades(live,k);});
+          const runNo=String(qeTradeRunNo(legRows[0])||'').replace(/^#/,'').split('.')[0];
+          const R=runNo?bdRunRegime(runNo):null;
+          const B=(R&&R.ok&&R.regime)?bdFromRegime(R.regime,R.mlt||20):null;
+          // an older run saved only the 4 session blocks for time of day: bucket the live trades the same way so the rows line up
+          if(B&&B.hour&&B.hour.length&&!/^\d\d:/.test(B.hour[0].bucket))L.hour=bdRowsFromTrades(live,'tod');
+          const chips=fams.length>1?'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">'+fams.map(k=>'<button type="button" onclick="window._qbBdLeg=\''+k+'\';renderApp()" style="font:inherit;font-size:var(--fsxs);padding:3px 10px;border-radius:12px;cursor:pointer;border:1px solid '+(k===pick?'var(--border2)':'transparent')+';background:'+(k===pick?'var(--bg3)':'transparent')+';color:'+(k===pick?'var(--text1)':'var(--text4)')+'">'+nm(k)+'</button>').join('')+'</div>':'';
+          const note='<div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:6px">'+legRows.length+' Webull trade'+(legRows.length===1?'':'s')+' in range'
+            +(runNo?(' &middot; backtest = run #'+runNo+(B?' (whole window, run contract $)':(R&&R.ok===false?' (could not read)':(R?' (no breakdown saved)':' (loading)')))):'')+'</div>';
+          return {title:'Breakdown &middot; live vs backtest',rows:[],wide:true,
+            html:chips+note+bdTableHtml(B,L,{btLabel:runNo?('Backtest #'+runNo):'Backtest',liveLabel:'Webull',missingNote:false})};
+        };
+        const qbLgMoreHtml=(ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups().concat([qbBdGroup()].filter(Boolean)):[],{open:qbMoreOpen,id:'qb',range:qbRange||'ALL',
             note:'Range rows at P&amp;L of record (Webull fill, else book). Account rows as of the box\u2019s last save.'}));
 
 
