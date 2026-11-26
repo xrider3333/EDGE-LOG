@@ -37,7 +37,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import roll_guard
-from augur_engine.master_write import write_master_csv
+from augur_engine.master_write import write_master_csv, first_spike
 UP   = os.path.join(ROOT, "augur_uploads")
 DB   = os.path.join(ROOT, "optimizer_history.db")
 YTK  = {"NQ": "NQ=F", "ES": "ES=F"}
@@ -220,6 +220,22 @@ def main(now_s=None):
             print(f"  {fn}: REFUSED an in-bar contract switch. " + roll_guard.describe(hit))
             print(f"    held back {hit['et_date']} onwards"
                   + (f"; alert written to {alert}" if alert else ""))
+            if not len(new):
+                continue
+        # Refuse a bar that jumps more than SPIKE_PCT after a hole in the feed (the
+        # 2026-10-30 15:03 NQ print). Held back like the roll guard: the next run sees it
+        # again, and a clean source (tools/repair_master_window.py) fills the hole.
+        _bar_s = {"1m": 60, "2m": 120, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600}.get(tf, 60)
+        new = new.sort_values("time").reset_index(drop=True)
+        _sp = first_spike(new, prev_time=last, prev_close=float(cur.loc[cur["time"].idxmax(), "close"]),
+                          bar_s=_bar_s)
+        if _sp is not None:
+            _r = new.loc[_sp]
+            print(f"  {fn}: REFUSED a bar that jumps after a feed hole: "
+                  f"{pd.to_datetime(int(_r['time']), unit='s', utc=True).tz_convert('US/Eastern')} "
+                  f"open {_r['open']}. Held back from there; repair the hole from a clean source.")
+            failures.append((fn, "spike after a feed hole at %d" % int(_r["time"])))
+            new = new.loc[:_sp - 1]
             if not len(new):
                 continue
         merged = (pd.concat([cur, new], ignore_index=True)

@@ -119,3 +119,32 @@ def write_master_csv(df, path, allow_shrink=False, shrink_reason="", retries=10,
             except OSError:
                 pass
     return n_new
+
+
+# A bar that opens more than this far from the previous close, right after an intraday
+# hole in the feed, is held back. 2026-10-30: Yahoo dropped NQ 14:54-15:02 ET and then
+# served 15:03 with open 29562 against a real ~28288 (+4.7 pct); NOISE trained on it. Over
+# the whole NQ history (2009 on, March 2020 included) no real bar crosses 2 pct that way.
+SPIKE_PCT = 0.02
+SPIKE_MAX_GAP_S = 55 * 60       # longer holes are session breaks / weekends: real gaps
+
+
+def first_spike(new, prev_time=None, prev_close=None, bar_s=60, pct=SPIKE_PCT):
+    """Index label of the first row in `new` (sorted by time) that opens more than `pct`
+    away from the bar before it after a hole of more than one bar but at most
+    SPIKE_MAX_GAP_S. `prev_time` / `prev_close` give the bar just before `new` (the last
+    row already in the master). Returns None when nothing trips."""
+    if new is None or not len(new):
+        return None
+    t = new["time"].astype("int64").tolist()
+    o = new["open"].astype(float).tolist()
+    c = new["close"].astype(float).tolist()
+    idx = list(new.index)
+    pt, pc = prev_time, prev_close
+    for i in range(len(t)):
+        if pt is not None and pc:
+            gap = t[i] - int(pt)
+            if bar_s < gap <= SPIKE_MAX_GAP_S and abs(o[i] / float(pc) - 1) > pct:
+                return idx[i]
+        pt, pc = t[i], c[i]
+    return None
