@@ -8,7 +8,8 @@ from augur_engine.data import find_master, load_master_arrays
 from augur_engine.paths import blotter_dir
 
 FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
-          "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side", "size"]
+          "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side", "size",
+          "stop_px", "target_px", "be_px", "be_time", "stop_moves", "exit_why"]
 
 # 2026-11-26 (owner: "the SL visualisation doesn't show price moving there"): a file that folds its own
 # size into t[2] (NOISE's tilt, the v12 fixed tilts: pts = S*raw - (S-1)*c) says so with trade_sizes +
@@ -17,6 +18,89 @@ FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
 # 24,810 traded). A blotter row now carries `size`; a cached CSV without that column, for a file that
 # folds a size, is rebuilt instead of served (see _folds_size_source).
 SIZE_MARK = "trade_sizes"
+
+
+# 2026-11-26 (owner: "show the stop line moving on the gallery charts too"): a file whose run_backtest NAMES
+# `return_levels` (NOISE_1_0 and its chain, ORB_3_6, ORB_BREAK2, ORB314_GAP, ENGUQ_1M_ETH_R2) reports, per trade,
+# the stop its own loop compared against (and ORB's target / breakeven step). The blotter asks for them on the
+# same champion run - logging only, no trade changes - and maps each level back to the RAW contract price the
+# way the engine maps the entry (augur_engine.rolls.reprice_result: ratio = divide by the entry bar's factor,
+# difference = take the entry bar's offset off). Columns, blank where the file has none:
+#   stop_px     the protective stop at entry          target_px  the target, when the file sets one
+#   be_px       the breakeven stop, when it armed     be_time    the first bar that stop is live on
+#   stop_moves  1 when the row says the stop can also trail / scale out in ways it does not list
+#   exit_why    stop | breakeven | target when the exit price sits at (or through) that level, else blank
+LEVELS_MARK = "return_levels"
+
+
+def _wants_levels(strategy):
+    """True iff the strategy's run_backtest explicitly names `return_levels` (a **kw catch-all does
+    not count - the cloud_signal convention). Never raises."""
+    try:
+        import inspect
+        mod = strategy if hasattr(strategy, "run_backtest") else ae.load_strategy(strategy)
+        return LEVELS_MARK in inspect.signature(mod.run_backtest).parameters
+    except Exception:
+        return False
+
+
+def _raw_level(px, adj_entry, raw_entry, method):
+    """One level on the strategy's (possibly roll-adjusted) series -> the raw contract price, by the
+    transform that took the entry from adj_entry to raw_entry. None when it cannot be told."""
+    try:
+        if px is None:
+            return None
+        px, a, r = float(px), float(adj_entry), float(raw_entry)
+        if px != px:
+            return None
+        if abs(a - r) <= 1e-9 * max(1.0, abs(r)):
+            return px                                   # unadjusted series: nothing to map
+        if method == "ratio" and a:
+            return px * (r / a)
+        if method == "difference":
+            return px - (a - r)
+        return None                                     # adjusted, method unknown: draw nothing
+    except (TypeError, ValueError):
+        return None
+
+
+def _level_cols(lv, t, ep, side, exit_px, method, idx):
+    """The level columns for one trade (see LEVELS_MARK); {} when the row does not describe it."""
+    if not isinstance(lv, dict):
+        return {}
+    try:
+        if int(lv.get("entry_bar")) != int(t[0]) or int(lv.get("side")) != int(side):
+            return {}
+    except (TypeError, ValueError):
+        return {}
+    adj = lv.get("entry")
+    stop = _raw_level(lv.get("stop"), adj, ep, method)
+    if stop is None:
+        return {}
+    out = {"stop_px": round(stop, 2)}
+    tgt = _raw_level(lv.get("target"), adj, ep, method)
+    if tgt is not None:
+        out["target_px"] = round(tgt, 2)
+    be = _raw_level(lv.get("be_stop"), adj, ep, method)
+    be_bar = lv.get("be_bar")
+    if be is not None and be_bar is not None:
+        try:
+            k = int(be_bar) + 1                         # live from the bar AFTER the arming close
+            if k <= int(t[1]) and k < len(idx):
+                out["be_px"], out["be_time"] = round(be, 2), str(idx[k])[:16]
+        except (TypeError, ValueError, IndexError):
+            pass
+    if lv.get("trail") or lv.get("partial"):
+        out["stop_moves"] = 1
+    tol = 0.011
+    hit = (lambda lvl: exit_px <= lvl + tol) if side == 1 else (lambda lvl: exit_px >= lvl - tol)
+    if out.get("target_px") is not None and abs(exit_px - out["target_px"]) <= tol:
+        out["exit_why"] = "target"
+    elif out.get("be_px") is not None and hit(out["be_px"]):
+        out["exit_why"] = "breakeven"
+    elif hit(out["stop_px"]):
+        out["exit_why"] = "stop"
+    return out
 
 
 def _row_size(sizes, i):
@@ -58,10 +142,30 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
     # by the number of pre-window bars.
     a = load_master_arrays(m, date_from=date_from, date_to=date_to)
     idx, close = a["index"], a["close"]
-    bt = ae.run_backtest(strategy, instrument=instrument, timeframe=timeframe, session=session,
-                         arrays=a, params=params or {}, cost_pts=float(cost_pts or 0),
-                         return_trades=True)
+    want_lv = _wants_levels(strategy)
+    bt = None
+    if want_lv:     # the same run plus its levels record; a file that chokes on it falls back below
+        try:
+            bt = ae.run_backtest(strategy, instrument=instrument, timeframe=timeframe, session=session,
+                                 arrays=a, params=dict(params or {}, return_levels=True),
+                                 cost_pts=float(cost_pts or 0), return_trades=True)
+        except Exception:
+            bt, want_lv = None, False
+    if bt is None:
+        bt = ae.run_backtest(strategy, instrument=instrument, timeframe=timeframe, session=session,
+                             arrays=a, params=params or {}, cost_pts=float(cost_pts or 0),
+                             return_trades=True)
     raw_trades = list((bt or {}).get("trades") or [])
+    levels = (bt or {}).get("levels") if want_lv else None
+    try:
+        if levels is not None and len(levels) != len(raw_trades):
+            levels = None
+    except Exception:
+        levels = None
+    try:
+        roll_method = (((bt or {}).get("_meta") or {}).get("roll_stamp") or {}).get("signal_method")
+    except Exception:
+        roll_method = None
     sizes = (bt or {}).get("trade_sizes")
     fold_c = float((bt or {}).get("size_cost_pts") or 0.0)
     try:
@@ -103,6 +207,8 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
                      "hold_bars": xb - eb, "entry_px": round(ep, 2), "exit_px": round(exit_px, 2),
                      "pnl_pts": round(pnl, 2), "pnl_usd": round(usd, 2), "cum_usd": round(cum, 0),
                      "side": "long" if side == 1 else "short", "size": round(s, 4)})
+        if levels is not None:
+            rows[-1].update(_level_cols(levels[i - 1], t, ep, side, round(exit_px, 2), roll_method, idx))
     if return_raw:
         return rows, meta, raw_trades
     return rows, meta
@@ -398,6 +504,13 @@ def load_blotter_rows(root, payload, log=print):
                 log(f"    -> blotter {pth} predates per-trade size and its file folds a size: rebuilding")
                 stale_sized = True
                 break
+            if rows and "stop_px" not in rows[0] and payload.get("params") \
+                    and _folds_size_source(root, payload, LEVELS_MARK):
+                # written before the level columns by a file that reports its stops: rebuild so the
+                # charts can draw them (LEVELS_MARK)
+                log(f"    -> blotter {pth} predates the stop columns and its file reports stops: rebuilding")
+                stale_sized = True
+                break
             if rows:
                 log(f"    -> blotter served from {pth} ({len(rows)} trades)")
                 extra = {"source": os.path.basename(os.path.dirname(pth)) + "/" + name}
@@ -437,21 +550,22 @@ def load_blotter_rows(root, payload, log=print):
     except Exception:
         pass
     log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid} "
-        f"from master '{bmeta.get('master')}'" + (" (was a pre-size cache)" if stale_sized else ""))
+        f"from master '{bmeta.get('master')}'" + (" (was a stale cache)" if stale_sized else ""))
     return _cap(rows, {"regenerated": True, "master": bmeta.get("master")})
 
 
-def _folds_size_source(root, payload):
-    """True when the run's strategy source reports per-trade sizes (the text `trade_sizes`): its plugin
-    file when it still exists, else the run's code snapshot. A cheap text check - no import, no run."""
+def _folds_size_source(root, payload, mark=SIZE_MARK):
+    """True when the run's strategy source carries `mark` (default: the text `trade_sizes` - it reports
+    per-trade sizes; LEVELS_MARK - it reports its stops): its plugin file when it still exists, else the
+    run's code snapshot. A cheap text check - no import, no run."""
     try:
         strat = _resolve_strategy(root, payload.get("strategy") or "")
         fn = strat if str(strat).endswith(".py") else str(strat) + ".py"
         pth = os.path.join(root, "augur_strategies", fn)
         if os.path.isfile(pth):
             with open(pth, encoding="utf-8", errors="replace") as f:
-                if SIZE_MARK in f.read():
+                if mark in f.read():
                     return True
-        return SIZE_MARK in str(payload.get("code") or "")
+        return mark in str(payload.get("code") or "")
     except Exception:
         return False
