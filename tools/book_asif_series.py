@@ -1124,6 +1124,54 @@ def refresh_ext_panels(leg_ids, say=print, runner=None):
     return done
 
 
+PUBLISH_EVERY = 300      # s: checkpoint publish while building (11-26), so a killed or slow run still lands what it built
+STALE_STAMP = os.path.join(OUT_DIR, "stale_alarm.json")
+
+
+def expected_session(now=None):
+    """The last New York session that should be in the data: today after 17:00 ET on a weekday, else the weekday before."""
+    import numpy as np
+    from zoneinfo import ZoneInfo
+    now = now or dt.datetime.now(ZoneInfo("America/New_York"))
+    d = now.date() if now.hour >= 17 else now.date() - dt.timedelta(days=1)
+    return str(np.busday_offset(d.isoformat(), 0, roll="backward"))
+
+
+def sessions_behind(data_end, expected):
+    """Weekday sessions between a leg's data_end and the expected session (holidays count as sessions, hence 1 of slack)."""
+    import numpy as np
+    if not data_end or not expected:
+        return None
+    try:
+        return int(np.busday_count(str(data_end)[:10], expected))
+    except Exception:
+        return None
+
+
+def stale_alarm(out_legs, expected, live):
+    """11-26: any leg more than 1 session behind -> one MANAGER inbox line a day (the 11-20..11-26 gap went silent)."""
+    stale = {k: r.get("data_end") for k, r in out_legs.items() if r.get("stale")}
+    if not stale:
+        return
+    print("STALE: %d leg(s) more than 1 session behind %s: %s" % (len(stale), expected,
+          ", ".join("%s %s" % kv for kv in sorted(stale.items()))))
+    if not live:
+        return
+    stamp = _load_json(STALE_STAMP, {}) or {}
+    if stamp.get("day") == expected:
+        return
+    try:
+        import subprocess
+        here = os.path.dirname(os.path.abspath(__file__))
+        msg = ("BOOK AS-IF STALE ALARM: %d leg(s) more than 1 session behind %s: %s. Check the 'EdgeLog book as-if series' "
+               "task and C:/EdgeLog/shadow_asif." % (len(stale), expected, ", ".join("%s %s" % kv for kv in sorted(stale.items()))))
+        subprocess.run([sys.executable, os.path.join(here, "chat_inbox.py"), "post", "MANAGER", msg, "--from", "BOOK"],
+                       timeout=60, check=False)
+        _write_json(STALE_STAMP, {"day": expected, "legs": stale, "at": _now_utc()})
+    except Exception as e:
+        print("stale alarm post failed: %s" % e)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", default=BOOK_TABLE)
@@ -1161,7 +1209,67 @@ def main(argv=None):
         return 0
     prev =_load_json(os.path.join(OUT_DIR, "book_asif.json"), {}) or {}
     out_legs = dict(prev.get("legs") or {})
-    changed = False
+    st = {"changed": False, "last_pub": time.time(), "prev": prev}
+    th = hashlib.sha1(json.dumps(table.get("books"), sort_keys=True, default=str).encode()).hexdigest()[:12]
+    if th != prev.get("book_table_hash"):
+        st["changed"] = True
+
+    def publish(final):
+        """Publish what is built so far. 11-26: checkpoints after legs (at most every PUBLISH_EVERY s) as well as at the
+        end, so one slow leg can no longer hold every other leg unpublished (the 20-min task kill of 11-22..11-26)."""
+        exp = expected_session()
+        for r in out_legs.values():
+            n = sessions_behind(r.get("data_end"), exp)
+            if n is not None and n > 1:
+                r["stale"] = "data ends %s, %d sessions behind %s" % (r.get("data_end"), n, exp)
+            else:
+                r.pop("stale", None)
+        ends = sorted(r.get("data_end") for r in out_legs.values() if r.get("data_end"))
+        doc = {"schema": SCHEMA, "generated_at": _now_utc() if st["changed"] or a.force else st["prev"].get("generated_at", _now_utc()),
+               "window_from": WINDOW_FROM, "data_end": ends[-1] if ends else None,
+               "data_end_min": ends[0] if ends else None, "expected_session": exp, "book_table_hash": th,
+               "note": "simulated as-if: each leg's pinned champion on current data with its run's cost, closed trades by "
+                       "New York day; never the account",
+               "legs": out_legs}
+        if final:
+            ok = sum(1 for r in out_legs.values() if r.get("d") is not None)
+            bad = {k: r.get("reason") for k, r in out_legs.items() if r.get("reason")}
+            print("built %s (written after publish): %d legs with a series, %d without%s" % (os.path.join(OUT_DIR, "book_asif.json"), ok, len(bad),
+                  "".join("\n  %s: %s" % kv for kv in bad.items())))
+        if db is not None and (st["changed"] or a.force):
+            ref = db.collection("users").document(UID).collection("meta")
+            trs = {lid: r.get("tr") for lid, r in out_legs.items() if r.get("tr") is not None}
+            slim = dict(doc, legs={lid: {k: v for k, v in r.items() if k != "tr"} for lid, r in out_legs.items()})
+            ref.document("book_asif").set(slim)
+            hp = os.path.join(OUT_DIR, "trades_hash.json"); hashes = _load_json(hp, {}) or {}; nw = 0
+            for lid, rows in trs.items():      # board 147: per-trade rows, one doc per leg (book_asif_trades_<leg>)
+                h = hashlib.sha1(json.dumps(rows, sort_keys=True, default=str).encode()).hexdigest()[:16]
+                if hashes.get(lid) == h:       # Firestore Spark quota: write a leg's trades only when they change
+                    continue
+                for j in range(0, max(len(rows), 1), TRADES_PER_DOC):
+                    ref.document("book_asif_trades_%s%s" % (lid, "" if j == 0 else "_%d" % (j // TRADES_PER_DOC))).set(
+                        {"leg": lid, "window_from": WINDOW_FROM, "generated_at": doc["generated_at"], "part": j // TRADES_PER_DOC,
+                         "parts": -(-len(rows) // TRADES_PER_DOC) or 1, "rows": rows[j:j + TRADES_PER_DOC]})
+                hashes[lid] = h; nw += 1           # recorded only once its docs are written
+                _write_json(hp, hashes)
+            # sweep 4 item 3: the local copy is the "last published" mark - written only AFTER every Firestore write above
+            _write_json(os.path.join(OUT_DIR, "book_asif.json"), doc)
+            st["prev"] = doc; st["changed"] = False; st["last_pub"] = time.time()
+            if final:
+                try:
+                    ref.document("book_asif_req").set({"legs": [], "cleared_at": _now_utc()})
+                except Exception:
+                    pass
+            print("published users/<uid>/meta/book_asif (%d bytes) + %d of %d per-leg trade docs (changed only)%s" % (
+                len(json.dumps(slim, default=str)), nw, len(trs), "" if final else " [checkpoint]"), flush=True)
+        elif final and db is not None:
+            print("nothing changed - not published")
+        elif final:   # sweep 7: offline / --no-publish output never touches the published mark (book_asif.json)
+            _write_json(os.path.join(OUT_DIR, "book_asif.local.json"), doc)
+            print("not published - wrote %s" % os.path.join(OUT_DIR, "book_asif.local.json"))
+        if final:
+            stale_alarm(out_legs, exp, db is not None)
+
     print("book as-if: %d distinct legs in %d books, window from %s" % (len(legs), len(table["books"]), WINDOW_FROM))
     for lid in want:
         if lid not in legs:
@@ -1169,55 +1277,15 @@ def main(argv=None):
             continue
         rec, ch = build_leg(lid, legs[lid], force=a.force)
         if out_legs.get(lid) != rec:
-            changed = True
+            st["changed"] = True
         out_legs[lid] = rec
+        if st["changed"] and time.time() - st["last_pub"] >= PUBLISH_EVERY:
+            publish(False)
     for lid in list(out_legs):          # a leg no longer in any book drops out
         if lid not in legs:
             del out_legs[lid]
-            changed = True
-    th = hashlib.sha1(json.dumps(table.get("books"), sort_keys=True, default=str).encode()).hexdigest()[:12]
-    if th != prev.get("book_table_hash"):
-        changed = True
-    ends = sorted(r.get("data_end") for r in out_legs.values() if r.get("data_end"))
-    doc = {"schema": SCHEMA, "generated_at": _now_utc() if changed or a.force else prev.get("generated_at", _now_utc()),
-           "window_from": WINDOW_FROM, "data_end": ends[-1] if ends else None,
-           "data_end_min": ends[0] if ends else None, "book_table_hash": th,
-           "note": "simulated as-if: each leg's pinned champion on current data with its run's cost, closed trades by "
-                   "New York day; never the account",
-           "legs": out_legs}
-    ok = sum(1 for r in out_legs.values() if r.get("d") is not None)
-    bad = {k: r.get("reason") for k, r in out_legs.items() if r.get("reason")}
-    print("built %s (written after publish): %d legs with a series, %d without%s" % (os.path.join(OUT_DIR, "book_asif.json"), ok, len(bad),
-          "".join("\n  %s: %s" % kv for kv in bad.items())))
-    if db is not None and (changed or a.force):
-        ref = db.collection("users").document(UID).collection("meta")
-        trs = {lid: r.get("tr") for lid, r in out_legs.items() if r.get("tr") is not None}
-        slim = dict(doc, legs={lid: {k: v for k, v in r.items() if k != "tr"} for lid, r in out_legs.items()})
-        ref.document("book_asif").set(slim)
-        hp = os.path.join(OUT_DIR, "trades_hash.json"); hashes = _load_json(hp, {}) or {}; nw = 0
-        for lid, rows in trs.items():      # board 147: per-trade rows, one doc per leg (book_asif_trades_<leg>)
-            h = hashlib.sha1(json.dumps(rows, sort_keys=True, default=str).encode()).hexdigest()[:16]
-            if hashes.get(lid) == h:       # Firestore Spark quota: write a leg's trades only when they change
-                continue
-            for j in range(0, max(len(rows), 1), TRADES_PER_DOC):
-                ref.document("book_asif_trades_%s%s" % (lid, "" if j == 0 else "_%d" % (j // TRADES_PER_DOC))).set(
-                    {"leg": lid, "window_from": WINDOW_FROM, "generated_at": doc["generated_at"], "part": j // TRADES_PER_DOC,
-                     "parts": -(-len(rows) // TRADES_PER_DOC) or 1, "rows": rows[j:j + TRADES_PER_DOC]})
-            hashes[lid] = h; nw += 1           # recorded only once its docs are written
-            _write_json(hp, hashes)
-        # sweep 4 item 3: the local copy is the "last published" mark - written only AFTER every Firestore write above
-        # succeeded, so a failed publish (429) is retried next run instead of read as "nothing changed"
-        _write_json(os.path.join(OUT_DIR, "book_asif.json"), doc)
-        try:
-            ref.document("book_asif_req").set({"legs": [], "cleared_at": _now_utc()})
-        except Exception:
-            pass
-        print("published users/<uid>/meta/book_asif (%d bytes) + %d of %d per-leg trade docs (changed only)" % (len(json.dumps(slim, default=str)), nw, len(trs)))
-    elif db is not None:
-        print("nothing changed - not published")
-    else:   # sweep 7: offline / --no-publish output never touches the published mark (book_asif.json)
-        _write_json(os.path.join(OUT_DIR, "book_asif.local.json"), doc)
-        print("not published - wrote %s" % os.path.join(OUT_DIR, "book_asif.local.json"))
+            st["changed"] = True
+    publish(True)
     return 0
 
 
