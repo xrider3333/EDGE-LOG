@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.55';
+const VERSION='92.56';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8440,6 +8440,7 @@ const BOOKS_LEG_CLASS={
   ORB234_gate:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314, not #234 gated'},
   NOISE555_keel:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'as-if of NOISE #555.1 + KEEL v12; record only (board 170)'},
   NOISE545_keel:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'as-if of NOISE #545.1 + KEEL v12; record only (board 170)'},
+  DISC559_cut:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'provisional book leg: DISC #559 open-longs, causal logistic 0.55 gate (cut + model picked in-sample on #525; zero 2022-07..2025-06, 4-yr lockbox) (board 180 / t118)'},
   DISC525_hybrid:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'research, selection in-sample: DISC #525 hybrid logistic; record only (board 170)'},
   ENGUQ556:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'as-if of ENGU-Q #556 champion (run FAIL); record only (board 177)'},
   ORB314_gate:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314 ungated, not the gated version'}
