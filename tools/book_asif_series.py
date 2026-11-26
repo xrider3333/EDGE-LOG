@@ -174,6 +174,11 @@ LEG_SPECS = {
                        "note": "run #545 set 1 (KFX 16/1.15/tilt 2.75/Friday 2.0) + KEEL v12 causal walk from 2010, keeps learning",
                        "warm_from": "2010-06-07",
                        "gate": {"mode": "keel", "version": "v12"}},
+    # board 180 / t118 (11-26): DISC #559 open-longs, causal logistic CUT 0.55 (cut + model picked in-sample on #525) - provisional book leg
+    "DISC559_cut": {"run": 559, "label": "DISC #559 logistic cut 0.55",
+                    "note": "provisional: #559 champion + logistic CUT gate 0.55, causal refit from 2010; gate picked in-sample on #525",
+                    "warm_from": "2010-06-07",
+                    "gate": {"mode": "cut", "model": "logistic", "threshold": 0.55}},
     "DISC525_hybrid": {"run": 525, "label": "DISC #525 HR logistic",
                        "note": "research, selection in-sample: #525.1 champion (window_min 30) + hybrid logistic gate at 0.55, "
                                "size clip(1+4(p-0.5),0.25,3) / size_norm (mean 1 over pre-09-03 survivors), causal refit every 25 trades from 2010",
