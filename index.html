@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.83';
+const VERSION='92.84';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.84',date:'2026-11-26',notes:['RESULTS: the run list has a new look, the RUN RAIL (owner 11-26). It is a slim list down the left of the report: one status dot (green pass, amber weak, red fail), the run number and family, the file, market and date beneath, and one number on the right - ROC at $30k, or whatever you sort by. Above it: search, a family picker, a sort picker (newest, ROC at $30k, WF Sortino, WF DD pct, WF DD5, net, score), a new All / Pass / Weak / Fail filter, and links for champions, starred, archived and clear filters. It uses the same filters, search and paging as before, so the same runs are listed. The rail comes on by itself with the TEARSHEET report; click table view on the rail to get the full table with every column back, and the RAIL button on the table to return.']},
 {v:'92.83',date:'2026-11-26',notes:['RESULTS has a new report layout, TEARSHEET (owner 11-26). Pick it on the layout rail at the top right of any run report; CLASSIC and the others are unchanged and one click away. One page per run: the verdict and gates passed, a two-line plain summary, then the four numbers on the walk-forward stretch (ROC at $30k, DD5, DD pct from the high, Sortino) with LB and IS beneath each. Five tabs replace the long scroll. OVERVIEW: equity and drawdown with IS, WF and LB marked, a by-stretch table, the walk-forward folds, net by year and a monthly grid. TRADES: where the money comes from by hour, day, side, hold time, volatility, trend, session, month or year, then the distribution and MAE / MFE charts. CONFIGS: the config matrix, the funnel, the 3-D surface, knob importance, neighbours and the config spread, all brought over as they are. ROBUSTNESS: every check in one table, flags and cautions first, click a row for its full readout. SETUP: settings, windows, data and the strategy code. A book still opens in CLASSIC.']},
 {v:'92.82',date:'2026-11-26',notes:['1A CONFIG FUNNEL is one view now (owner 11-26): the top 3 lines of every family, start to finish, with one switch - ACTUAL $ or EQUAL RISK. EQUAL RISK keeps the same lines and resizes each so its worst drawdown before the lockbox is $30k, kept through the lockbox; pills show the size (x2.5), the drawdown strip gets a dotted -$30k budget line, and a label on the chart always says which dollars you are looking at. ONE CURVE, DOORS, the configs slider and the $30k / MATCH ML chips are gone.']},
 {v:'92.80',date:'2026-11-26',notes:['CHART GALLERY: the VWAP exit is named in the card header (bold line = VWAP exit) instead of a label on the chart, which sat on the stop and exit labels in narrow trades.']},
@@ -55155,7 +55156,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _prCut=sorted.length>_prShow;
         const _prRows=_prCut?sorted.slice(0,_prShow):sorted;
         const trows=_pinRowHtml+(_prRows.length?_prRows.map(r=>_flatRow(r,false)).join(''):_emptyWhy);
-        const rv=APREF.resView==='stack'?'stack':'side';const _grp=!!APREF.resGroup;
+        // RUN RAIL: on when picked, or by default alongside the TEARSHEET report; it always sits BESIDE the report
+        const _railOn=(APREF.prView==='rail')||(APREF.prView!=='table'&&APREF.repLayout==='tear');
+        const rv=_railOn?'side':(APREF.resView==='stack'?'stack':'side');const _grp=!!APREF.resGroup;
         // PAST RUNS COLUMNS (board 145, owner GO 11-22): RUN, date, strategy, market, the four WF numbers and the verdict by
         //   default; TRD, MODE, TF, the whole-run columns, SCORE, TOOK, SRC, RANGE and DAYS fold behind MORE COLUMNS (per viewer).
         const _prMore=(function(){try{return localStorage.getItem('el_pr_more')==='1';}catch(e){return false;}})();
@@ -55181,7 +55184,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _rfClearLink=(_anyF||APREF.rfQ)?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">&#10005; clear filters</span>':'';
         const _rfNoteHtml=_rfNote?('<div style="font-size:9px;color:var(--text3);letter-spacing:.3px;padding:0 2px 8px">'+_c2TagEsc(_rfNote)+'</div>'):'';
         const _rfBar=tail=>'<div data-rfbar style="display:flex;align-items:center;justify-content:flex-start;gap:var(--pr-bar-gap,6px);flex-wrap:wrap;margin:var(--pr-bar-m,7px 0 9px)">'
-          +_rfSearch+_famChips+_viewSeg+(tail||'')+ledgerDensHtml('pr')+_rfArchLink+_rfClearLink+'</div>'+_rfNoteHtml;
+          +_rfSearch+_famChips+_viewSeg+(tail||'')+'<button type="button" data-prview="rail" title="the run rail: a slim list beside the report - one status dot, the run, and ROC at $30k" style="'+_ctlUni+'">&#9776; RAIL</button>'+ledgerDensHtml('pr')+_rfArchLink+_rfClearLink+'</div>'+_rfNoteHtml;
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.34));
         // stack-mode list height caps to the VIEWPORT (was a flat 520px that left the lower half of a tall screen empty — owner: "screen can support it, still scrolls").
         const _vhCap=Math.max(520,Math.round((window.innerHeight||900)*0.82));
@@ -55222,6 +55225,67 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _rmFetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
         const _runsMoreRow=(_prCut||(typeof _rmLoadedLim!=='undefined'&&runHistory.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
         const _runsMoreRowX=(window._runsLiteOk===false&&_runsMoreRow)?'<div data-runsmoreoff style="text-align:center;padding:9px 0 3px;font-size:9px;color:var(--text5)">older runs cannot load right now - the quick read failed (reads may be rate-limited); reload later</div>':_runsMoreRow;
+        // ── RUN RAIL (owner 11-26, "redo the run list"): the list as a calm left rail beside the report - one status dot,
+        //    run number, family, file / market / date, and ONE number on the right (ROC at $30k unless the sort names another).
+        //    It rides the SAME filters, search, sort, paging and row click as the table, so nothing about what is listed changes;
+        //    TABLE (every column) is one click away. On by default with the TEARSHEET report, off otherwise.
+        const _rlVer=(APREF.rfVer==='PASS'||APREF.rfVer==='WEAK'||APREF.rfVer==='FAIL')?APREF.rfVer:'';
+        const _rlAll=_rlVer?sorted.filter(r=>String((r.validate&&r.validate.verdict)||'').toUpperCase()===_rlVer):sorted;
+        const _rlRows=_rlAll.length>_prShow?_rlAll.slice(0,_prShow):_rlAll;
+        const _rlMon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const _rlDate=t=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(t||''));return m?((+m[3])+' '+_rlMon[+m[2]-1]+(m[1]===String(new Date().getFullYear())?'':(" '"+m[1].slice(2)))):'';};
+        const _rlNum=r=>{const w=_prWf4(r),T=_T(r),N=['&ndash;','',''];
+          if(fSort==='wfso')return w.so==null?N:[w.so.toFixed(2),'Sortino',''];
+          if(fSort==='wfddp')return w.ddp==null?N:[w.ddp.toFixed(1)+'%','DD %',''];
+          if(fSort==='wfdd5')return w.dd5==null?N:['~'+_dd5Usd(w.dd5),'DD5',''];
+          if(fSort==='pnl'||w.roc==null)return (T.net==null)?N:[fmtAx(T.net,1),'net',T.net<0?'neg':'pos'];
+          return [w.roc.toFixed(1)+'%','ROC $30k',w.roc<0?'neg':'pos'];};
+        const _rlRow=(r,pin)=>{const on=String(r.id)===String(d&&d.id),vd=String((r.validate&&r.validate.verdict)||'').toUpperCase(),i=stratInfo(r.strategy),nv=_rlNum(r);
+          return '<div class="prr'+(on?' on':'')+'" data-run="'+_c2TagEsc(String(r.id))+'"'+(pin?' data-rfpin="1"':'')+' title="'+_c2TagEsc((vd||'no verdict')+(pin?' - opened from another screen; the filters above hide it':''))+'">'
+            +'<span class="prd '+(vd==='PASS'?'ok':(vd==='WEAK'?'warn':(vd==='FAIL'?'bad':'')))+'"></span>'
+            +'<span class="prm"><span class="pr1"><b>'+_c2TagEsc(String(r.id))+'</b><span>'+_c2TagEsc(String(i.label||r.scope||''))+'</span>'
+            +'<span data-star="'+r.id+'" title="star" class="prs'+(r.starred?' on':'')+'">'+(r.starred?'★':'☆')+'</span></span>'
+            +'<span class="pr2">'+_c2TagEsc([String(r.strategy||'').replace(/\.py$/,''),((_instShort(r.instrument)||'')+' '+(r.timeframe||'')).trim(),_rlDate(r.timestamp)].filter(Boolean).join(' · '))+'</span></span>'
+            +'<span class="prn"><b class="'+nv[2]+'">'+nv[0]+'</b><small>'+nv[1]+'</small></span></div>';};
+        const _rlSorts=[['id','Newest'],['wfroc','ROC at $30k'],['wfso','WF Sortino'],['wfddp','WF DD %'],['wfdd5','WF DD5'],['pnl','Net'],['score','Score']];
+        const _rlCss='<style>'
+          +'.prrail{font:13px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:0;color:var(--text)}'
+          +'.prrail .prh{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 9px}.prrail .prh b{font-size:15px;font-weight:600}.prrail .prh span{font-size:12px;color:var(--text4)}'
+          +'.prrail .prf{display:flex;flex-direction:column;gap:8px;margin:0 0 8px}.prrail .prfr{display:flex;gap:8px}'
+          +'.prrail .pri{display:flex;align-items:center;gap:6px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:0 9px;height:30px;min-width:0;flex:1 1 0}'
+          +'.prrail .pri input,.prrail .pri select{flex:1;min-width:0;width:100%;background:transparent;border:0;outline:0;padding:0;color:var(--text);font:inherit;font-size:12px;letter-spacing:0;height:28px}'
+          +'.prrail .pri select option{background:var(--bg2);color:var(--text)}.prrail .pri:focus-within{border-color:var(--blue)}'
+          +'.prrail .prseg{display:flex;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:2px;gap:2px}'
+          +'.prrail .prseg span{flex:1;text-align:center;cursor:pointer;user-select:none;border-radius:4px;padding:3px 6px;font-size:12px;color:var(--text3);white-space:nowrap}'
+          +'.prrail .prseg span.on{background:var(--bg2);color:var(--text);font-weight:600;box-shadow:0 0 0 1px var(--border)}'
+          +'.prrail .prl{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:11px;color:var(--text4);margin:0 0 6px}.prrail .prl span{cursor:pointer;text-decoration:underline;text-underline-offset:2px}.prrail .prl span.on{color:var(--text)}'
+          +'.prrail .prr{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 8px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);cursor:pointer}'
+          +'.prrail .prr:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}.prrail .prr.on{background:var(--bg1);box-shadow:inset 2px 0 0 var(--blue)}'
+          +'.prrail .prd{width:8px;height:8px;border-radius:50%;background:var(--text5)}.prrail .prd.ok{background:var(--green)}.prrail .prd.warn{background:var(--yellow)}.prrail .prd.bad{background:var(--red)}'
+          +'.prrail .prm{display:block;min-width:0;overflow:hidden}.prrail .pr1{display:flex;gap:8px;align-items:baseline;min-width:0}'
+          +'.prrail .pr1 b{font-family:"JetBrains Mono",monospace;font-weight:500}.prrail .pr1>span:nth-child(2){color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+          +'.prrail .prs{color:var(--text5);font-size:11px;cursor:pointer;visibility:hidden}.prrail .prs.on{color:var(--yellow);visibility:visible}.prrail .prr:hover .prs{visibility:visible}'
+          +'.prrail .pr2{display:block;font-size:11px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+          +'.prrail .prn{text-align:right}.prrail .prn b{display:block;font-weight:600}.prrail .prn b.pos{color:var(--green)}.prrail .prn b.neg{color:var(--red)}.prrail .prn small{font-size:11px;color:var(--text4)}'
+          +'.prrail .pre{padding:18px 8px;color:var(--text4);font-size:12px}'
+          +'</style>';
+        const railTile=_rlCss+'<div class="prrail">'
+          +'<div class="prh"><b>Runs</b><span>'+_rlAll.length+' of '+allRuns.length+'</span></div>'
+          +'<div class="prf">'
+            +'<label class="pri"><span style="color:var(--text4)">&#8981;</span><input data-rfq type="text" value="'+_rfQv+'" spellcheck="false" autocomplete="off" placeholder="Search run number, family or file" title="A run number is found even when it is not one of the runs loaded here. Any other text narrows by strategy, family, market, timeframe or mode. Esc clears it.">'+(APREF.rfQ?'<span data-rfqx title="clear the search" style="cursor:pointer;color:var(--text4)">&#10005;</span>':'')+'</label>'
+            +'<div class="prfr"><label class="pri"><select data-prfam title="family">'+'<option value="">All families</option>'+_famsAll.map(f=>'<option value="'+_c2TagEsc(f)+'"'+(fFam===f?' selected':'')+'>'+_c2TagEsc((famNum(f)!=null?famNum(f)+' · ':'')+f)+'</option>').join('')+'</select></label>'
+            +'<label class="pri"><select data-prsort title="sort, best first">'+((_rlSorts.some(s=>s[0]===fSort)?'':'<option value="'+_c2TagEsc(fSort)+'" selected>'+_c2TagEsc(fSort)+'</option>'))+_rlSorts.map(s=>'<option value="'+s[0]+'"'+(fSort===s[0]?' selected':'')+'>'+s[1]+'</option>').join('')+'</select></label></div>'
+            +'<div class="prseg">'+[['','All'],['PASS','Pass'],['WEAK','Weak'],['FAIL','Fail']].map(v=>'<span data-prver="'+v[0]+'" class="'+(_rlVer===v[0]?'on':'')+'">'+v[1]+'</span>').join('')+'</div>'
+          +'</div>'
+          +'<div class="prl"><span data-rfchamp class="'+(fChamp?'on':'')+'" title="one run per family: its starred run, else its best robustness score">'+(fChamp?'&#9733; champions only':'champions')+'</span>'
+            +'<span data-rfstar class="'+(fStar?'on':'')+'">'+(fStar?'&#9733; starred only':'starred')+'</span>'
+            +(_nArch?('<span data-rfarch class="'+(fArch?'on':'')+'">'+(fArch?'hide':'show')+' '+_nArch+' archived</span>'):'')
+            +((_anyF||APREF.rfQ||_rlVer)?'<span data-prclear>clear filters</span>':'')
+            +'<span data-prview="table" title="the full table: every column, column sorts and the grouped view" style="margin-left:auto">table view</span></div>'
+          +'<div id="res-listscroll" style="overflow:auto;max-height:76vh">'
+            +((_pinOn&&_pinRec)?_rlRow(_pinRec,true):'')
+            +(_rlRows.length?_rlRows.map(r=>_rlRow(r,false)).join(''):'<div class="pre">No runs match. Clear the search or a filter.</div>')
+          +'</div>'+_runsMoreRowX+'</div>';
         const listTile=tile('<div class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+_rfBar(_prMoreBtn)+_pinNote+tbl+_runsMoreRowX);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
@@ -55324,11 +55388,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
         const viewHeader='';
-        const listContent=_grp?tile(groupedTile):listTile;
+        const listContent=_railOn?tile(railTile):(_grp?tile(groupedTile):listTile);
         if(rv==='side'){
           body=viewHeader+'<style>@media (max-width:700px){#res-wrap{flex-direction:column}#res-wrap>#res-left{flex:none!important;width:100%;min-width:0!important;max-height:45vh}#res-wrap>#res-gutter{display:none!important}}</style>'   // w130: a phone stacks the list over the report
             +'<div id="res-wrap" style="display:flex;align-items:stretch">'
-            +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:auto">'+listContent+'</div>'
+            +'<div id="res-left" style="flex:0 0 '+(_railOn?Math.min(rH,.26)*100:(rH*100))+'%;min-width:280px;'+(_railOn?'max-width:440px;':'')+'overflow:auto">'+listContent+'</div>'
             +'<div id="res-gutter" title="drag to resize" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
             +'<div id="res-right" style="flex:1 1 0;min-width:0;overflow:visible">'+detailTile+'</div></div>';
         }else{
@@ -57853,7 +57917,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-grpall]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();window._resGroupAll.add(decodeURIComponent(x.dataset.grpall));renderApp();};});
       const _rgb=content.querySelector('[data-resgroupby]');if(_rgb)_rgb.onchange=()=>{savePref('resGroupBy',_rgb.value);renderApp();};
       const _rk=content.querySelector('[data-reskeepers]');if(_rk)_rk.onclick=()=>{savePref('resKeepers',!APREF.resKeepers);renderApp();};
-      const gut=el('res-gutter');if(gut){const view=APREF.resView==='stack'?'stack':'side';gut.style.touchAction='none';gut.onpointerdown=(e)=>{e.preventDefault();try{gut.setPointerCapture(e.pointerId);}catch(_){}
+      const gut=el('res-gutter');if(gut){const view=el('res-wrap')?'side':'stack';gut.style.touchAction='none';gut.onpointerdown=(e)=>{e.preventDefault();try{gut.setPointerCapture(e.pointerId);}catch(_){}
         const move=(ev)=>{if(view==='side'){const w=el('res-wrap'),L=el('res-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.splitH=r;}else{const top=el('res-top'),sc=el('res-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(Math.max(520,Math.round((window.innerHeight||900)*0.82)),Math.max(120,h));sc.style.maxHeight=h+'px';APREF.splitV=h;}};
         const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);savePref(view==='side'?'splitH':'splitV',view==='side'?APREF.splitH:APREF.splitV);};
         document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);};}
@@ -57972,6 +58036,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // family quick-toggle chips (flat + grouped): click = filter to that family, click again = all
       content.querySelectorAll('[data-rffam]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const f=ch.dataset.rffam;savePref('rfFam',(APREF.rfFam===f)?'':f);renderApp();};});
       content.querySelectorAll('[data-rfchamp]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const on=!APREF.rfChamp;savePref('rfChamp',on);if(on)savePref('rfFam','');renderApp();};});
+      // RUN RAIL controls: the same saved filters and sort the table uses, plus the verdict filter and the rail / table switch
+      content.querySelectorAll('[data-prview]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('prView',b.dataset.prview);renderApp();};});
+      content.querySelectorAll('[data-prver]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('rfVer',b.dataset.prver);renderApp();};});
+      content.querySelectorAll('[data-prfam]').forEach(s=>{s.onchange=()=>{savePref('rfFam',s.value);if(s.value)savePref('rfChamp',false);renderApp();};});
+      content.querySelectorAll('[data-prsort]').forEach(s=>{s.onchange=()=>{savePref('rfSort',s.value);renderApp();};});
+      content.querySelectorAll('[data-prclear]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();['rfFam','rfStrat','rfInst','rfTf','rfScope','rfQ','rfVer'].forEach(k=>savePref(k,''));savePref('rfStar',false);savePref('rfChamp',false);renderApp();};});
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
       // F1: search the starred-outside-the-window list (and the hydrated-full cache) too,
       //   so starring or archiving a crown found only there doesn't silently no-op.
