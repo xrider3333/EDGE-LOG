@@ -803,6 +803,7 @@ def simulate(spec, date_to=None):
     sess_idx, last = st.get("sess_idx"), st.get("last")
     fsz = st.get("file_sizes") or {}
     days, last_bar_usd, last_bar_n, n_sized = {}, 0.0, 0, 0
+    entries = set()
     for t, size in st.get("sized") or []:
         i = min(int(t[1]), last)
         # size = the gate's per-trade size (1.0 ungated); a file's own size (NOISE tilt) is already folded into t[2]
@@ -818,6 +819,7 @@ def simulate(spec, date_to=None):
         a = days.setdefault(d, [0.0, 0])
         a[0] += usd
         a[1] += 1
+        entries.add(int(t[0]))              # one trade = one entry bar; partial exits of it share the entry (count-trades rule)
     last_day = None
     try:
         last_day = str(np.datetime_as_string(sess_idx[last], unit="D")) if sess_idx is not None else None
@@ -839,6 +841,7 @@ def simulate(spec, date_to=None):
             n_sized, "the file's own size, folded into its P&L" if fsz else "the gate's size multiplier"))
     if info.get("gate"):
         out["gate"] = info["gate"]
+    out["n_trades"] = len(entries)
     return days, out
 
 
@@ -990,7 +993,8 @@ def build_leg(leg_id, book_leg, force=False, say=print):
         return rec, True
     ds = sorted(days)
     series = {"d": ds, "p": [round(days[d][0], 2) for d in ds], "n": [int(days[d][1]) for d in ds],
-              "net": round(sum(days[d][0] for d in ds), 2), "trades": int(sum(days[d][1] for d in ds)),
+              "net": round(sum(days[d][0] for d in ds), 2), "trades": int(info.get("n_trades", sum(days[d][1] for d in ds))),
+              "exits": int(sum(days[d][1] for d in ds)),
               "data_end": info.get("data_end") or mend[:10], "master": info.get("master"),
               "last_bar_usd": info.get("last_bar_usd"), "last_bar_n": info.get("last_bar_n"),
               "built_at": _now_utc(), "secs": round(time.time() - t0, 1), "qqq": info.get("qqq")}
