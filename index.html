@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.58';
+const VERSION='92.59';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.59',date:'2026-11-26',notes:['NT8 PAPER TRADE CHART, SAME CLEANUP AS WEBULL (owner 11-26, board 185). The title is the strategy alone, and the line under it reads side, contracts, times once, time held and the source.','Markers read Buy 1 / Sell 1 like the Webull fills, and the exit names the level it hit when the exit reason says so.','One fills table under the chart: the engine price (the P&L of record) against the NinjaTrader demo fill, the slip, and why it closed. Under it is one line with the NT8 P&L against the engine, or why NinjaTrader has no fill.','NT8 and Webull now draw that table with the same code.']},
 {v:'92.57',date:'2026-11-26',notes:['TRADE CHART: STOPS AND TARGETS THAT MOVE (owner 11-26). A trailing or breakeven stop is drawn bar by bar: the zone is red while the stop still risks money and turns green once it locks profit.','The stop is a solid step line and a moved target a dashed one, with a dot at each move. The first risk stays as a faint dashed box. Labels say where each level started (left) and ended (right), with the dollars locked.','Hover a bar inside the trade to read the stop and target in force; on the bar one moved it reads old to new and why (breakeven, trail, target).','The exit marker says stopped, trail hit or target hit. The fills table adds one line: stop A to B with the number of moves.','The box now publishes the target ladder and the reason for each move, and keeps at most 60 steps per trade. Strategies only show a trail once they write a LEVELS row on each move.']},
 {v:'92.53',date:'2026-11-25',notes:['TRADE CHART, CLEANED UP (owner 11-25: full of duplicate info). Each fact now shows once.','Header: the leg name, side and size, the times once, how long it was held, and the net as the one bold number.','Toolbar: timeframes, then ETH / INDICATORS / REPLAY, then TRADE / FIT. TradingView, PNG, log scale and reset scale moved to the ... menu.','On the chart: the entry and exit lines run across the trade only, with their price tags on the axis. The book in / out lines, the second stop line and the session row are gone. Markers read Sell 10 / Buy 10 with points on the exit.','Under the chart: one small fills table - entry and exit rows with the signal bar, backtest, book, Webull, Webull vs backtest, and why it closed. The bar source sits in the footer.']},
 {v:'92.33',date:'2026-11-25',notes:['THE TOP BAR, QUIETER (owner 11-25). The job gauges now read a short number - the run number once a job has one, else the test number from the board (t115), else a short handle - plus the percent or WAIT. The strategy file name moved into the hover, where the rest of the detail already lived.','CPU and RAM are off the top bar. They are still on the PC tab, which is where the machine is looked at. The same slot still says LIVE PAUSED or LIVE OFF, because that is about this page, not about the box.','ONE STATUS DOT instead of five marks. NT GATE, the Webull chip, the data-feed warning, AUTO and the green pulse were strung along the bar, each with its own colour. There is one dot now: green while every check is clear, amber or red the moment one is not. Hover or tap it and each check reads on its own line, with the same words and the same links as before.']},
@@ -12350,7 +12351,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
 
   // the trade's markers on bars `bars` at n minutes, from its day-doc marks (or, with none, its own entry / exit)
   // `strict` (replay): a time past the last bar is NOT snapped to it - the outcome stays hidden
-  const markerSpec=(x,mk,bars,n,strict)=>{const out=[],long=String(x._side||'long')!=='short',sh=x._sh!=null?(x._sh+' '):'';
+  const markerSpec=(x,mk,bars,n,strict)=>{const out=[],long=String(x._side||'long')!=='short',sh=x._sh!=null?(x._sh+' '):(x._qty!=null?(x._qty+' '):'');
     const put=(t,o)=>{const bt=bucket(t,n);if(strict&&bars.length&&bt>bars[bars.length-1].time)return;const i=snap(bars,bt);if(i==null)return;
       if(new Date(bars[i].time*1000).toISOString().slice(0,10)!==String(t).slice(0,10))return;
       if(o.kind==='wb_out'||o.kind==='book_out'||o.kind==='out')o.text=(o.text||'')+(hit?' · '+hit:'')+pl;
@@ -12360,7 +12361,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const pts=(num(x._ep)!=null&&num(x._xp)!=null)?(+x._xp-+x._ep)*(long?1:-1):null;
     const pl=(pts!=null)?('  '+(pts>=0?'+':'')+pts.toFixed(2)+' pts'):'';
     // owner 11-26: the exit names the level it hit (stopped / trail hit / target hit), read from the book exit reason
-    const hw=String((mk&&!mk.synthetic&&mk.book_out&&mk.book_out.why)||'').toLowerCase();
+    const hw=String((mk&&!mk.synthetic&&mk.book_out&&mk.book_out.why)||x._why||'').toLowerCase();
     const hit=/trail/.test(hw)?'trail hit':(/target|take.?profit|tp/.test(hw)?'target hit':(/stop|sl/.test(hw)?'stopped':''));
     if(mk&&!mk.synthetic){
       // the signal bar (decided at its close) and the exit signal bar: flags on the overlay, above a long's bar / below a short's
@@ -12380,8 +12381,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
       if(!hasOut&&mk.book_out&&mk.book_out.t)put(mk.book_out.t,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:'muted',text:'book '+(long?'sell':'buy'),kind:'book_out'});
     }else{
       const w=x._wbMissed?'signal ':'',et=etOf(x,n),xt=xtOf(x,n);
-      if(et)put(et,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:x._wbMissed?'muted':'blue',text:(w+(long?'buy ':'sell ')+sh).trim(),kind:'in'});
-      if(xt)put(xt,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:x._wbMissed?'muted':'blue',text:(w+(long?'sell ':'buy ')+sh).trim(),kind:'out'});
+      // owner 11-26 (board 185): the same short words as the Webull fills - Buy / Sell and the size (a missed signal keeps its lower-case signal buy)
+      const bw=b=>x._wbMissed?(w+(b?'buy ':'sell ')):(b?'Buy ':'Sell ');
+      if(et)put(et,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:x._wbMissed?'muted':'blue',text:(bw(long)+sh).trim(),kind:'in'});
+      if(xt)put(xt,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:x._wbMissed?'muted':'blue',text:(bw(!long)+sh).trim(),kind:'out'});
     }
     out.sort((a,b)=>a.time-b.time);
     return out;};
@@ -12610,7 +12613,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     let held='';if(et.length>=16&&xt.length>=16){const ms=Date.parse(xt.slice(0,16).replace(' ','T')+':00Z')-Date.parse(et.slice(0,16).replace(' ','T')+':00Z');
       if(isFinite(ms)&&ms>=0){const m=Math.round(ms/60000);held=m<60?(m+'m'):(m<1440?(Math.floor(m/60)+'h '+pad2(m%60)+'m'):(Math.floor(m/1440)+'d '+Math.floor((m%1440)/60)+'h'));}}
     const what=(S.src&&S.src.what)?esc(S.src.what(x)):(x._wbMissed?'missed signal, not traded':'');
-    S.ov.querySelector('[data-lwsub]').innerHTML=(long?'LONG':'SHORT')+(x._sh!=null?(' '+esc(String(x._sh))+' sh'):'')+(span?' &middot; '+span:'')+(held?' &middot; '+held:'')+(what?' &middot; '+what:'');
+    S.ov.querySelector('[data-lwsub]').innerHTML=(long?'LONG':'SHORT')+(x._sh!=null?(' '+esc(String(x._sh))+' sh'):(x._qty!=null?(' '+esc(String(x._qty))+' ct'):''))+(span?' &middot; '+span:'')+(held?' &middot; '+held:'')+(what?' &middot; '+what:'');
     // the net: the one bold number on the chart
     const ne=S.ov.querySelector('[data-lwnet]');if(ne){ne.style.color=pnlCol(u);ne.textContent=money(u);ne.title='net P&L of record';}};
 
@@ -12862,8 +12865,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // A side Webull never filled says what happened in its Webull cell (refused, held back, no answer, ...); several tries, a
   // trimmed order ledger and the reason a price line is not Webull's go on one muted line under it. The compact chart in the
   // trade panel keeps window._qbMarkLegend (the WEBULL PAPER gate reads it).
+  const fillsFoot=a=>a.length?'<div style="font-size:10px;line-height:14px;color:var(--text5);margin-top:3px">'+a.join(' &middot; ')+'</div>':'';
   const fillsTable=(mk,x,lineNotes)=>{
-    const foot=a=>a.length?'<div style="font-size:10px;line-height:14px;color:var(--text5);margin-top:3px">'+a.join(' &middot; ')+'</div>':'';
+    const foot=fillsFoot;
     if(!mk||mk.synthetic)return (x&&x._qbars?'<div style="font-size:10.5px;color:var(--text5)">no fills on record for this trade yet (no trade id, or the box has not published its day)</div>':'')+foot((lineNotes||[]).map(esc));
     const long=String(mk.side||x._side||'long')!=='short',base=String((mk.book_in&&mk.book_in.t)||x._et||'').slice(0,10);
     const when=t=>{if(!t)return '';t=String(t).replace('T',' ');const d=t.slice(0,10)!==base?(t.slice(5,7)+'/'+t.slice(8,10)+' '):'';return d+t.slice(11,19).replace(/:00$/,'');};
@@ -12893,18 +12897,27 @@ window.candleSVG=function(bars,overlays,markers,opts){
     [['stop',LVt.ladder,'stops'],['target',LVt.tladder,'targets']].forEach(q=>{const lad=q[1];if(!lad)return;const k=TH[q[2]]?TH[q[2]]-1:lad.length-1;
       notes.push(q[0]+' '+lad[0].px.toFixed(2)+' &rarr; '+lad[lad.length-1].px.toFixed(2)+' ('+k+(k===1?' move':' moves')+(TH[q[2]]?', thinned on the chart':'')+')');});
     (lineNotes||[]).forEach(n=>notes.push(esc(n)));
-    const ph=(window.innerWidth||1024)<700;   // a phone: shorter heads, tighter columns
-    const cols=[['sig',ph?'signal':'signal bar','the bar the decision was made on, at its close'],['bt',ph?'bt':'backtest','the backtest fill'],['bk','book','the book fill (the engine on the box)'],
-      ['wb','Webull','the Webull fill - the P&L of record'],['vs',ph?'vs bt':'vs backtest','Webull against the backtest, from the trade&#39;s side'],['note','','why the trade closed']].filter(c=>R.some(r=>r[c[0]])&&!(ph&&c[0]==='note'));
-    if(ph)R.forEach(r=>{if(r.note)notes.unshift(r.lab.toLowerCase()+': '+r.note);});   // a phone: the exit reason goes on the line under the table
+    const ph=(window.innerWidth||1024)<700;   // a phone: shorter heads
+    return fillsGrid(R,[['sig',ph?'signal':'signal bar','the bar the decision was made on, at its close'],['bt',ph?'bt':'backtest','the backtest fill'],['bk','book','the book fill (the engine on the box)'],
+      ['wb','Webull','the Webull fill - the P&L of record','hero'],['vs',ph?'vs bt':'vs backtest','Webull against the backtest, from the trade&#39;s side','soft'],['note','','why the trade closed','soft']],notes);};
+  window._lwFillsTable=fillsTable;   // test hook
+  // THE FILLS GRID both sources draw (owner 11-26, board 185: NT8 PAPER gets the same one table as Webull). R = the rows
+  // {lab, t, <column key>: html}; cols = [key, head, hover, 'hero' (the P&L of record, full text colour) | 'soft' (muted, blank
+  // when empty)]; a column no row fills is left out. A phone drops the time column and moves the exit reason under the table.
+  const fillsGrid=(R,cols0,notes)=>{notes=(notes||[]).slice();
+    const ph=(window.innerWidth||1024)<700;   // a phone: tighter columns
+    const cols=cols0.filter(c=>R.some(r=>r[c[0]])&&!(ph&&c[0]==='note'));
+    if(ph)R.forEach(r=>{if(r.note)notes.unshift(r.lab.toLowerCase()+': '+r.note);});
     const cell=(h,st,ti)=>'<span'+(ti?' title="'+ti+'"':'')+' style="white-space:nowrap;'+(st||'')+'">'+(h||'')+'</span>';
     const dash='<span style="color:var(--text5)">&mdash;</span>';
     let h='<div class="lwc-fills" style="display:grid;grid-template-columns:repeat('+(cols.length+(ph?1:2))+',auto);column-gap:'+(ph?'9px':'20px')+';row-gap:1px;justify-content:start;align-items:baseline;font-size:10.5px;line-height:16px;font-variant-numeric:tabular-nums;color:var(--text3)">'
       +cell('')+(ph?'':cell('ET','color:var(--text5)'))+cols.map(c=>cell(c[1],'color:var(--text5)',c[2])).join('');
-    R.forEach(r=>{h+=cell(r.lab,'color:var(--text4)')+(ph?'':cell(r.t))+cols.map(c=>cell(r[c[0]]||(c[0]==='note'||c[0]==='vs'?'':dash),c[0]==='wb'?'color:var(--text)':(c[0]==='vs'||c[0]==='note'?'color:var(--text4)':''))).join('');});
-    return h+'</div>'+foot(notes);};
-  window._lwFillsTable=fillsTable;   // test hook
+    R.forEach(r=>{h+=cell(r.lab,'color:var(--text4)')+(ph?'':cell(r.t))+cols.map(c=>cell(r[c[0]]||(c[3]==='soft'?'':dash),c[3]==='hero'?'color:var(--text)':(c[3]==='soft'?'color:var(--text4)':''))).join('');});
+    return h+'</div>'+fillsFoot(notes);};
+  window._lwFillsGrid=fillsGrid;   // test hook
+  // the strip under the chart: the source's own fills (NT8: engine against the NinjaTrader fill), else the box's day-doc fills
   const legendStrip=()=>{const lg=S.ov&&S.ov.querySelector('[data-lwlegend]');if(!lg)return;
+    if(S.src&&S.src.fills){try{lg.innerHTML=S.src.fills(S.x,fillsGrid)||'';}catch(_e){lg.innerHTML='';}return;}
     if(S.src&&S.src.legend===false){lg.innerHTML='';return;}
     try{lg.innerHTML=fillsTable(S.mk,S.x,linesOf(S.x).map(l=>l.note).filter(Boolean));}catch(_e){lg.innerHTML='';}};
 
@@ -14722,9 +14735,20 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
           return {days:window._lwSplitDays(r.bars,null)};}
         finally{clearInterval(tk);}},
       marks:q=>window._lwMarksFromSvg(null,null,Object.assign({entry_t:q._et},q._lv||{})),
+      // owner 11-26 (board 185): one fills table like Webull's - the engine price (the P&L of record) against the NinjaTrader demo
+      // fill. The nightly reconcile carries the NT8 ENTRY only (slip, size, its P&L), so the exit row shows the engine and why it closed.
+      fills:(q,grid)=>{const F=q._ntf||{},f2=v=>(v==null||v===''||!isFinite(+v))?'':(+v).toFixed(2),b=String(q._et||'').slice(0,10);
+        const hm=t=>{t=String(t||'');return t.length<16?'':((t.slice(0,10)!==b?(t.slice(5,7)+'/'+t.slice(8,10)+' '):'')+t.slice(11,16));};
+        const vs=F.slip==null?'':(Math.abs(F.slip)<0.005?'same':(Math.abs(F.slip).toFixed(2)+(F.slip>0?' worse':' better')));
+        const R=[{lab:'Entry',t:hm(q._et),eng:f2(q._ep),nt:F.ntIn!=null?f2(F.ntIn):(F.word?'<span style="color:var(--text4)">'+F.word+'</span>':''),vs:vs},
+          {lab:'Exit',t:hm(q._xt2),eng:f2(q._xp),nt:'',note:F.why||''}];
+        if(!q._xt2&&q._xp==null)R.pop();
+        return grid(R,[['eng','engine','the engine (paper) price - the P&L of record','hero'],['nt','NT8','the NinjaTrader demo fill (the nightly reconcile carries the entry only)'],
+          ['vs','vs engine','NT8 against the engine, from the trade&#39;s side','soft'],['note','','why the trade closed','soft']],F.notes||[]);},
       lines:q=>window._lwPlainLines(q)};};
   const TF_OK=t=>/^(1|2|3|5|10|15|30)m$|^1h$|^4h$|^D$/.test(String(t||''));
   window._lwOpenNt8=(x,glyphEl,ctx)=>window.lwTradeChart({trade:x,glyph:glyphEl,ctx:ctx,source:_nt8LwSrc(x)});
+  window._lwNt8Src=_nt8LwSrc;   // test hook (the fills grid and words read without the PC)
 
   // ── REAL trades (LEDGER > REAL / HOME rows, x._rbars) on the shared viewer (row 75 step 2) ──
   // The bars are exactly the ones REAL reads today, in the same order: the trade's published trade_bars doc (api/trade_bars.py,
@@ -52377,8 +52401,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // (v73.1425: stops [{t, px, reason}] oldest first, stop_px, target_px; nothing on a strategy that logs no stop)
             // and the $ a point moves one contract (NQ 20, ES 50) for the box's $ labels
             _lwsrc:'nt8',_mult:(String(_legMkt(leg).instrument||'NQ')==='ES'?50:20),
-            _lv:{stop_px:(t.stop_px!=null?+t.stop_px:null),target_px:(t.target_px!=null?+t.target_px:null),stops:Array.isArray(t.stops)?t.stops:[]}};
+            _lv:{stop_px:(t.stop_px!=null?+t.stop_px:null),target_px:(t.target_px!=null?+t.target_px:null),stops:Array.isArray(t.stops)?t.stops:[]},
+            // owner 11-26 (board 185): the chart title is the leg (the time is on the line under it), the size in contracts, why it closed,
+            // and the NT8 fill against the engine for the fills table under the chart
+            _leg:(_legLabel[leg]||leg),_qty:+((+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1)).toFixed(2),
+            _why:String(t.exit_reason||t.exitReason||t.reason||''),_ntf:ntfOf(r)};
         };
+        // NT8 against the engine for one trade: the reconcile's matched record (entry slip, size, its P&L), or why there is none
+        const ntfOf=r=>{const t=r._raw,iso=r.entryIso||null,k=_ntKey(r._leg,iso),m=iso?(_ntMatch[k]||null):null,dir=_sideOf(t.side)==='short'?-1:1,notes=[];
+          let ntIn=null,slip=null,word='';
+          if(m){slip=m.entry_slip_pts!=null?+m.entry_slip_pts:null;if(slip!=null&&t.entry_px!=null)ntIn=+t.entry_px+slip*dir;
+            if(m.live_pnl_usd!=null)notes.push('NT8 '+(m.live_size!=null?X(String(m.live_size))+' ct, ':'')+'P&amp;L '+ledgerSigned(+m.live_pnl_usd)+' against the engine '+ledgerSigned(+(m.shadow_pnl_usd||0)));
+            if(m.drift_min)notes.push('NT8 filled '+Math.abs(+m.drift_min)+' min '+(+m.drift_min>0?'after':'before')+' the engine');}
+          else if(!_ntRuns(r._leg))notes.push('engine only - NinjaTrader does not run this leg');
+          else if(iso&&_ntSeen[k]===false){word='not taken';notes.push('NinjaTrader never took this trade (engine only in the nightly reconcile)');}
+          else if(!r._open)notes.push('not matched with NinjaTrader yet (the reconcile runs nightly)');
+          return {ntIn:ntIn,slip:slip,word:word,notes:notes,why:X(String(t.exit_reason||t.exitReason||t.reason||''))};};
         const colCls=k=>'lg-c lg-c-'+k+(LEDGER_TL_PHONE[k]?' lg-ph':' lg-nph')+(k==='chart'?' lg-skip':'');
         const build=()=>{
           const m=model(),sel=SEL();
