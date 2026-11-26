@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.91';
+const VERSION='92.92';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.92',date:'2026-11-26',notes:['Trade charts (runs, NT8, REAL): dragging left now loads earlier days from your PC, and ETH shows the overnight bars on a run whose master is the regular session only (read from its ETH twin, kept only when the prices match). REAL trades draw the stop from the setup journal (the signal candle low / high), and SHOULD HAVE TRADED entries their own stop and target.']},
 {v:'92.91',date:'2026-11-26',notes:['RESULTS, TEARSHEET report, rebuilt around one main chart (owner 11-26: the ML versions were an afterthought; put them on the main P and L chart, top 3 of each family, with daily P and L bars). The Summary now opens with P and L, EVERY VERSION: one chart on a real date axis with the three highest-ending lines of every family - raw, gate, sizing tilt, gate plus sizing, gate plus sizing resized, KEEL - in the same family colours as the config funnel, IS / WF / LB shaded, the crowned raw line heaviest, and each family best line labelled with where it ends. Under it, the fall below the high for each family best line; under that, daily P and L bars for the walk-forward days at one contract (when the run has a daily series; when it does not the chart says so and offers to build it). Click a family chip to hide or show it. ACTUAL $ / EQUAL RISK switch: equal risk resizes every line to a 30k worst fall before LB so sized versions compare fairly. Hover reads every family on that date plus the day. Beside the IS / WF / LB table there is now a VERSIONS ON THE CHART table: every drawn line with where it ends, before LB, LB, worst fall before LB and net over worst fall against the crowned raw line. The small ML card is gone - ML is the chart and that table. Runs with no family lines keep the single equity chart.']},
 {v:'92.88',date:'2026-11-26',notes:['RESULTS, TEARSHEET report: less clicking and scrolling (owner 11-26). Six tabs are now three. SUMMARY is one page with everything that decides a run: the four numbers, equity and drawdown beside the IS / WF / LB table, then folds, years, an ML card (each version on net over max DD against no ML) and a Checks card (only the flags and cautions, the rest counted) side by side, then monthly net beside where the money comes from. DEEP DIVE holds the detail on one page with jump links: trades (distribution, MAE / MFE), config search (3-D surface and the rest), ML in full, and every check. SETUP is unchanged. The seven layout buttons in the report header are now one small dropdown, and the charts are a little shorter so the summary fits a screen. Books get the same treatment: one Summary page with legs and checks on it, plus Setup.']},
 {v:'92.87',date:'2026-11-26',notes:['RESULTS, TEARSHEET report, three additions (owner 11-26). (1) A new ML tab: one table that answers whether ML earns its keep - the plain strategy, the picked gate, the best sizing tilt, the best gate plus sizing, and KEEL, each with trades kept, average size, net over max DD, net, PF and Sortino before LB, plus WF + LB and LB net; then the ten best gate models tried; then the full ML readout that used to sit at the bottom of Robustness. The summary line now says in one sentence whether a gate beat the plain strategy. (2) Books now open in the TEARSHEET too: headline numbers for the whole book, equity and drawdown with LB shaded, IS / LB / whole book table with the marked-daily drawdown, net by slice, the worst fall split by leg, a Legs tab, the checks, and a Setup tab. (3) The older panels shown inside the tabs (config search, 3-D surface, MAE / MFE, distributions) now use the report typeface and flat cards so they match the rest.']},
@@ -12677,7 +12678,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const setHide=(k,h)=>{S.hide=S.hide||{};S.hide[k]=!!h;try{localStorage.setItem('el_lw_hide_'+k,h?'1':'0');}catch(_e){}if(S.chart)draw('stay');else syncCtl();};
     const setOn=(k,on)=>{S.on[k]=!!on;try{localStorage.setItem('el_lw_'+k,S.on[k]?'1':'0');}catch(_e){}
       if(S.on[k]&&S.hide&&S.hide[k]){setHide(k,false);return;}   // adding a study back shows it (setHide redraws)
-      if(S.chart)draw(k==='sess'?'view':'stay');else syncCtl();};   // SESS adds / drops bars: hold the time span
+      if(S.chart)draw(k==='sess'?'view':'stay');else syncCtl();   // SESS adds / drops bars: hold the time span
+      if(k==='sess'&&S.on.sess)ethFill();};
     S.setOn=setOn;S.setHide=setHide;
     ov.querySelectorAll('[data-lwchip]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lwchip');setOn(k,!S.on[k]);};});
     const menu=ov.querySelector('[data-lwmenu]'),indB=ov.querySelector('[data-lwind]');
@@ -12780,7 +12782,19 @@ window.candleSVG=function(bars,overlays,markers,opts){
       +rows;};
   // row 79: ETH asked but the trade's day has no extended-hours bars yet - say so on the chart (the bars shown are the regular session)
   const ethNote=()=>{const e=S.ov&&S.ov.querySelector('[data-lwnote]');if(!e)return;const d0=String(S.x&&S.x._et||'').slice(0,10),D=S.days&&S.days[d0];
-    const show=!!(S.on&&S.on.sess&&D&&!(D.ext&&D.ext.length));e.hidden=!show;if(show)e.textContent='no extended-hours bars for this day yet \u00b7 showing the regular session';};
+    const show=!!(S.on&&S.on.sess&&D&&!(D.ext&&D.ext.length));e.hidden=!show;
+    if(show)e.textContent=S.extBusy?'reading the extended hours from your PC\u2026':(S.extWhy==='basis'?'the extended-hours bars are on another price basis than this chart\u2019s master (roll-adjusted) \u00b7 showing the regular session'
+      :(S.extWhy==='err'?'the extended hours did not come back from your PC \u00b7 showing the regular session':'no extended-hours bars for this day yet \u00b7 showing the regular session'));};
+  // owner 11-26 (run #482: "eth is selected but nothing is there?"): a source whose bars are the regular session only (a run on an RTH
+  // master, an NT8 leg) reads the extended hours once ETH is on - src.ext(trade, {day: dayShape}) -> {ext: {day: [bars]}, why} - and
+  // they are merged into those days. Each day is asked once per trade; a day the answer leaves out keeps the note above.
+  const ethFill=async()=>{if(!alive()||!S.src||!S.src.ext||!(S.on&&S.on.sess)||S.extBusy)return;
+    S.extTried=S.extTried||{};const ds=Object.keys(S.days||{}).filter(d=>!(S.days[d].ext&&S.days[d].ext.length)&&!S.extTried[d]).sort();if(!ds.length)return;
+    const sub={};ds.forEach(d=>{S.extTried[d]=1;sub[d]=S.days[d];});S.extBusy=true;ethNote();const seq=S.seq;let X=null;
+    try{X=await S.src.ext(S.x,sub);}catch(_e){X={why:'err'};}
+    if(!alive()||S.seq!==seq)return;S.extBusy=false;
+    const E=(X&&X.ext)||{};let got=0;Object.keys(E).forEach(d=>{if(S.days[d]&&E[d]&&E[d].length){S.days[d].ext=E[d];got++;}});
+    S.extWhy=got?'':((X&&X.why)||'');if(got&&S.chart)draw('view');ethNote();};
 
   // the base bars of the chart: the minutes (S.days), or on a 10s / 30s chart the 10-second bars (S.days10)
   const minuteBars=DD=>{DD=DD||S.days;const ds=Object.keys(DD).sort(),ext=!!(S.on&&S.on.sess);let M=[];
@@ -12982,7 +12996,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
       status('<b style="color:var(--text3)">REPLAY</b> &middot; at '+pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())+' ET &middot; '+(S.bars.length)+' / '+(S.all||[]).length+' bars &middot; left / right step one bar &middot; Esc leaves');return;}
     if(isSub(S.tf)&&S.days10&&S.bars&&S.bars.length){const hm=t=>{const d=new Date(t*1000);return pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes());};
       status((txt('bars10')||(S.tf+' bars'))+' &middot; '+dayOf(S.bars[0].time).slice(5)+' '+hm(S.bars[0].time)+' &rarr; '+hm(S.bars[S.bars.length-1].time)+' ET ('+S.bars.length+' bars)');return;}
-    if(txt('bars')){status(txt('bars')+' &middot; '+ds[0].slice(5)+' &rarr; '+ds[ds.length-1].slice(5)+' ('+ds.length+(ds.length>1?' days)':' day)'));return;}
+    if(txt('bars')){status((S.busy?'<b style="color:var(--text3)">loading more days from your PC&hellip;</b> &middot; ':'')+txt('bars')+' &middot; '+ds[0].slice(5)+' &rarr; '+ds[ds.length-1].slice(5)+' ('+ds.length+(ds.length>1?' days)':' day)')
+      +(S.moreErr?' &middot; <span style="color:var(--text3)">more days did not load ('+esc(S.moreErr)+')</span>':''));return;}
     status((S.busy?'<b style="color:var(--text3)">loading more days&hellip;</b> &middot; ':'')
       +((d0&&!S.days[d0])?'<span style="color:var(--text3)">no box bars for this trade&#39;s day yet (the box publishes at 16:10 ET)</span> &middot; ':'')
       // owner 11-25: one line - the range already says where the box's bars start
@@ -13055,6 +13070,17 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const more=async k=>{if(!alive()||S.busy)return;if(k<0?S.endLo:S.endHi)return;if(k>0&&S.replay)return;   // replay never reads ahead
     const ds=Object.keys(S.days).sort();if(!ds.length)return;const n=TFMIN[S.tf]||1,want=n>=1440?20:(n>=240?8:(n>=30?4:2));
     S.busy=true;info();const seq=S.seq;
+    // owner 11-26 ("why isnt previous data loading?"): a one-request source (the PC's get_bars) reads the sessions around the edge
+    // day (src.more); only the days past the edge are kept, and none past it = that end is reached. An error ends that side too
+    // (the status line says why) so a drag or the D / 4h top-up never queues request after request on a PC that is off.
+    if(S.src&&S.src.load){if(!S.src.more){S.busy=false;if(k<0)S.endLo=true;else S.endHi=true;info();return;}
+      try{const r=await S.src.more(S.x,k<0?ds[0]:ds[ds.length-1],Math.max(3,want),!!(S.on&&S.on.sess));
+        if(!alive()||S.seq!==seq)return;const D=(r&&r.days)||{};
+        const add=Object.keys(D).filter(d=>!S.days[d]&&(k<0?d<ds[0]:d>ds[ds.length-1])&&D[d].bars&&D[d].bars.length);
+        add.forEach(d=>{S.days[d]=D[d];});if(!add.length){if(k<0)S.endLo=true;else S.endHi=true;}
+        S.busy=false;if(add.length)draw(k<0?'shift':'stay');else info();}
+      catch(e){if(!alive()||S.seq!==seq)return;S.busy=false;S.moreErr=String(e&&e.message||e);if(k<0)S.endLo=true;else S.endHi=true;info();}
+      return;}
     try{const r=await walk(k<0?ds[0]:ds[ds.length-1],k,want);
       if(!alive()||S.seq!==seq)return;
       r.got.forEach(p=>{S.days[p[0]]=p[1];});if(r.end){if(k<0)S.endLo=true;else S.endHi=true;}
@@ -13089,6 +13115,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // a trade: its own days (entry to exit, at most 6 sessions read up front) plus one session before, then centre on it
   const loadTrade=async x=>{S.x=x;S.seq=++SEQ;const seq=S.seq;S.days={};S.endLo=false;S.endHi=false;S.busy=true;S.mk=null;S.bars=[];S.M=[];S.all=[];
     S.replay=false;S.cut=null;S.lv=null;S.exc=null;S.runs=[];S.orbs=[];S.vwAt={};S.dirty=true;S.loadErr=null;S.range=null;S.days10=null;S.sub10Known=false;
+    S.extTried={};S.extBusy=false;S.extWhy='';S.moreErr=null;
     // stepping to another trade: until a size is picked by hand, each trade opens on its own timeframe (the source's tfOf: a REAL trade's ledger timeframe)
     if(!S.tfPicked&&S.src&&S.src.tfOf){const t=S.src.tfOf(x);if(t&&TFMIN[t])S.tfWant=t;}
     header();syncCtl();status('<b style="color:var(--text3)">'+(txt('loading')||'loading this trade&#39;s candles from the box&hellip;')+'</b>');
@@ -13099,7 +13126,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
       let got=null;try{got=await S.src.load(x,h=>{if(alive()&&S.seq===seq)status(h);});}
       catch(e){if(!alive()||S.seq!==seq)return;S.busy=false;S.loadErr=String(e&&e.message||e);info();return;}
       if(!alive()||S.seq!==seq)return;
-      const D=(got&&got.days)||{};Object.keys(D).forEach(dd=>{S.days[dd]=D[dd];});S.endLo=true;S.endHi=true;
+      const D=(got&&got.days)||{};Object.keys(D).forEach(dd=>{S.days[dd]=D[dd];});S.endLo=S.endHi=!S.src.more;   // src.more: the edges read on
       S.days10=(got&&got.days10)||null;}
     else{
       const d0=String(x._et||'').slice(0,10),d1=String(x._xt2||x._et||'').slice(0,10)||d0;
@@ -13111,7 +13138,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
       before.got.forEach(p=>{S.days[p[0]]=p[1];});if(before.end)S.endLo=true;}
     S.busy=false;S.range=rangeOf(S.days);S.sub10Known=true;S.tf=fitTf();
     if(!Object.keys(S.days).length){S.bars=[];S.M=[];info();return;}
-    draw('trade');topUp();};
+    draw('trade');topUp();ethFill();};
 
   const step=k=>{if(S.replay){replayStep(k);return;}const rows=rowsOf();if(!rows.length)return;let i=rowIdx(rows);i=(i<0)?0:(i+k+rows.length)%rows.length;loadTrade(rows[i]);};
 
@@ -13431,7 +13458,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const side=String(m.type||'').toUpperCase()==='SHORT'?'short':'long';
     return {_no:'MS:'+m.id,_tid:'missed_'+m.id,_rbars:1,_missed:1,_tf:'1m',_psT:_hmMissedPtsHolder(m),_et:m.date+' '+hm,_xt2:m.date+' '+hm,
       _ep:px,_xp:null,_side:side,_usd:0,
-      _label:'SHOULD HAVE TRADED '+String(m.symbol||'')+' '+side.toUpperCase()+' '+m.date+' '+hm,_srcLbl:'should have traded',
+      _label:'SHOULD HAVE TRADED '+String(m.symbol||'')+' '+side.toUpperCase()+' '+m.date+' '+hm,_srcLbl:'should have traded',_lv:_hmTradeLevels(m),
       _pb:{instrument:inst,timeframe:'1m',session:'eth',include_fresh:true}};
   };
 })();
@@ -14855,13 +14882,43 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   };
 
+  // ── MORE DAYS + THE EXTENDED HOURS for the PC sources (owner 11-26, run #482: "eth is selected but nothing is there?" / "why isnt
+  // previous data loading?"). Each source reads ONE get_bars up front (the trade's sessions +/- one); these read around a day the chart
+  // already holds, so the day always exists in the master:
+  //   more(q, day, pad, eth) - the sessions `pad` either side of `day` from the trade's own master (the chart keeps the ones past its
+  //     edge), with their extended hours when ETH is on;
+  //   ext(q, {day: dayShape}) - the extended hours of days already on the chart.
+  // A run's master is often the regular session only (NQ 5m RTH - no-adj); its extended hours come from the ETH twin (source _rth ->
+  // _eth, else the instrument's ETH master) and are kept only for a day whose regular-session closes in that answer match the chart's
+  // own bar for bar (90 pct within a tick) - a roll-adjusted run master is never spliced onto unadjusted night bars. Cached per request.
+  const _pcMemo=new Map();
+  const _pcSess=q=>String(_cB(q).session||'rth').toLowerCase();
+  const _pcGet=(q,day,pad,sess)=>{const p=Object.assign({},_cB(q),{entry_time:day+' 12:00',exit_time:null,pad_sessions:pad});
+    if(sess&&sess!==_pcSess(q)){p.session=sess;if(p.source)p.source=String(p.source).replace(/rth$/i,sess);}
+    const k=JSON.stringify(p);
+    if(!_pcMemo.has(k)){const pr=_runCmd('get_bars',p,300000).then(r=>{if(!r||r.ok===false||!Array.isArray(r.bars))throw new Error((r&&r.error)||'no bars came back');
+        return window._lwSplitDays(r.bars,null);});
+      _pcMemo.set(k,pr);pr.catch(()=>{_pcMemo.delete(k);});}
+    return _pcMemo.get(k);};
+  const _pcExtFor=(have,eth)=>{const out={};let seen=0;
+    Object.keys(have).forEach(d=>{const A=have[d],E=eth[d];if(!A||!E||!(E.ext&&E.ext.length))return;seen++;
+      const m={};(A.bars||[]).forEach(b=>{m[b.t]=b.c;});let n=0,ok=0;(E.bars||[]).forEach(b=>{if(m[b.t]!=null){n++;if(Math.abs(m[b.t]-b.c)<=0.26)ok++;}});
+      if(n&&ok>=0.9*n)out[d]=E.ext;});
+    return {ext:out,why:(seen&&!Object.keys(out).length)?'basis':''};};
+  const _pcMore=async(q,day,pad,eth)=>{const D0=await _pcGet(q,day,pad,null),D={};Object.keys(D0).forEach(d=>{D[d]=Object.assign({},D0[d]);});
+    if(eth&&_pcSess(q)!=='eth'){try{const X=_pcExtFor(D,await _pcGet(q,day,pad,'eth')).ext;Object.keys(X).forEach(d=>{D[d].ext=X[d];});}catch(_e){}}
+    return {days:D};};
+  const _pcExt=async(q,have)=>{if(_pcSess(q)==='eth')return {ext:{},why:''};
+    const ds=Object.keys(have).sort(),mid=ds[Math.floor(ds.length/2)],pad=Math.max(1,Math.ceil(ds.length/2));
+    return _pcExtFor(have,await _pcGet(q,mid,pad,'eth'));};
+  window._lwPcExtFor=_pcExtFor;   // test hook
   // ── NT8 PAPER on the shared Lightweight Charts viewer (row 75 step 1, owner GO 10-31: one chart engine) ──
   // The bars still come from the PC: ONE get_bars through _fetchBars (the leg's own instrument / timeframe / session, the
   // trade's entry and exit, pad_sessions:1), cached under the trade id for the session - the same request and cache the panel
   // chart fills, so a trade is asked for once. With the PC off the request waits on the runner, as the old viewer's did. The
   // row's stop ladder (_lv, from paper_trades stops[] / stop_px / target_px) becomes the viewer's position box and step line.
   const _nt8LwSrc=x=>{const pb=_cB(x),inst=String(pb.instrument||'NQ'),base=TF_OK(pb.timeframe)?pb.timeframe:'1m';
-    return {kind:'pc',symbol:inst,tag:'nt8paper',base:base,legend:false,fitTf:false,rowOk:q=>!!(q&&q._lwsrc==='nt8'),
+    return {kind:'pc',symbol:inst,tag:'nt8paper',base:base,legend:false,fitTf:false,rowOk:q=>!!(q&&q._lwsrc==='nt8'),more:_pcMore,ext:_pcExt,
       what:q=>'NT8 paper ('+inst+' futures)'+(/look-ahead/.test(String(q&&q._srcLbl||''))?' \u00b7 ORB engine is look-ahead, reference only':''),
       text:{loading:'FETCHING THE BARS FROM YOUR PC&hellip; ~30 s normally; up to 5 min behind a running backtest',
         noBars:'no bars came back from your PC for this trade',bars:inst+' '+base+' bars from your PC',
@@ -14897,15 +14954,29 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   // api/trade_bars.py since the capture began 2026-06-23) - no extra read. The chart OPENS on the trade's own ledger timeframe
   // (x._tf: 10s, 1m, 5m ...); a 10s trade with no 10-second bars opens on 1m and the greyed 10s button says why.
   const _rtRow=tid=>(window._hmCandleRows||[]).find(q=>String(q._tid)===String(tid))||null;
+  // THE STOP OF A REAL TRADE (owner 11-26, "do the same for the real trade charts"): the trade records carry no stop, but the setup
+  // journal (tools/data/setup_journal.json, served beside this page) judged one for 46 futures trades - the signal candle's low for a
+  // long, its high for a short. Read once, on the first REAL chart; used only when the journal's entry is the record's (within a point),
+  // its prices are the bars' own (px_offset 0) and the stop sits on the losing side. Never invents one for a trade it did not judge.
+  let _rtJStops=null;
+  const _rtJournalStop=async q=>{if(!q||q._lv||q._missed)return;
+    if(!_rtJStops)_rtJStops=fetch('tools/data/setup_journal.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{const m={};
+        ((j&&j.trades)||[]).forEach(t=>{if(t&&t.trade_id&&t.stop!=null&&isFinite(+t.stop)&&!(+t.px_offset))m[String(t.trade_id)]=t;});return m;}).catch(()=>({}));
+    const J=(await _rtJStops)[String(q._tid)];if(!J)return;
+    const long=q._side!=='short',sp=+J.stop,ep=+q._ep;
+    if(isFinite(ep)&&Math.abs(+J.entry-ep)>1)return;if(isFinite(ep)&&(long?sp>=ep:sp<=ep))return;
+    q._lv={stop_px:sp,target_px:null};q._lvJ=1;};
+  window._rtJournalStop=_rtJournalStop;   // test hook
   const _rtLwSrc=x=>{const inst0=String(_cB(x).instrument||'ES');
-    const src={kind:'real',tag:'real',base:'1m',sub:true,sub10From:'2026-06-23',tfOf:q=>(q&&q._tf)||'1m',legend:false,fitTf:false,rowOk:q=>!!(q&&q._rbars&&!!q._missed===!!x._missed),
+    const src={kind:'real',tag:'real',base:'1m',sub:true,sub10From:'2026-06-23',tfOf:q=>(q&&q._tf)||'1m',legend:false,fitTf:false,rowOk:q=>!!(q&&q._rbars&&!!q._missed===!!x._missed),more:_pcMore,ext:_pcExt,
       what:q=>{const T=(q&&q._psT)||{},n=(T.size!=null&&T.size!==''&&isFinite(+T.size))?+T.size:null,fee=+T.fees||0;
-        return (q._missed?'should have traded':'your trade')+' ('+String(T.symbol||inst0).toUpperCase()+' futures'+(n!=null?(' · '+n+(n===1?' contract':' contracts')):'')
+        return (q._missed?'should have traded':'your trade')+(q._lvJ?' \u00b7 stop = the signal candle '+(q._side==='short'?'high':'low')+' (setup journal)':'')+' ('+String(T.symbol||inst0).toUpperCase()+' futures'+(n!=null?(' · '+n+(n===1?' contract':' contracts')):'')
           +(fee?(' · fees -$'+fee.toFixed(2)):'')+')';},
       text:{loading:'loading the candles&hellip;',bars:inst0+' 1m bars',bars10:inst0+' 10s bars (NinjaTrader capture)',no10:'no 10-second bars were published for this trade',
         err:'is the runner awake? PREV / NEXT retries',
         noBars:x._missed?'the chart is not published yet - your PC adds it a few minutes after you save the entry':'the chart is not published yet - your PC adds it a few minutes after the trade syncs'},
       load:async(q,say)=>{
+        await _rtJournalStop(q);   // owner 11-26 ("do the same for the real trade charts"): the setup journal's stop, when the record has none
         let rb=null;try{rb=await window._rtBarsForTrade(q,'1m');}catch(_e){rb=null;}
         if(rb&&Array.isArray(rb.bars)&&rb.bars.length){if(q._ep==null&&rb.entry_idx!=null)q._ep=rb.bars[rb.entry_idx].o;
           // the 10-second bars (same doc, already read): with them the fills' exact seconds, so a 10s chart puts the arrows on their own bar
@@ -14933,7 +15004,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   // Rows with a _lv (none today) would get the box and ladder like NT8. The header says the run, the master and the bars.
   const _runLwSrc=x=>{const pb=_cB(x),inst=String(pb.instrument||'NQ'),base=TF_OK(pb.timeframe)?pb.timeframe:'1m',sess=String(pb.session||'rth').toUpperCase();
     const isRun=q=>!!(q&&q._et&&!q._qbars&&!q._rbars&&q._lwsrc!=='nt8');
-    return {kind:'run',symbol:inst,tag:'run'+(pb.run_id!=null?String(pb.run_id):''),base:base,legend:false,fitTf:false,rowOk:isRun,
+    return {kind:'run',symbol:inst,tag:'run'+(pb.run_id!=null?String(pb.run_id):''),base:base,legend:false,fitTf:false,rowOk:isRun,more:_pcMore,ext:_pcExt,
       what:q=>(q&&q._srcLbl?String(q._srcLbl):'champion config')+(pb.run_id!=null?' \u00b7 run #'+pb.run_id:'')+' ('+inst+' futures, '+base+' '+sess+' bars'
         +(q&&q._lwMaster?(', master '+q._lwMaster):'')+')'+((q&&!q._side)?' \u00b7 saved blotter: the exit price is the exit bar close':''),
       text:{loading:'FETCHING THE BARS FROM YOUR PC&hellip; ~30 s normally; up to 5 min behind a running backtest',
