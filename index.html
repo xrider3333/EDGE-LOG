@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.67';
+const VERSION='92.68';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.68',date:'2026-11-26',notes:['WEBULL PAPER breakdown fixes: trade times are read as New York clock (they were shifted 5 hours, so most trades fell in ETH), and each strategy chip is one run (NOISE #555 and NOISE #382 split; NOISE #555 opens first).']},
 {v:'92.67',date:'2026-11-26',notes:['FULL BREAKDOWN (owner 11-26). RESULTS run report: a FULL BREAKDOWN table under the regime card - time of day, day, long / short, hold time, volatility, trend, month, year - each with trades, win rate, net, profit factor and average trade. Chips switch the slice.','New runs save hourly time of day, long / short, hold time, month and year. Older runs show what they saved (4 session blocks for time of day) and name the rest as re-run to add.','WEBULL PAPER, More stats: Breakdown - live vs backtest. Pick a strategy (NOISE first); its Webull trades in the range are bucketed the same way beside the run it trades (e.g. NOISE 555). Backtest dollars are the run contract, so compare win rate, PF and shape.']},
 {v:'92.66',date:'2026-11-26',notes:['NT8 PAPER: NOISE #422 no longer reads engine only. NinjaTrader runs it since 11-20 (EdgeLogNOISE422), so its trades now show the nightly match with NinjaTrader - today that is never took it, because no NinjaTrader fill has landed for it yet.']},
 {v:'92.64',date:'2026-11-26',notes:['1A FUNNEL TOP 3: the drawdown strip matches the lines above (owner 11-26). One thin underwater line per family #1, in its family colour, on the same timeline; one dashed line + pill marks the deepest. Key rows now show each family #1 worst drawdown. The champion filled area and Monte-Carlo floor stay in ONE CURVE.']},
@@ -2645,10 +2646,14 @@ function bdRunRegime(id){
     .catch(e=>{console.warn('[breakdown] run read failed',id,(e&&e.message)||e);window._bdRun[id]={ok:false};renderApp();});
   return null;
 }
-// New York clock parts of a UTC stamp ('2026-11-20 15:31:00' or ISO): {y,m,dow,h,day}
+// New York clock parts of a stamp: a naive '2026-11-20 10:31:00' IS New York wall clock (the box writes entry_ts / exit_ts
+//   in ET); a stamp with Z or an offset is converted. {y,m,dow,h,mi,day}
 const _bdNyFmt=(typeof Intl!=='undefined')?new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}):null;
 function bdNyParts(ts){
-  const s=String(ts||'');if(!s||!_bdNyFmt)return null;
+  const s=String(ts||'');if(!s)return null;
+  const nv=/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::[\d.]+)?$/.exec(s);
+  if(nv){const y=+nv[1],m=+nv[2]-1,d=+nv[3];return {y:y,m:m,dow:new Date(Date.UTC(y,m,d)).getUTCDay(),h:+nv[4],mi:+nv[5],day:nv[1]+'-'+nv[2]+'-'+nv[3]};}
+  if(!_bdNyFmt)return null;
   const ms=Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s)?s.replace(' ','T'):s.replace(' ','T')+'Z');if(!isFinite(ms))return null;
   const p={};_bdNyFmt.formatToParts(new Date(ms)).forEach(x=>{p[x.type]=x.value;});
   return {y:+p.year,m:+p.month-1,dow:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(p.weekday),h:(+p.hour)%24,mi:+p.minute,day:p.year+'-'+p.month+'-'+p.day};
@@ -51224,11 +51229,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   backtest is the run's whole-window champion in that run's own contract dollars, so read win %, PF and the shape, not the $.
         const qbBdGroup=()=>{
           const rows=qbRangeTrades.filter(t=>t&&!t._lgvWhatIf);
-          const fams=[];rows.forEach(t=>{const k=qbFamOf(t.leg);if(k&&fams.indexOf(k)<0)fams.push(k);});
+          // one chip per strategy AND run (NOISE #555 and NOISE #382 are different configs on one leg)
+          const keyOf=t=>{const f=qbFamOf(t.leg);const r=String(qeTradeRunNo(t)||'').replace(/^#/,'').split('.')[0];return f?(f+'|'+r):null;};
+          const fams=[];rows.forEach(t=>{const k=keyOf(t);if(k&&fams.indexOf(k)<0)fams.push(k);});
           if(!fams.length)return null;
-          let pick=window._qbBdLeg;if(fams.indexOf(pick)<0)pick=fams.indexOf('NOISE555')>=0?'NOISE555':(fams.indexOf('NOISE')>=0?'NOISE':fams[0]);
-          const nm=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:String(k);};
-          const legRows=rows.filter(t=>qbFamOf(t.leg)===pick);
+          let pick=window._qbBdLeg;if(fams.indexOf(pick)<0)pick=fams.find(k=>k==='NOISE|555')||fams.find(k=>/^NOISE/.test(k))||fams[0];
+          const nm=k=>{const [f,r]=k.split('|');const L0=QE_LEGS.find(x=>x[0]===f);return (L0?L0[1]:f)+(r?' #'+r:'');};
+          const legRows=rows.filter(t=>keyOf(t)===pick);
           const live=legRows.map(t=>{const e=bdNyParts(t.entry_ts),x=bdNyParts(t.exit_ts),sd=String(t.side||'').toLowerCase();
             return {pnl:qePnlOf(t),et:e,side:/^(long|buy|b|l)/.test(sd)?1:(/^(short|sell|s)/.test(sd)?-1:null),holdMin:qbHoldMins(t),sameDay:!!(e&&x&&e.day===x.day)};});
           const L={};['hour','dow','side','hold','month','year'].forEach(k=>{L[k]=bdRowsFromTrades(live,k);});
