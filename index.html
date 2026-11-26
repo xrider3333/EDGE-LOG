@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.82';
+const VERSION='92.83';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.83',date:'2026-11-26',notes:['RESULTS has a new report layout, TEARSHEET (owner 11-26). Pick it on the layout rail at the top right of any run report; CLASSIC and the others are unchanged and one click away. One page per run: the verdict and gates passed, a two-line plain summary, then the four numbers on the walk-forward stretch (ROC at $30k, DD5, DD pct from the high, Sortino) with LB and IS beneath each. Five tabs replace the long scroll. OVERVIEW: equity and drawdown with IS, WF and LB marked, a by-stretch table, the walk-forward folds, net by year and a monthly grid. TRADES: where the money comes from by hour, day, side, hold time, volatility, trend, session, month or year, then the distribution and MAE / MFE charts. CONFIGS: the config matrix, the funnel, the 3-D surface, knob importance, neighbours and the config spread, all brought over as they are. ROBUSTNESS: every check in one table, flags and cautions first, click a row for its full readout. SETUP: settings, windows, data and the strategy code. A book still opens in CLASSIC.']},
 {v:'92.82',date:'2026-11-26',notes:['1A CONFIG FUNNEL is one view now (owner 11-26): the top 3 lines of every family, start to finish, with one switch - ACTUAL $ or EQUAL RISK. EQUAL RISK keeps the same lines and resizes each so its worst drawdown before the lockbox is $30k, kept through the lockbox; pills show the size (x2.5), the drawdown strip gets a dotted -$30k budget line, and a label on the chart always says which dollars you are looking at. ONE CURVE, DOORS, the configs slider and the $30k / MATCH ML chips are gone.']},
 {v:'92.80',date:'2026-11-26',notes:['CHART GALLERY: the VWAP exit is named in the card header (bold line = VWAP exit) instead of a label on the chart, which sat on the stop and exit labels in narrow trades.']},
 {v:'92.79',date:'2026-11-26',notes:['CHART GALLERY: the VWAP exit label is left off trades only a few bars long, where it sat on top of the stop label. The bold line stays.']},
@@ -32290,6 +32291,246 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // v64.40 (owner): `sub` (the 🎯 model-steered badge) renders UNDER the chart title.
       return hdr+(sub||'')+v2;
     };
+    // ── TEARSHEET report layout (owner 11-26: "the past runs view is quite a mess ... make it absolutely professional").
+    //    One calm page per run: verdict, the four numbers on the walk-forward stretch, then five tabs
+    //    (OVERVIEW / TRADES / CONFIGS / ROBUSTNESS / SETUP). The new panels here are drawn from the run doc
+    //    itself; every existing chart (config matrix, funnel, 3-D surface, MAE / MFE, distribution, gate
+    //    bake-off, diagnostics) is BROUGHT OVER unchanged under its tab, so nothing is lost by switching.
+    //    Returns null for a run it cannot lay out (a book), and the caller falls through to CLASSIC.
+    const _tearCss='<style>'
+      +'.tear{container-type:inline-size;font:13px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;color:var(--text);letter-spacing:0}'
+      +'.tear .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text4)}'
+      +'.tear .tpos{color:var(--green)}.tear .tneg{color:var(--red)}.tear .tmut{color:var(--text4)}'
+      +'.tear .thead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px}'
+      +'.tear .thead h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}'
+      +'.tear .tid{font-family:"JetBrains Mono",monospace;font-weight:500;color:var(--text4)}'
+      +'.tear .tverd{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-weight:600;font-size:12px;white-space:nowrap}'
+      +'.tear .tdot{width:8px;height:8px;border-radius:50%;background:var(--text4);display:inline-block;flex:0 0 8px}'
+      +'.tear .tdot.ok{background:var(--green)}.tear .tdot.warn{background:var(--yellow)}.tear .tdot.bad{background:var(--red)}'
+      +'.tear .tmeta{display:flex;flex-wrap:wrap;gap:3px 14px;font-size:12px;color:var(--text3);margin:0 0 10px}'
+      +'.tear .tsum{color:var(--text2);max-width:86ch;margin:0 0 14px}.tear .tsum b{color:var(--text);font-weight:600}'
+      +'.tear .tkpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));border:1px solid var(--border);border-radius:10px;background:var(--bg2);overflow:hidden;margin:0 0 14px}'
+      +'.tear .tkpi{padding:11px 13px;border-right:1px solid var(--border);min-width:0}.tear .tkpi:last-child{border-right:0}'
+      +'.tear .tkpi .v{font-size:21px;font-weight:600;letter-spacing:-.01em;margin-top:2px;white-space:nowrap}'
+      +'.tear .tkpi.sm .v{font-size:16px;margin-top:6px;font-weight:500}'
+      +'.tear .tkpi .s{font-size:11px;color:var(--text4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+      +'.tear .ttabs{display:flex;gap:2px;box-shadow:inset 0 -1px 0 var(--border);overflow-x:auto;overflow-y:hidden;margin:0 0 14px}'
+      +'.tear .ttab{cursor:pointer;user-select:none;padding:8px 12px;color:var(--text3);border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}'
+      +'.tear .ttab.on{color:var(--text);border-bottom-color:var(--blue)}.tear .ttab small{font-size:11px;color:var(--text4);margin-left:6px}'
+      +'.tear .tgrid{display:grid;gap:14px;margin:0 0 14px}.tear .tg2{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}.tear .tg11{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}'
+      +'.tear .tc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;min-width:0;margin:0}'
+      +'.tear .tc>header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px 0;flex-wrap:wrap}'
+      +'.tear .tc>header h3{margin:0;font-size:13px;font-weight:600;color:var(--text)}.tear .tc>header p{margin:0;font-size:12px;color:var(--text4)}'
+      +'.tear .tb{padding:11px 14px 14px}.tear .tw{overflow-x:auto;padding:6px 0}'
+      +'.tear .tchart{position:relative;width:100%}.tear .tchart svg{display:block;width:100%}'
+      +'.tear .tchart text{font:11px Inter,system-ui,"Segoe UI",sans-serif;fill:var(--text4);font-variant-numeric:tabular-nums}'
+      +'.tear .ttip{position:absolute;z-index:3;pointer-events:none;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;white-space:pre;box-shadow:0 6px 18px rgba(0,0,0,.25)}'
+      +'.tear table.tt{border-collapse:collapse;width:100%;font-size:12px}'
+      +'.tear table.tt th,.tear table.tt td{padding:6px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);font-weight:400}'
+      +'.tear table.tt th{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text4)}'
+      +'.tear table.tt th small{display:block;font-weight:400;text-transform:none;letter-spacing:0}'
+      +'.tear table.tt th:first-child,.tear table.tt td:first-child{text-align:left;padding-left:14px}'
+      +'.tear table.tt th:last-child,.tear table.tt td:last-child{padding-right:14px}'
+      +'.tear table.tt tbody tr:last-child td{border-bottom:0}.tear table.tt .l{text-align:left}'
+      +'.tear table.tt .wf{background:color-mix(in srgb,var(--text) 5%,transparent);color:var(--text)}.tear table.tt td.wf{font-weight:600}'
+      +'.tear table.tt tr.sep td{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text4);padding-top:12px}'
+      +'.tear table.tt td.why{white-space:normal;text-align:left;color:var(--text3);min-width:240px;max-width:560px}'
+      +'.tear table.tt tr.clk{cursor:pointer}.tear table.tt tr.clk:hover td{background:color-mix(in srgb,var(--text) 4%,transparent)}'
+      +'.tear .tbar{display:inline-block;height:6px;border-radius:2px;vertical-align:middle}'
+      +'.tear table.theat td{padding:0;border:2px solid var(--bg2);text-align:center;font-size:11px;height:23px;min-width:42px;color:var(--text)}'
+      +'.tear table.theat th{border:0;padding:5px 0;text-align:center}'
+      +'.tear table.theat .y{text-align:left;padding:0 10px 0 14px;border:0;color:var(--text3)}'
+      +'.tear table.theat td.tot{font-weight:600;padding:0 14px 0 10px;text-align:right;border:0}'
+      +'.tear .tseg{display:inline-flex;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:2px;gap:2px;flex-wrap:wrap}'
+      +'.tear .tseg span{cursor:pointer;user-select:none;border-radius:4px;padding:3px 8px;font-size:12px;color:var(--text3);white-space:nowrap}'
+      +'.tear .tseg span.on{background:var(--bg2);color:var(--text);font-weight:600;box-shadow:0 0 0 1px var(--border)}'
+      +'.tear .tst{display:inline-flex;align-items:center;gap:6px;font-weight:600}'
+      +'.tear dl.tdl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0}.tear dl.tdl dt{color:var(--text4)}.tear dl.tdl dd{margin:0;overflow-wrap:anywhere}'
+      +'.tear .tsec{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text4);margin:18px 0 8px}'
+      +'.tear .tlg{font-family:"JetBrains Mono",monospace;font-size:var(--fs);line-height:normal;margin:0 0 14px}'
+      +'.tear .tlgrow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}.tear .tlgrow>.tlg{flex:1 1 380px;min-width:0}'
+      +'@container (max-width:1000px){.tear .tkpis{grid-template-columns:repeat(4,minmax(0,1fr))}.tear .tkpi:nth-child(4){border-right:0}.tear .tkpi:nth-child(-n+4){border-bottom:1px solid var(--border)}.tear .tg2,.tear .tg11{grid-template-columns:minmax(0,1fr)}}'
+      +'@container (max-width:560px){.tear .tkpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tear .tkpi{border-bottom:1px solid var(--border)}.tear .tkpi:nth-child(2n){border-right:0}}'
+      +'</style>';
+    const tearsheetHtml=(d,mlt,X)=>{
+      if(!d||d.book)return null;
+      const V=d.validate||{},G=V.gate_bakeoff||d.gate_validate||{},W=V.wf_oos||null,LBX=V.lockbox||null,win=V.windows||{},R=d.regime||{};
+      const n=x=>(x!=null&&x!==''&&isFinite(+x))?+x:null;
+      const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      const fk=v=>{if(v==null)return '&ndash;';const a=Math.abs(v),s=v<0?'-$':'$';return s+(a>=1e6?(a/1e6).toFixed(2)+'M':(a>=1e4?Math.round(a/1e3)+'k':(a>=1e3?(a/1e3).toFixed(1)+'k':Math.round(a))));};
+      const f$=v=>v==null?'&ndash;':((v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString('en-US'));
+      const fn=(v,k)=>v==null?'&ndash;':(+v).toFixed(k==null?2:k);
+      const fi=v=>v==null?'&ndash;':Math.round(v).toLocaleString('en-US');
+      const fp=(v,k)=>v==null?'&ndash;':((+v).toFixed(k==null?1:k)+'%');
+      const cl=v=>v==null?'':(v<0?'tneg':'tpos');
+      const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const mYr=s=>{const m=/^(\d{4})-(\d{2})/.exec(String(s||''));return m?(MON[+m[2]-1]+' '+m[1]):'';};
+      const yb=(a,b)=>{const x=Date.parse(a),y=Date.parse(b);return (isFinite(x)&&isFinite(y)&&y>x)?(y-x)/31557600000:null;};
+      // one shape for every stretch, whatever block it was saved in (figures in POINTS until st() prices them)
+      const fromU=u=>(u&&n(u.total_pnl)!=null)?{net:+u.total_pnl,dd:n(u.max_drawdown)!=null?Math.abs(+u.max_drawdown):null,sh:n(u.sharpe),so:n(u.sortino),pf:n(u.profit_factor),wr:n(u.win_rate),n:n(u.num_trades),aw:n(u.avg_win),al:n(u.avg_loss)}:null;
+      const fromW=w=>(w&&n(w.net)!=null)?{net:+w.net,dd:n(w.max_drawdown)!=null?Math.abs(+w.max_drawdown):null,sh:n(w.sharpe),so:n(w.sortino),pf:n(w.profit_factor),wr:n(w.win_rate),n:n(w.trades),aw:n(w.avg_win),al:n(w.avg_loss)}:null;
+      const fromL=l=>(l&&n(l.pnl)!=null)?{net:+l.pnl,dd:n(l.dd)!=null?Math.abs(+l.dd):null,sh:n(l.sharpe),so:n(l.sortino),pf:n(l.pf),wr:n(l.win_rate),n:n(l.trades),aw:n(l.avg_win),al:n(l.avg_loss)}:null;
+      const eqPts=(Array.isArray(V.equity)&&V.equity.length>1)?V.equity:((d.equity&&Array.isArray(d.equity.cum)&&d.equity.cum.length>1)?d.equity.cum:null);
+      const lb0=(win.lockbox||[])[0],lb1=(win.lockbox||[])[1],op0=(win.optimize||[])[0]||d.date_from,dTo=d.date_to||lb1||(win.optimize||[])[1];
+      const DP=V.dd_pct||{};
+      const st=(o,yrs,ddp)=>{if(!o)return null;const net=o.net*mlt,dd=o.dd!=null?o.dd*mlt:null,mar=(yrs&&dd)?(net/yrs)/dd:null;
+        return {net:net,dd:dd,yrs:yrs,mar:mar,roc:mar!=null?30*mar:null,ddp:n(ddp&&ddp.dd_pct_peak),so:o.so,sh:o.sh,pf:o.pf,wr:o.wr,n:o.n,avg:(o.n?net/o.n:null),aw:o.aw!=null?o.aw*mlt:null,al:o.al!=null?-Math.abs(o.al)*mlt:null};};
+      const hasV=!!d.validate;
+      const S={
+        is:st(fromU(G.ungated_is)||((hasV&&n(V.is_trades)!=null&&n(d.best_pnl_pts)!=null)?{net:+d.best_pnl_pts,dd:n(V.is_dd)!=null?Math.abs(+V.is_dd):null,sh:n(V.is_sharpe),so:null,pf:n(V.is_pf),wr:n(d.best_win_rate),n:n(V.is_trades),aw:null,al:null}:null),yb(op0,win.wf_split),DP.is),
+        wf:st(fromW(W)||fromU(G.ungated_wf),(W&&n(W.years))||yb(win.wf_split,lb0||(win.optimize||[])[1]),DP.wf),
+        lb:st(fromL(LBX)||fromU(G.ungated_lockbox),yb(lb0,lb1)||(n(win.lockbox_months)?win.lockbox_months/12:null),DP.lb),
+        all:st(fromU(G.ungated_full)||(hasV?((eqPts||n(V.total_trades)!=null)?{net:eqPts?+eqPts[eqPts.length-1]:null,dd:n(V.total_dd)!=null?Math.abs(+V.total_dd):null,sh:n(V.total_sharpe),so:n(V.total_sortino),pf:null,wr:n(V.total_win_rate),n:n(V.total_trades),aw:n(V.total_avg_win),al:n(V.total_avg_loss)}:null)
+          :(n(d.best_pnl_usd)!=null?{net:d.best_pnl_usd/mlt,dd:n(d.best_dd_usd)!=null?Math.abs(d.best_dd_usd)/mlt:null,sh:null,so:null,pf:n(d.best_pf),wr:n(d.best_win_rate),n:n(d.best_trades),aw:null,al:null}:null)),yb(d.date_from,dTo)||(n(d.days_in_test)?d.days_in_test/365.25:null),DP.full)};
+      if(S.all&&S.all.net==null)S.all=null;
+      // the walk-forward headline reads the SAME checked block PAST RUNS sorts on, so the list and the report agree
+      let O=null;try{O=_wfOosOf(d,mlt);}catch(e){}
+      if(S.wf&&O&&n(O.mar)!=null){S.wf.mar=+O.mar;S.wf.roc=30*O.mar;}
+      let dd5=null;try{if(O&&O.curve&&O.curve.length>1){const D5=_dd5Of(O.curve,5);if(D5&&D5.n)dd5=D5.dd5;}}catch(e){}
+      const H=S.wf||S.all||{},hName=S.wf?'walk-forward':'whole run';
+      const tab=({overview:1,trades:1,configs:1,robust:1,setup:1}[APREF.tearTab])?APREF.tearTab:'overview';
+      const chips=(X.chips||[]),nWarn=chips.filter(c=>c.st==='warn').length,nBad=chips.filter(c=>c.st==='bad').length;
+      const plain=h=>String(h==null?'':h).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+      // ---- header
+      const vd=String(V.verdict||'').toUpperCase(),vdCls=vd==='PASS'?'ok':(vd==='WEAK'?'warn':(vd==='FAIL'?'bad':''));
+      const head='<div id="res-head" class="thead">'
+        +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span>'
+        +'<h2><span class="tid">#'+E(d.id)+'</span>'+stratTag(d.strategy,'20px',600)+'</h2>'
+        +(vd?('<span class="tverd"><span class="tdot '+vdCls+'"></span>'+E(vd)+((n(V.n_pass)!=null&&n(V.n_gates)!=null)?(' <span class="tmut" style="font-weight:400">'+V.n_pass+' of '+V.n_gates+' gates</span>'):'')+'</span>'):'')
+        +'<span id="res-pills" style="display:none"></span>'
+        +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-family:\'JetBrains Mono\',monospace">'+(X.lay||'')+(X.act||'')+'</span></div>';
+      const meta='<div class="tmeta">'+[E(String(d.scope||'').replace(/[^\x20-\x7e]/g,'').trim()),E((d.instrument||'')+' '+(d.timeframe||'')),(d.date_from&&dTo)?(mYr(d.date_from)+' to '+mYr(dTo)):'',n(d.cost_pts)!=null?('cost '+d.cost_pts+' pt'):'',n(d.n_evaluated)!=null?(fi(d.n_evaluated)+' configs'+(n(d.elapsed_s)!=null?(', '+Math.max(1,Math.round(d.elapsed_s/60))+' min'):'')):'',d.timestamp?('run '+E(String(d.timestamp).slice(0,10))):'']
+        .filter(x=>x&&x.trim()).map(x=>'<span>'+x+'</span>').join('')+'</div>';
+      // ---- one plain summary
+      const folds=(W&&Array.isArray(W.folds))?W.folds:[],fGreen=folds.filter(f=>n(f.net)!=null&&f.net>0).length;
+      const cautions=chips.filter(c=>c.st==='warn'||c.st==='bad').map(c=>plain(c.nm).toLowerCase()).slice(0,5);
+      let sum='';
+      if(S.wf){sum='Walk-forward made <b>'+fk(S.wf.net)+(S.wf.yrs?(' in '+S.wf.yrs.toFixed(1)+' years'):'')+'</b>'+(S.wf.ddp!=null?(' with a <b>'+fp(S.wf.ddp)+'</b> worst fall from the high'):'')+(folds.length?(', and '+fGreen+' of '+folds.length+' re-tuned folds were green'):'')+'.'
+          +(S.lb?(' LB (the unseen stretch) '+(S.lb.net>=0?'held at':'lost')+' <b class="'+cl(S.lb.net)+'">'+fk(S.lb.net)+'</b>'+(S.lb.pf!=null?(' at PF '+fn(S.lb.pf)):'')+'.'):'');}
+      else if(S.all)sum='Whole run <b>'+fk(S.all.net)+'</b>'+(S.all.pf!=null?(' at PF '+fn(S.all.pf)):'')+'. This run has no walk-forward stretch, so it is not scored on unseen data.';
+      if(cautions.length)sum+=' '+(cautions.length===1?'One caution':(cautions.length+' cautions'))+': '+E(cautions.join(', '))+'.';
+      // ---- the four numbers, then four supporting ones
+      const sub=(f)=>{const a=[];if(S.wf){if(S.lb&&f(S.lb)!=null)a.push('LB '+f(S.lb));if(S.is&&f(S.is)!=null)a.push('IS '+f(S.is));}return a.join(' · ')||(S.wf?'':'whole run');};
+      const kpi=(l,v,s,c,sm)=>'<div class="tkpi'+(sm?' sm':'')+'"><div class="tl">'+l+'</div><div class="v '+(c||'')+'">'+v+'</div><div class="s">'+(s||'&nbsp;')+'</div></div>';
+      const kpis='<div class="tkpis" title="'+E('The four numbers are read on the '+hName+' stretch.')+'">'
+        +kpi('ROC at $30k',H.roc!=null?fp(H.roc):'&ndash;',sub(x=>x.roc!=null?fp(x.roc):null),cl(H.roc))
+        +kpi('DD5',dd5!=null?('~$'+(dd5/1e3).toFixed(1)+'k'):'&ndash;',dd5!=null?'avg of 5 deepest falls':'no saved curve')
+        +kpi('DD % from high',H.ddp!=null?fp(H.ddp):'&ndash;',sub(x=>x.ddp!=null?fp(x.ddp):null))
+        +kpi('Sortino',fn(H.so),sub(x=>x.so!=null?fn(x.so):null))
+        +kpi(S.wf?'WF net':'Net',fk(H.net),H.yrs?(H.yrs.toFixed(1)+' years'):'',cl(H.net),1)
+        +kpi('Profit factor',fn(H.pf),sub(x=>x.pf!=null?fn(x.pf):null),'',1)
+        +kpi('Trades',fi(H.n),(H.n&&H.yrs)?(fi(H.n/H.yrs)+' a year'):'','',1)
+        +kpi('LB net',S.lb?fk(S.lb.net):'&ndash;',S.lb?(S.lb.pf!=null?('PF '+fn(S.lb.pf)):''):'not run',S.lb?cl(S.lb.net):'',1)
+        +'</div>';
+      const tabsDef=[['overview','Overview'],['trades','Trades'],['configs','Configs',n(d.n_evaluated)!=null?fi(d.n_evaluated):''],['robust','Robustness',chips.length?((nBad?(nBad+' flag'+(nBad>1?'s':'')+' · '):'')+nWarn+' caution'+(nWarn===1?'':'s')):''],['setup','Setup']];
+      const tabs='<div class="ttabs">'+tabsDef.map(t=>'<span class="ttab'+(tab===t[0]?' on':'')+'" data-teartab="'+t[0]+'">'+t[1]+(t[2]?('<small>'+t[2]+'</small>'):'')+'</span>').join('')+'</div>';
+      const card=(title,note,body,pad)=>'<section class="tc"><header><h3>'+title+'</h3>'+(note?('<p>'+note+'</p>'):'')+'</header>'+(pad===false?('<div class="tw">'+body+'</div>'):('<div class="tb">'+body+'</div>'))+'</section>';
+      const lg=h=>(h&&String(h).replace(/\s/g,''))?('<div class="tlg"><div style="'+X.colStyle+'">'+h+'</div></div>'):'';
+      const lgRaw=h=>(h&&String(h).replace(/\s/g,''))?('<div class="tlg">'+h+'</div>'):'';
+      const lgRow=arr=>{const c=arr.map(lg).filter(Boolean);return c.length?('<div class="tlgrow">'+c.join('')+'</div>'):'';};
+      const TD={};window._tearD=TD;
+      let body='';
+      if(tab==='overview'){
+        // equity + drawdown, stretches marked by trade count
+        let eqCard='';
+        if(eqPts){const nTr=n(V.total_trades)||(S.all&&S.all.n)||eqPts.length;const cuts=(S.is&&S.wf&&S.is.n&&S.wf.n)?[S.is.n,S.is.n+S.wf.n]:null;
+          TD.eq={e:eqPts.map(v=>+v*mlt),nTr:nTr,cuts:(cuts&&cuts[1]<=nTr*1.02)?cuts:null,d0:mYr(d.date_from),d1:mYr(win.wf_split),d2:mYr(lb0),d3:mYr(dTo)};
+          eqCard=card('Equity and drawdown','whole run, by trade &middot; saved curve, so the drawdown pane reads a touch shallow','<div class="tchart" data-tearc="eq"></div>');}
+        else eqCard=lgRaw(X.P.equity);
+        const cols=[['is','IS',S.is,mYr(op0),mYr(win.wf_split)],['wf','WF',S.wf,mYr(win.wf_split),mYr(lb0||(win.optimize||[])[1])],['lb','LB',S.lb,mYr(lb0),mYr(lb1)],['all','Whole run',S.all,mYr(d.date_from),mYr(dTo)]].filter(c=>c[2]);
+        const yr=s=>String(s||'').slice(-4);
+        const rows=[['Net',x=>fk(x.net),x=>cl(x.net)],['Max drawdown',x=>x.dd!=null?fk(-x.dd):'&ndash;',x=>'tneg'],['ROC at $30k',x=>fp(x.roc)],['DD % from high',x=>fp(x.ddp)],['MAR',x=>fn(x.mar)],['Sortino',x=>fn(x.so)],['Sharpe',x=>fn(x.sh)],['Profit factor',x=>fn(x.pf)],['Win %',x=>x.wr!=null?fp(x.wr,0):'&ndash;'],['Avg trade',x=>f$(x.avg),x=>cl(x.avg)],['Avg win',x=>f$(x.aw)],['Avg loss',x=>f$(x.al)],['Trades',x=>fi(x.n)],['Years',x=>x.yrs!=null?x.yrs.toFixed(1):'&ndash;']];
+        const stage=cols.length?('<table class="tt"><thead><tr><th>Metric</th>'+cols.map(c=>'<th class="'+(c[0]==='wf'?'wf':'')+'">'+c[1]+((c[3]&&c[4])?('<small>'+yr(c[3])+'&ndash;'+yr(c[4])+'</small>'):'')+'</th>').join('')+'</tr></thead><tbody>'
+          +rows.map(r=>'<tr><td>'+r[0]+'</td>'+cols.map(c=>'<td class="'+(c[0]==='wf'?'wf ':'')+(r[2]?r[2](c[2]):'')+'">'+r[1](c[2])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'):'';
+        body+='<div class="tgrid tg2">'+eqCard+(stage?card('By stretch',S.wf?'WF is the score &middot; one contract':'one contract',stage,false):'')+'</div>';
+        // folds + years
+        let fCard='',yCard='';
+        if(folds.length){const t10=Array.isArray(d.top10_results)&&d.top10_results.length===folds.length?d.top10_results:[];
+          TD.folds=folds.map((f,i)=>{const pf=t10[i]?n(t10[i].oos_pf):null;return {v:(+f.net||0)*mlt,l:"'"+String(f.from||'').slice(2,4)+'-'+String(f.to||'').slice(2,4),s:pf!=null?('PF '+pf.toFixed(2)):'',tip:'Fold '+(f.f!=null?f.f:(i+1))+': '+(f.from||'')+' to '+(f.to||'')+'\n'+plain(f$((+f.net||0)*mlt))+' - '+(f.trades||0)+' trades'+(pf!=null?(' - PF '+pf.toFixed(2)):'')};});
+          fCard=card('Walk-forward folds','each fold re-tuned, then traded unseen &middot; '+fGreen+' of '+folds.length+' green','<div class="tchart" data-tearc="folds"></div>');}
+        if(Array.isArray(R.year)&&R.year.length){TD.years=R.year.map(y=>({v:(+y.pnl||0)*mlt,l:"'"+String(y.bucket).slice(2),s:'',tip:y.bucket+'\n'+plain(f$((+y.pnl||0)*mlt))+' - '+(y.n||0)+' trades - PF '+y.pf}));
+          yCard=card('Net by year',R.year.filter(y=>y.pnl>0).length+' of '+R.year.length+' years green','<div class="tchart" data-tearc="years"></div>');}
+        if(fCard||yCard)body+='<div class="tgrid '+((fCard&&yCard)?'tg11':'')+'">'+fCard+yCard+'</div>';
+        // monthly heatmap
+        const mr=(R.monthly&&Array.isArray(R.monthly.rows))?R.monthly.rows:[];
+        if(mr.length){const all=[];mr.forEach(r=>(r.months||[]).forEach(v=>{if(v!=null)all.push(Math.abs(v*mlt));}));all.sort((a,b)=>a-b);const cap=all[Math.floor(all.length*.97)]||1;
+          const cell=(v,l)=>{if(v==null)return '<td></td>';v=v*mlt;return '<td title="'+l+': '+plain(f$(v))+'" style="background:color-mix(in srgb,var(--'+(v<0?'red':'green')+') '+Math.round(8+Math.min(1,Math.sqrt(Math.abs(v)/cap))*62)+'%,transparent)">'+(v/1e3).toFixed(Math.abs(v)>=9950?0:1)+'</td>';};
+          body+='<div class="tgrid">'+card('Monthly net','$ thousands, one contract &middot; shade scales with size','<table class="tt theat"><thead><tr><th class="y">Year</th>'+MON.map(m=>'<th>'+m+'</th>').join('')+'<th style="text-align:right;padding-right:14px">Year</th></tr></thead><tbody>'
+            +mr.map(r=>{const t=(r.months||[]).reduce((s,v)=>s+(v||0),0)*mlt;return '<tr><td class="y">'+r.year+'</td>'+(r.months||[]).map((v,i)=>cell(v,MON[i]+' '+r.year)).join('')+'<td class="tot '+cl(t)+'">'+fk(t)+'</td></tr>';}).join('')+'</tbody></table>',false)+'</div>';}
+      }else if(tab==='trades'){
+        const dims=[['hour','Hour'],['dow','Day'],['side','Side'],['hold','Hold time'],['vol','Volatility'],['trend','Trend'],['tod','Session'],['month','Month'],['year','Year']].filter(x=>Array.isArray(R[x[0]])&&R[x[0]].length);
+        if(dims.length){const cur=(dims.filter(x=>x[0]===APREF.tearBrk)[0]||dims[0]),a=R[cur[0]],mx=Math.max.apply(null,a.map(x=>Math.abs(+x.pnl||0)))||1;
+          body+='<div class="tgrid"><section class="tc"><header><h3>Where the money comes from</h3><span class="tseg">'+dims.map(x=>'<span data-tearbrk="'+x[0]+'" class="'+(x[0]===cur[0]?'on':'')+'">'+x[1]+'</span>').join('')+'</span></header><div class="tw"><table class="tt"><thead><tr><th>'+cur[1]+'</th><th>Trades</th><th>Win %</th><th>PF</th><th>Avg trade</th><th>Net</th><th class="l" style="width:130px">Share</th></tr></thead><tbody>'
+            +a.map(x=>{const net=(+x.pnl||0)*mlt,avg=(+x.avg||0)*mlt;return '<tr><td>'+E(x.bucket)+'</td><td>'+fi(x.n)+'</td><td>'+(x.wr!=null?fp(x.wr,0):'&ndash;')+'</td><td>'+fn(n(x.pf))+'</td><td class="'+cl(avg)+'">'+f$(avg)+'</td><td class="'+cl(net)+'" style="font-weight:600">'+f$(net)+'</td><td class="l"><span class="tbar" style="width:'+Math.max(2,Math.abs(net)/mx*110).toFixed(0)+'px;background:var(--'+(net<0?'red':'green')+')"></span></td></tr>';}).join('')
+            +'</tbody></table></div></section></div>';}
+        body+='<div class="tsec">Distribution, MAE / MFE and context</div>'+lgRaw(X.P.distInner);
+      }else if(tab==='configs'){
+        body+=lgRaw(X.P.matrix)+lgRow([X.P.funnel,X.P.corr])+lgRow([X.P.p3,X.P.surr])+lg(X.P.top)+lgRow([X.P.nb,X.P.dist]);
+        if(!body)body='<div class="tmut">This run saved no config search.</div>';
+      }else if(tab==='robust'){
+        const ord={bad:0,warn:1,info:2,ok:3},lab={ok:'Pass',warn:'Caution',bad:'Flag',info:'Note'};
+        const openK=window._diagOpenKey;
+        if(chips.length){body+='<div class="tgrid"><section class="tc" style="'+(X.semVars||'')+'"><header><h3>Checks</h3><p>flags and cautions first &middot; click a row for its full readout</p></header><div class="tw"><table class="tt"><thead><tr><th>Check</th><th class="l">Status</th><th class="l">Reading</th><th class="l">What it asks</th></tr></thead><tbody>'
+            +chips.slice().sort((a,b)=>(ord[a.st]==null?9:ord[a.st])-(ord[b.st]==null?9:ord[b.st])).map(c=>'<tr class="clk" data-diagchip="'+E(c.k)+'"><td>'+E(plain(c.nm))+'</td><td class="l"><span class="tst"><span class="tdot '+(c.st==='ok'?'ok':(c.st==='warn'?'warn':(c.st==='bad'?'bad':'')))+'"></span>'+(lab[c.st]||'Note')+'</span></td><td class="l" style="font-weight:600">'+E(plain(c.chip))+'</td><td class="why">'+E(plain(c.q))+'</td></tr>'
+              +((openK===c.k&&c.html)?('<tr><td colspan="4" style="white-space:normal;padding:0 14px 12px"><div class="tlg" style="margin:0">'+c.html+'</div></td></tr>'):'')).join('')
+            +'</tbody></table></div></section></div>';}
+        body+=lgRaw(X.P.gate)+lg(X.P.dsr);
+        if(!body)body='<div class="tmut">This run saved no robustness checks.</div>';
+      }else{
+        const dl=rows=>'<dl class="tdl">'+rows.filter(r=>r[1]!=null&&r[1]!=='').map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>';
+        const bp=(d.best_params&&typeof d.best_params==='object')?d.best_params:{},FP=d.data_fp||{},RS=d.roll_stamp||{};
+        body+='<div class="tgrid tg11">'
+          +card('Crowned settings','',dl([['Strategy file',E(d.strategy)]].concat(Object.keys(bp).map(k=>[E(k.replace(/_/g,' ')),E(typeof bp[k]==='number'?+(+bp[k]).toFixed(4):bp[k])])).concat([['Search',n(d.n_evaluated)!=null?(fi(d.n_evaluated)+' configs evaluated'+(n(d.n_combos)!=null?(' from a '+fi(d.n_combos)+'-trial budget'):'')):''],['Cost',n(d.cost_pts)!=null?(d.cost_pts+' points a round trip, $'+mlt+' a point'):'']])))
+          +card('Windows','',dl([['Tuning',(win.optimize&&win.optimize.length===2)?(E(win.optimize[0])+' to '+E(win.optimize[1])):((d.date_from&&dTo)?(E(d.date_from)+' to '+E(dTo)):'')],['WF from',win.wf_split?(E(win.wf_split)+(folds.length?(', '+folds.length+' '+E(V.wf_best_mode||(W&&W.mode)||'')+' folds'):'')):''],['LB',(lb0&&lb1)?(E(lb0)+' to '+E(lb1)):''],['Warm-up',n(win.warm_days)!=null?(win.warm_days+' days'):'']]))
+          +card('Data','',dl([['Source',E(d.source_name||d.data_source)],['Master file',E(FP.master)],['Bars',n(FP.bars)!=null?fi(FP.bars):''],['Fingerprint',E(FP.hash)],['Rolls',RS.master_type?(E(RS.master_type)+(n(RS.switches_in_window)!=null?('; '+RS.switches_in_window+' switches, '+(RS.trades_crossing||0)+' trades crossing'):'')):'']]))
+          +card('Provenance','',dl([['Engine commit',E(String((V.dd_pct_src&&V.dd_pct_src.code_sha)||'').slice(0,12))],['Run finished',E(d.timestamp)],['Took',n(d.elapsed_s)!=null?(Math.max(1,Math.round(d.elapsed_s/60))+' min'):''],['Note',E(d.regime_note||d.note||'')]]))
+          +'</div>'+((X.banner&&String(X.banner).replace(/\s/g,''))?('<div class="tlg">'+X.banner+'</div>'):'')+'<div class="tlg">'+(X.code||'')+'</div>';
+      }
+      return _tearCss+'<div class="tear">'+head+meta+(sum?('<p class="tsum">'+sum+'</p>'):'')+kpis+tabs+body+'</div>';
+    };
+    // charts are drawn AFTER the report is in the page, at the real pixel width (text stays one size at any width)
+    window._tearDraw=function(root){
+      const TD=window._tearD||{};root=root||document;
+      const fk=v=>{const a=Math.abs(v),s=v<0?'-$':'$';return s+(a>=1e6?(a/1e6).toFixed(2)+'M':(a>=1e4?Math.round(a/1e3)+'k':(a>=1e3?(a/1e3).toFixed(1)+'k':Math.round(a))));};
+      const f$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString('en-US');
+      const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      const nice=(max,k)=>{const raw=(max||1)/(k||4),p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p;return (m<=1?1:(m<=2?2:(m<=2.5?2.5:(m<=5?5:10))))*p;};
+      const bars=(el,items,H)=>{const Wd=el.clientWidth||600,pL=46,pR=6,pT=14,pB=34,iw=Wd-pL-pR,ih=H-pT-pB;
+        const mx=Math.max.apply(null,[0].concat(items.map(i=>i.v))),mn=Math.min.apply(null,[0].concat(items.map(i=>i.v))),stp=nice(Math.max(mx,-mn),3);
+        const top=Math.ceil(mx/stp)*stp||stp,bot=Math.floor(mn/stp)*stp,y=v=>pT+(top-v)/((top-bot)||1)*ih,bw=iw/items.length,w=Math.max(2,Math.min(46,bw-6));
+        let g='';for(let v=bot;v<=top+1e-9;v+=stp)g+='<line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--border)" stroke-width="'+(Math.abs(v)<1e-9?1.2:.6)+'"/><text x="'+(pL-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+fk(v)+'</text>';
+        const every=Math.ceil(items.length/Math.max(1,Math.floor(iw/52)));
+        items.forEach((it,i)=>{const x=pL+i*bw+(bw-w)/2,y0=y(0),y1=y(it.v),h=Math.max(1,Math.abs(y1-y0));
+          g+='<rect x="'+x+'" y="'+Math.min(y0,y1)+'" width="'+w+'" height="'+h+'" rx="2" fill="var(--'+(it.v<0?'red':'green')+')"><title>'+esc(it.tip||'')+'</title></rect>';
+          if(i%every===0)g+='<text x="'+(x+w/2)+'" y="'+(H-pB+15)+'" text-anchor="middle">'+esc(it.l)+'</text>'+(it.s?('<text x="'+(x+w/2)+'" y="'+(H-pB+29)+'" text-anchor="middle" style="fill:var(--text3)">'+esc(it.s)+'</text>'):'');});
+        el.innerHTML='<svg viewBox="0 0 '+Wd+' '+H+'" height="'+H+'">'+g+'</svg>';};
+      const equity=(el,Q)=>{const e=Q.e,N=e.length,Wd=el.clientWidth||700,pL=52,pR=10,pT=24,eh=206,gap=16,dh=58,H=pT+eh+gap+dh+24,iw=Wd-pL-pR;
+        let pk=-1e18;const dd=e.map(v=>{pk=Math.max(pk,v,0);return v-pk;});
+        const mx=Math.max.apply(null,e),mn=Math.min.apply(null,[0].concat(e)),stp=nice(mx-mn,4),top=Math.ceil(mx/stp)*stp||stp,bot=mn<-stp*.2?Math.floor(mn/stp)*stp:mn;
+        const x=i=>pL+i/(N-1)*iw,y=v=>pT+(top-v)/((top-bot)||1)*eh,dmin=Math.min.apply(null,dd)||-1,yd=v=>pT+eh+gap+(v/dmin)*dh,xt=t=>pL+t/Q.nTr*iw;
+        let g='';const c=Q.cuts;
+        if(c){[[0,c[0],'IS'],[c[0],c[1],'WF'],[c[1],Q.nTr,'LB']].forEach((b,i)=>{const x0=xt(b[0]),x1=xt(Math.min(b[1],Q.nTr));
+          if(i)g+='<rect x="'+x0+'" y="'+pT+'" width="'+Math.max(0,x1-x0)+'" height="'+(eh+gap+dh)+'" fill="var(--text)" opacity="'+(i===2?.085:.04)+'"/>';
+          if(x1-x0>26)g+='<text x="'+((x0+x1)/2)+'" y="'+(pT-9)+'" text-anchor="middle" style="font-weight:600;letter-spacing:.05em">'+b[2]+'</text>';});}
+        for(let v=Math.ceil(bot/stp)*stp;v<=top+1e-9;v+=stp)g+='<line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--border)" stroke-width="'+(Math.abs(v)<1e-9?1.2:.6)+'"/><text x="'+(pL-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+fk(v)+'</text>';
+        g+='<text x="'+(pL-8)+'" y="'+(yd(0)+4)+'" text-anchor="end">$0</text><text x="'+(pL-8)+'" y="'+(yd(dmin)+4)+'" text-anchor="end">'+fk(dmin)+'</text><line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+yd(0)+'" y2="'+yd(0)+'" stroke="var(--border)"/>';
+        const xl=[[0,Q.d0,'start']];if(c){xl.push([c[0],Q.d1,'middle']);if(xt(Q.nTr)-xt(c[1])>70)xl.push([c[1],Q.d2,'middle']);}xl.push([Q.nTr,Q.d3,'end']);
+        xl.forEach(a=>{if(a[1])g+='<text x="'+xt(a[0])+'" y="'+(H-6)+'" text-anchor="'+a[2]+'">'+esc(a[1])+'</text>';});
+        const line=e.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join('');
+        const area='M'+x(0)+' '+yd(0)+dd.map((v,i)=>'L'+x(i).toFixed(1)+' '+yd(v).toFixed(1)).join('')+'L'+x(N-1)+' '+yd(0)+'Z';
+        el.innerHTML='<svg viewBox="0 0 '+Wd+' '+H+'" height="'+H+'">'+g+'<path d="'+area+'" fill="var(--red)" opacity=".55"/><path d="'+line+'" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linejoin="round"/>'
+          +'<circle cx="'+x(N-1)+'" cy="'+y(e[N-1])+'" r="3.5" fill="var(--text)"/><line data-xh y1="'+pT+'" y2="'+(pT+eh+gap+dh)+'" stroke="var(--text4)" stroke-dasharray="3 3" style="display:none"/><circle data-xd r="4" fill="var(--blue)" stroke="var(--bg2)" stroke-width="2" style="display:none"/>'
+          +'<rect data-hit x="'+pL+'" y="'+pT+'" width="'+iw+'" height="'+(eh+gap+dh)+'" fill="transparent"/></svg><div class="ttip" style="display:none"></div>';
+        const hit=el.querySelector('[data-hit]'),xh=el.querySelector('[data-xh]'),xd=el.querySelector('[data-xd]'),tp=el.querySelector('.ttip');
+        hit.onmousemove=ev=>{const r=hit.getBoundingClientRect(),i=Math.max(0,Math.min(N-1,Math.round((ev.clientX-r.left)/r.width*(N-1)))),t=Math.round(i/(N-1)*Q.nTr),er=el.getBoundingClientRect();
+          xh.style.display='';xd.style.display='';xh.setAttribute('x1',x(i));xh.setAttribute('x2',x(i));xd.setAttribute('cx',x(i));xd.setAttribute('cy',y(e[i]));
+          tp.textContent='Trade '+t.toLocaleString('en-US')+(c?(' - '+(t<c[0]?'IS':(t<c[1]?'WF':'LB'))):'')+'\nEquity '+f$(e[i])+'\nBelow high '+f$(dd[i]);
+          tp.style.display='';const px=ev.clientX-er.left,py=ev.clientY-er.top;tp.style.left=Math.max(0,Math.min(er.width-tp.offsetWidth-4,px+14))+'px';tp.style.top=Math.max(0,py-tp.offsetHeight-10)+'px';};
+        hit.onmouseleave=()=>{xh.style.display='none';xd.style.display='none';tp.style.display='none';};};
+      root.querySelectorAll('[data-tearc]').forEach(el=>{try{const k=el.getAttribute('data-tearc');
+        if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,210);else if(k==='years'&&TD.years)bars(el,TD.years,210);}catch(e){console.error('tearsheet chart failed',e);}});
+    };
+    if(!window._tearRz){window._tearRz=1;let _tz;window.addEventListener('resize',()=>{clearTimeout(_tz);_tz=setTimeout(()=>{if(document.querySelector('[data-tearc]'))window._tearDraw(document);},150);});}
     const runDetail=(d)=>{
       _mtxDocNow=d||null;window._1aRidNow=(d&&d.id!=null)?String(d.id):null;   // round 3: the 1E labels read THIS report's document (see _mtxCfgId)
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
@@ -32748,7 +32989,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // ── Compact report header (owner): ONE sticky row = REPORT: id + strategy + the checklist
       //    "tiles" (numbered section pills, middle, fill) + the action buttons. The repeated run-meta
       //    (instrument · configs · took · cost · ran-date) is DROPPED — it already lives in Past Runs.
-      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':((APREF.repLayout==='pills')?'pills':((APREF.repLayout==='dense')?'dense':((APREF.repLayout==='neo')?'neo':'classic'))));
+      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':((APREF.repLayout==='pills')?'pills':((APREF.repLayout==='dense')?'dense':((APREF.repLayout==='neo')?'neo':((APREF.repLayout==='tear')?'tear':'classic')))));
       const _repColsSel=repColsPref();
       // v71.39 (owner: "make the report layout a drop down on the same row, anchored right with
       //   the other icons"): the whole REPORT LAYOUT / COLUMNS strip collapses into two compact
@@ -32762,7 +33003,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // v73.30 (owner: "revamp the results tab... modernize... make it its new tab so we dont
       //   loose the old one"): NEO = the CLASSIC report wearing a scoped modern skin (see the
       //   _neoCss block above the classic return). Same DOM, so the rail entry is all it needs.
-      const _layOpts=[['classic','CLASSIC'],['neo','NEO','the modern skin - the CLASSIC report restyled: glass panels, neon hairlines, blueprint grid. Same charts, sections, splitters and columns; flip back any time'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
+      const _layOpts=[['tear','TEARSHEET','one calm page: verdict, the four numbers, then five tabs (overview, trades, configs, robustness, setup). Every chart from CLASSIC is under a tab'],['classic','CLASSIC'],['neo','NEO','the modern skin - the CLASSIC report restyled: glass panels, neon hairlines, blueprint grid. Same charts, sections, splitters and columns; flip back any time'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
       const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+(o[2]||o[1]));}).join(''));
       const _colSel='<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;margin-right:1px">COLUMNS</span>'+_railWrap('var(--blue)',[['3','3'],['2','2'],['1','1']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]+(o[0]==='2'?' (two per row)':(o[0]==='1'?' (every tile full width)':' across')));}).join(''));
       // v71.86 (owner: "finish the ui on the last four buttons - we adjusted the view and column
@@ -33858,6 +34099,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +_dRow([_dCell(_nbInner,'1 1 320px'),_dCell(_dist,'1 1 320px')]);
         _dense='<div data-dense>'+_d1+_d2+_d3+_d4+'</div>';
       }
+      // TEARSHEET (owner 11-26): its own shell, the existing panels brought over under tabs. A run it cannot lay out
+      //   (a book) or any throw falls through to CLASSIC, so this layout can never blank a report.
+      if(_repLay==='tear'){try{const _tearOut=tearsheetHtml(d,mlt,{lay:_laySel,act:_actSelHtml(),chips:_chips,semVars:_semVars,colStyle:_colStyle,banner:valBannerHtml(d),code:runCodeHtml(d),
+        P:{equity:_panelEquity,matrix:_panelMatrix,distInner:_distTile,funnel:_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):'')]),corr:_corr,p3:_p3inner,surr:_surrInner,top:_topInner,nb:_nbInner,dist:_dist,gate:_gateCard,dsr:_dsrInner}});
+        if(_tearOut)return _tearOut;}catch(_te){console.error('tearsheet layout failed, showing CLASSIC',_te);}}
       if(_repLay==='dense')return hdrHtml+valBannerHtml(d)+_warnHtml+_dense+runCodeHtml(d);
       if(_repLay==='gauges'||_repLay==='pills')return hdrHtml+valBannerHtml(d)+_warnHtml+_gaug+runCodeHtml(d);
       if(_repLay==='funnel')return hdrHtml+valBannerHtml(d)+_warnHtml+_funnel+runCodeHtml(d);
@@ -58471,6 +58717,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-g2heat]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('g2heat',(+(APREF.g2heat||0))?0:1);renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
       content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
+      // TEARSHEET: tab + breakdown picks are saved settings; its charts draw now, at the real width
+      content.querySelectorAll('[data-teartab]').forEach(b=>{b.onclick=()=>{savePref('tearTab',b.dataset.teartab);renderApp();};});
+      content.querySelectorAll('[data-tearbrk]').forEach(b=>{b.onclick=()=>{savePref('tearBrk',b.dataset.tearbrk);renderApp();};});
+      if(window._tearDraw&&content.querySelector('[data-tearc]'))window._tearDraw(content);
       // v71.39: the same two picks, now as dropdowns riding the report header row.
       content.querySelectorAll('[data-replaysel]').forEach(s=>{s.onchange=()=>{savePref('repLayout',s.value);renderApp();};});
       content.querySelectorAll('[data-repcolsel]').forEach(s=>{s.onchange=()=>{savePref('repCols',s.value);renderApp();};});
