@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.56';
+const VERSION='92.57';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.57',date:'2026-11-26',notes:['TRADE CHART: STOPS AND TARGETS THAT MOVE (owner 11-26). A trailing or breakeven stop is drawn bar by bar: the zone is red while the stop still risks money and turns green once it locks profit.','The stop is a solid step line and a moved target a dashed one, with a dot at each move. The first risk stays as a faint dashed box. Labels say where each level started (left) and ended (right), with the dollars locked.','Hover a bar inside the trade to read the stop and target in force; on the bar one moved it reads old to new and why (breakeven, trail, target).','The exit marker says stopped, trail hit or target hit. The fills table adds one line: stop A to B with the number of moves.','The box now publishes the target ladder and the reason for each move, and keeps at most 60 steps per trade. Strategies only show a trail once they write a LEVELS row on each move.']},
 {v:'92.53',date:'2026-11-25',notes:['TRADE CHART, CLEANED UP (owner 11-25: full of duplicate info). Each fact now shows once.','Header: the leg name, side and size, the times once, how long it was held, and the net as the one bold number.','Toolbar: timeframes, then ETH / INDICATORS / REPLAY, then TRADE / FIT. TradingView, PNG, log scale and reset scale moved to the ... menu.','On the chart: the entry and exit lines run across the trade only, with their price tags on the axis. The book in / out lines, the second stop line and the session row are gone. Markers read Sell 10 / Buy 10 with points on the exit.','Under the chart: one small fills table - entry and exit rows with the signal bar, backtest, book, Webull, Webull vs backtest, and why it closed. The bar source sits in the footer.']},
 {v:'92.33',date:'2026-11-25',notes:['THE TOP BAR, QUIETER (owner 11-25). The job gauges now read a short number - the run number once a job has one, else the test number from the board (t115), else a short handle - plus the percent or WAIT. The strategy file name moved into the hover, where the rest of the detail already lived.','CPU and RAM are off the top bar. They are still on the PC tab, which is where the machine is looked at. The same slot still says LIVE PAUSED or LIVE OFF, because that is about this page, not about the box.','ONE STATUS DOT instead of five marks. NT GATE, the Webull chip, the data-feed warning, AUTO and the green pulse were strung along the bar, each with its own colour. There is one dot now: green while every check is clear, amber or red the moment one is not. Hover or tap it and each check reads on its own line, with the same words and the same links as before.']},
 {v:'92.32',date:'2026-11-25',notes:['WEBULL PAPER, calmed down (owner 11-25). The page keeps every figure it had, in one small type scale at normal weight: the only bold thing left is the equity number.','The sidebar sits flush left - the empty strip beside it is gone and that width went to the sidebar, so its rows stop wrapping. The list of open legs under unrealized is gone; the unrealized total stays, and the open positions are named once, in the OPEN rows under the chart, now one small line each.','LIVE / WHAT-IF, the sizing buttons, the date range and the chart toggles are one row above the chart instead of three.','The strategy key no longer pushes the chart down: it sits inside the chart, top left, small and see-through. The two helper lines under the calendar fold into the small mark beside them - hover it to read them.']},
@@ -12187,11 +12188,17 @@ window.candleSVG=function(bars,overlays,markers,opts){
 //   [{label:'stop', ladder:[{t:'YYYY-MM-DD HH:MM', px:<number>}, ...], price:<optional>}]   a stop that moved: the stop in
 //      force from each `t` (New York wall clock, like the bars) onward, oldest first; ladder[0].px is the INITIAL risk the
 //      box and R use; `price` (when present) is ignored for the drawing and may hold the final stop. The crosshair reads
-//      "stop was X" on a bar inside the trade. A `label` other than stop / target draws as a plain dashed level.
+//      the stop in force on a bar inside the trade. A `label` other than stop / target draws as a plain dashed level.
 // marks[].levels (schema 3, rows 62 + 59; what the box writes since v73.1422) WINS over lines when present:
 //   {trade_id, side, entry_px, entry_t, exit_px, exit_t, target_px, stops:[{t,px}, ...]} - stops is the ladder oldest
 //   first (stops[0] = the initial stop = the risk box), t is New York wall clock 'YYYY-MM-DD HH:MM:SS' (the seconds are
 //   ignored). With levels driving the ladder the flat lines' dashed 'stop moved HH:MM' entries are NOT drawn again.
+//   MOVING LEVELS (owner 11-26): stops[] / targets[] rungs may carry why (breakeven / trail / target / a short reason);
+//   targets[] is written only when the target moved (targets[0] = target_px); thinned = {stops: n, targets: n} gives the
+//   true count when the box kept 60 rungs. The chart draws a moving level bar by bar: the stop zone red while it still risks
+//   money and green once it locks profit, the stop a solid step line, the target a dashed one, a dot at each move, the first
+//   risk a faint dashed outline, labels where each started (left) and ended (right). The crosshair reads old -> new (why) on
+//   the bar a level moved; the fills table adds 'stop A -> B (n moves)'; the exit marker says stopped / trail hit / target hit.
 // ROW 79 (owner 10-31, "needs to be like a TradingView chart"): the session toggle defaults to ETH; the studies live in an
 //   INDICATORS menu and each one on the chart is a legend row under the symbol line (name, value on the bar, eye = hide, x =
 //   remove; remembered in el_lw_<k> / el_lw_hide_<k>); the crosshair readout is TV's O H L C change, Vol, then each study; VWAP
@@ -12346,12 +12353,15 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const markerSpec=(x,mk,bars,n,strict)=>{const out=[],long=String(x._side||'long')!=='short',sh=x._sh!=null?(x._sh+' '):'';
     const put=(t,o)=>{const bt=bucket(t,n);if(strict&&bars.length&&bt>bars[bars.length-1].time)return;const i=snap(bars,bt);if(i==null)return;
       if(new Date(bars[i].time*1000).toISOString().slice(0,10)!==String(t).slice(0,10))return;
-      if((o.kind==='wb_out'||o.kind==='book_out'||o.kind==='out')&&pl)o.text=(o.text||'')+pl;
+      if(o.kind==='wb_out'||o.kind==='book_out'||o.kind==='out')o.text=(o.text||'')+(hit?' · '+hit:'')+pl;
       out.push(Object.assign({time:bars[i].time},o));};
     const f2=v=>num(v)!=null?(+v).toFixed(2):'';
     // row 68: the exit marker says what the trade made in points (owner 11-25: the $ is the header's big number, the prices are the axis tags)
     const pts=(num(x._ep)!=null&&num(x._xp)!=null)?(+x._xp-+x._ep)*(long?1:-1):null;
     const pl=(pts!=null)?('  '+(pts>=0?'+':'')+pts.toFixed(2)+' pts'):'';
+    // owner 11-26: the exit names the level it hit (stopped / trail hit / target hit), read from the book exit reason
+    const hw=String((mk&&!mk.synthetic&&mk.book_out&&mk.book_out.why)||'').toLowerCase();
+    const hit=/trail/.test(hw)?'trail hit':(/target|take.?profit|tp/.test(hw)?'target hit':(/stop|sl/.test(hw)?'stopped':''));
     if(mk&&!mk.synthetic){
       // the signal bar (decided at its close) and the exit signal bar: flags on the overlay, above a long's bar / below a short's
       if(mk.signal&&mk.signal.t)put(mk.signal.t,{position:long?'aboveBar':'belowBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'signal',flag:'signal'});
@@ -12408,25 +12418,32 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const dayOf=t=>new Date(t*1000).toISOString().slice(0,10);
   const sessOf=m=>m<ANCHOR?'pre':(m<960?'rth':'post');
   // the day doc's stop / target (shape at the top of this block): the INITIAL stop, the target, the stop ladder, other levels
-  const levels=mk=>{const L=(mk&&mk.lines)||[],out={stop:null,target:null,ladder:null,other:[],fromLevels:false};
+  const levels=mk=>{const L=(mk&&mk.lines)||[],out={stop:null,target:null,ladder:null,tladder:null,thinned:null,other:[],fromLevels:false};
+    // a rung = {time, px, why}: the box writes why (breakeven / trail / target / the first clause of the reason) when it has one
+    const ladOf=a=>(Array.isArray(a)?a:[]).map(p=>({time:p&&bucket(p.t,1),px:num(p&&p.px),why:(p&&p.why)?String(p.why):''})).filter(p=>p.time!=null&&p.px!=null).sort((a,b)=>a.time-b.time);
     // schema 3: the box's per-trade record wins (stops[] = the ladder, stops[0] = the risk; target_px = the target)
     const LV=mk&&mk.levels;
-    if(LV&&typeof LV==='object'){const lad=(Array.isArray(LV.stops)?LV.stops:[]).map(p=>({time:p&&bucket(p.t,1),px:num(p&&p.px)})).filter(p=>p.time!=null&&p.px!=null).sort((a,b)=>a.time-b.time);
+    if(LV&&typeof LV==='object'){const lad=ladOf(LV.stops),tl=ladOf(LV.targets);
       if(lad.length){out.stop=lad[0].px;out.ladder=lad.length>1?lad:null;out.fromLevels=true;}
       const tg=num(LV.target_px);if(tg!=null){out.target=tg;out.fromLevels=true;}
+      // targets[] only when the target moved (owner 11-26): targets[0] = the first target
+      if(tl.length>1){out.tladder=tl;out.target=tl[0].px;out.fromLevels=true;}
+      if(LV.thinned&&typeof LV.thinned==='object')out.thinned=LV.thinned;
       if(out.fromLevels){L.forEach(l=>{if(!l||(Array.isArray(l.ladder)&&l.ladder.length))return;const lab=String(l.label||'').toLowerCase(),p=num(l.price);
           if(p==null||lab==='stop'||lab==='target'||lab.indexOf('stop moved')===0)return;out.other.push({price:p,label:l.label,dash:l.dash});});
         return out;}}
     L.forEach(l=>{if(!l)return;const lab=String(l.label||'').toLowerCase();
-      if(Array.isArray(l.ladder)&&l.ladder.length){const lad=l.ladder.map(p=>({time:p&&bucket(p.t,1),px:num(p&&p.px)})).filter(p=>p.time!=null&&p.px!=null).sort((a,b)=>a.time-b.time);
+      if(Array.isArray(l.ladder)&&l.ladder.length){const lad=ladOf(l.ladder);
         if(lad.length&&(lab==='stop'||out.stop==null)){out.stop=lad[0].px;out.ladder=lad;}return;}
       const p=num(l.price);if(p==null)return;
       if(lab==='stop'){if(out.stop==null)out.stop=p;}else if(lab==='target'){if(out.target==null)out.target=p;}else out.other.push({price:p,label:l.label,dash:l.dash});});
     return out;};
   window._lwLevels=levels;   // test hook
   // the stop in force on the bar at time t (n-minute bars): the last rung at or before the bar's close, else the first
-  const stopAt=(lv,t,n)=>{if(!lv||lv.stop==null)return null;if(!lv.ladder)return lv.stop;let px=null;
-    for(const p of lv.ladder){if(p.time<=t+n*60-Math.min(60,n*60))px=p.px;else break;}return px==null?lv.ladder[0].px:px;};
+  const rungAt=(lad,t,n)=>{let r=null;for(const p of lad){if(p.time<=t+n*60-Math.min(60,n*60))r=p;else break;}return r||lad[0];};
+  const stopAt=(lv,t,n)=>(!lv||lv.stop==null)?null:(lv.ladder?rungAt(lv.ladder,t,n).px:lv.stop);
+  // the target in force on the bar (owner 11-26: a target that moves is a step line too)
+  const targetAt=(lv,t,n)=>(!lv||lv.target==null)?null:(lv.tladder?rungAt(lv.tladder,t,n).px:lv.target);
   // MFE / MAE: the best and worst price between the entry and the exit (or the last bar shown), from the minute bars
   // n = the chart's bar size (optional): under a minute M holds 10-second bars, read at their own size
   const excursion=(x,M,lastT,n)=>{if(!x||num(x._ep)==null||!x._et)return null;const long=String(x._side||'long')!=='short',nn=n||1,u=nn<1?1/6:1;
@@ -12598,6 +12615,12 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const ne=S.ov.querySelector('[data-lwnet]');if(ne){ne.style.color=pnlCol(u);ne.textContent=money(u);ne.title='net P&L of record';}};
 
   // the OHLCV readout: the bar under the crosshair, else the last one on screen
+  // the moving stop / target on the bar under the cursor (only the levels that move: a flat one is already labelled on the chart)
+  const lvRo=(bar,j)=>{const lv=S.lv,B=S.bars||[];if(!lv||!(lv.ladder||lv.tladder)||S.eI==null||j<S.eI||(S.xI!=null&&j>S.xI))return '';
+    const n=TFMIN[S.tf]||1,pb=j>S.eI?B[j-1]:null;
+    const part=(name,lad)=>{if(!lad)return '';const r=rungAt(lad,bar.time,n),p=pb?rungAt(lad,pb.time,n):null,ch=!!(p&&p.px!==r.px);
+      return ' <span style="color:var(--text5)">'+name+'</span> <span style="color:var(--text3)">'+(ch?p.px.toFixed(2)+' &rarr; ':'')+r.px.toFixed(2)+'</span>'+(ch&&r.why?' <span style="color:var(--text5)">('+esc(r.why)+')</span>':'');};
+    return part('stop',lv.ladder)+part('target',lv.tladder);};
   const readout=bar=>{const ro=S.ov&&S.ov.querySelector('[data-lwro]');if(!ro)return;
     if(!bar){const b=S.bars||[];if(!b.length){ro.innerHTML='';return;}
       let i=b.length-1;try{const lr=S.chart.timeScale().getVisibleLogicalRange();if(lr)i=Math.max(0,Math.min(b.length-1,Math.floor(lr.to)));}catch(_e){}bar=b[i];}
@@ -12623,8 +12646,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
       +[k('O',bar.open.toFixed(2)),k('H',bar.high.toFixed(2)),k('L',bar.low.toFixed(2)),k('C',bar.close.toFixed(2))].join(' ')
       +' <span style="color:'+c+'">'+(ch>=0?'+':'')+ch.toFixed(2)+' ('+(ch>=0?'+':'')+cp.toFixed(2)+'%)</span><br>'
       +'<span style="color:var(--text5)">Vol</span> <span style="color:var(--text3)">'+fv(bar.volume)+'</span>'
-      // row 62: a stop that moved - what it was on this bar (inside the trade)
-      +((S.lv&&S.lv.ladder&&S.eI!=null&&j>=S.eI&&(S.xI==null||j<=S.xI))?' <span style="color:var(--text5)">stop was</span> <span style="color:var(--text3)">'+(stopAt(S.lv,bar.time,TFMIN[S.tf]||1)||0).toFixed(2)+'</span>':'')
+      // row 62 / owner 11-26: a level that moves - what it was on this bar (inside the trade); on the bar it moved, old -> new (why)
+      +lvRo(bar,j)
       +rows;};
   // row 79: ETH asked but the trade's day has no extended-hours bars yet - say so on the chart (the bars shown are the regular session)
   const ethNote=()=>{const e=S.ov&&S.ov.querySelector('[data-lwnote]');if(!e)return;const d0=String(S.x&&S.x._et||'').slice(0,10),D=S.days&&S.days[d0];
@@ -12736,18 +12759,37 @@ window.candleSVG=function(bars,overlays,markers,opts){
           label(name+' '+hi.toFixed(2),right?b-3:xa+3,y0-7,right?'right':'left',oc);label(name+' '+lo.toFixed(2),right?b-3:xa+3,y1+7,right?'right':'left',oc);};
         box(o.h15,o.l15,o.i15,mo?0.05:0.04,'OR15',true);box(o.h5,o.l5,o.i5,mo?0.09:0.07,'OR5',false);});}
     const jEnd=S.xI!=null?S.xI:B.length-1,eI=S.eI;
-    // the position box (row 62): red zone entry -> stop, green zone entry -> target; a stop that moved is a step line
+    // the position box (row 62): red zone entry -> stop, green zone entry -> target
+    // owner 11-26: a stop or target that MOVES is drawn bar by bar - the zone follows it (red while the stop still risks money,
+    // green once it has passed the entry and locks profit), the level is a step line with a dot at each move, and the labels say
+    // where it started (left) and where it ended (right). The first risk stays as a faint dashed outline. Replay sees rungs up to the cursor only.
     const lv=S.lv;if(lv&&ep!=null&&eI!=null&&(lv.stop!=null||lv.target!=null)){const a=xL(eI),b=cx(xR(jEnd)+(S.xI==null?bw*3:0)),yE=yOf(ep);
+      const dir=long?1:-1,R1=(lv.stop!=null&&Math.abs(lv.stop-ep)>1e-9)?Math.abs(lv.stop-ep):null;
       // isStop: the stop IS one R by definition, so its label leaves the R off (owner 11-25 cleanup); the target keeps its R
-      const zone=(px,colr,name,alpha,isStop)=>{const y=yOf(px);if(y==null||yE==null)return;g.fillStyle=rgba(colr,alpha);g.fillRect(a,Math.min(yE,y),b-a,Math.abs(y-yE));hline(a,b,y,rgba(colr,0.85),[],1);
-        const usd=(px-ep)*(long?1:-1)*sh,R=(!isStop&&lv.stop!=null&&Math.abs(lv.stop-ep)>1e-9)?Math.abs(px-ep)/Math.abs(lv.stop-ep):null;
-        label(name+' '+px.toFixed(2)+(sh?'  '+(usd>=0?'+':'')+money(usd):'')+(R!=null?'  '+(R>=10?R.toFixed(0):R.toFixed(1))+'R':''),b-3,y+(y<yE?-8:8),'right',colr);};
-      if(lv.stop!=null)zone(lv.stop,th.red,lv.ladder?'first stop':'stop',mo?0.22:0.11,true);
-      if(lv.target!=null)zone(lv.target,th.green,'target',mo?0.07:0.11);
-      if(yE!=null)hline(a,b,yE,rgba(th.text3,0.9),[],1);
-      if(lv.ladder){g.strokeStyle=mo?th.text:th.red;g.lineWidth=1.5;g.setLineDash([]);g.beginPath();let st=false;
-        for(let i=eI;i<=jEnd;i++){const y=yOf(stopAt(lv,B[i].time,n));if(y==null)continue;if(!st){g.moveTo(xL(i),y);st=true;}else g.lineTo(xL(i),y);g.lineTo(xR(i),y);}
-        g.stroke();const lp=lv.ladder[lv.ladder.length-1].px;if(lp!==lv.stop){const y=yOf(lp);if(y!=null)label('stop moved to '+lp.toFixed(2),b-3,y+(y<(yE||0)?-8:8),'right',mo?th.text:th.red);}}}
+      const tag=(name,px,isStop)=>{const u=(px-ep)*dir*sh,R=(!isStop&&R1)?Math.abs(px-ep)/R1:null;
+        return name+' '+px.toFixed(2)+(sh?'  '+(u>=0?'+':'')+money(u):'')+(isStop&&(px-ep)*dir>1e-9?' locked':'')+(R!=null?'  '+(R>=10?R.toFixed(0):R.toFixed(1))+'R':'');};
+      if(!(lv.ladder||lv.tladder)){
+        const zone=(px,colr,name,alpha,isStop)=>{const y=yOf(px);if(y==null||yE==null)return;g.fillStyle=rgba(colr,alpha);g.fillRect(a,Math.min(yE,y),b-a,Math.abs(y-yE));hline(a,b,y,rgba(colr,0.85),[],1);
+          label(tag(name,px,isStop),b-3,y+(y<yE?-8:8),'right',colr);};
+        if(lv.stop!=null)zone(lv.stop,th.red,'stop',mo?0.22:0.11,true);
+        if(lv.target!=null)zone(lv.target,th.green,'target',mo?0.07:0.11);}
+      else if(yE!=null){const sCol=mo?th.text:th.red,tCol=mo?th.text3:th.green,xe=i=>i===jEnd?b:xR(i);
+        if(lv.ladder){const y=yOf(lv.stop);if(y!=null){g.strokeStyle=rgba(th.red,0.45);g.lineWidth=1;g.setLineDash([3,3]);g.strokeRect(a+0.5,Math.min(yE,y)+0.5,Math.max(0,b-a-1),Math.abs(y-yE));g.setLineDash([]);}}
+        for(let i=eI;i<=jEnd;i++){const t=B[i].time,xa=xL(i),w=xe(i)-xa;if(!(w>0))continue;
+          const ty=yOf(targetAt(lv,t,n));if(ty!=null){g.fillStyle=rgba(th.green,mo?0.07:0.08);g.fillRect(xa,Math.min(yE,ty),w,Math.abs(ty-yE));}
+          const sp=stopAt(lv,t,n),sy=yOf(sp);if(sy!=null){const lk=(sp-ep)*dir>1e-9;g.fillStyle=rgba(lk?th.green:th.red,lk?(mo?0.14:0.16):(mo?0.22:0.11));g.fillRect(xa,Math.min(yE,sy),w,Math.abs(sy-yE));}}
+        // the level as a step line, a dot where it moved; returns the level in force on the last bar drawn
+        const step=(at,colr,dash)=>{let st=false,prev=null;const dots=[];g.strokeStyle=colr;g.lineWidth=1.5;g.setLineDash(dash);g.beginPath();
+          for(let i=eI;i<=jEnd;i++){const px=at(lv,B[i].time,n),y=yOf(px);if(y==null)continue;if(!st){g.moveTo(xL(i),y);st=true;}else g.lineTo(xL(i),y);g.lineTo(xe(i),y);if(prev!=null&&px!==prev)dots.push([xL(i),y]);prev=px;}
+          g.stroke();g.setLineDash([]);g.fillStyle=colr;dots.forEach(d=>{g.beginPath();g.arc(d[0],d[1],2.5,0,Math.PI*2);g.fill();});return prev;};
+        const sEnd=lv.stop!=null?step(stopAt,sCol,[]):null,tEnd=lv.target!=null?step(targetAt,tCol,[5,3]):null;
+        // labels sit on the side AWAY from price: a long's stop below its line, its target above (a short the other way)
+        const say=(px,x,al,colr,name,isStop)=>{const y=yOf(px);if(y!=null)label(tag(name,px,isStop),x,y+((isStop===long)?8:-8),al,colr);};
+        if(lv.stop!=null)say(lv.stop,a+3,'left',sCol,'stop',true);
+        if(lv.target!=null)say(lv.target,a+3,'left',tCol,'target',false);
+        if(sEnd!=null&&sEnd!==lv.stop)say(sEnd,b-3,'right',(sEnd-ep)*dir>1e-9?tCol:sCol,'stop',true);
+        if(tEnd!=null&&tEnd!==lv.target)say(tEnd,b-3,'right',tCol,'target',false);}
+      if(yE!=null)hline(a,b,yE,rgba(th.text3,0.9),[],1);}
     // MFE / MAE (row 72): the best and the worst price while in the trade, shaded from the entry
     if(vis('mfe')&&S.exc&&eI!=null&&ep!=null){const e=S.exc,a=xL(eI),b=xR(jEnd),yE=yOf(ep);
       const ex=(px,pts,colr,name,alpha)=>{const y=yOf(px);if(y==null||yE==null)return;g.fillStyle=rgba(colr,alpha);g.fillRect(a,Math.min(y,yE),b-a,Math.abs(y-yE));hline(a,b,y,rgba(colr,0.9),[4,2],1);
@@ -12846,6 +12888,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const R=[side('in'),side('out')].filter((r,i)=>i===0||r.t||r.sig||r.bt||r.bk||r.wb);
     if(gap.length)notes.push('Webull '+(gap.length>1?'entry and exit':(gap[0]==='in'?'entry':'exit'))+' not on file (the order ledger was trimmed before this trade)');
     if(part.length)notes.push('Webull&#39;s first '+(part.length>1?'entry and exit tries':(part[0]==='in'?'entry try':'exit try'))+' not on file (the order ledger was trimmed) - only the later tries are shown');
+    // owner 11-26: a stop / target that moved - where it started, where it ended, how many moves (thinned = the box kept 60)
+    const LVt=levels(mk),TH=LVt.thinned||{};
+    [['stop',LVt.ladder,'stops'],['target',LVt.tladder,'targets']].forEach(q=>{const lad=q[1];if(!lad)return;const k=TH[q[2]]?TH[q[2]]-1:lad.length-1;
+      notes.push(q[0]+' '+lad[0].px.toFixed(2)+' &rarr; '+lad[lad.length-1].px.toFixed(2)+' ('+k+(k===1?' move':' moves')+(TH[q[2]]?', thinned on the chart':'')+')');});
     (lineNotes||[]).forEach(n=>notes.push(esc(n)));
     const ph=(window.innerWidth||1024)<700;   // a phone: shorter heads, tighter columns
     const cols=[['sig',ph?'signal':'signal bar','the bar the decision was made on, at its close'],['bt',ph?'bt':'backtest','the backtest fill'],['bk','book','the book fill (the engine on the box)'],

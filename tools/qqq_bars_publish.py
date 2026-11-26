@@ -52,6 +52,14 @@ WHAT IT WRITES
                     live from the END of the bar whose close armed it (the signal row's own
                     "stop X from the next bar"). Capped at MAX_STOP_STEPS steps. Absent when
                     the signal file logged no stop and no target.
+                    MOVING LEVELS (owner 11-26, trailing stops / targets that change while the
+                    trade is open): a step whose price equals the step before it is dropped
+                    (a LEVELS row that only moved the target adds no stop step); a step a
+                    LEVELS row made carries `why` -- that row's reason, shortened
+                    (short_why: "breakeven", "trail", ...); `targets` = the same ladder for
+                    the target, written ONLY when the target moved (targets[0] = target_px);
+                    a ladder longer than the cap is thinned evenly, first and last step always
+                    kept, and `thinned` = {"stops": n, "targets": n} gives the true counts.
       published_at  when this copy was written -- the browser re-checks a cached final day
                     once per page load and swaps in a newer copy when this differs.
 
@@ -192,7 +200,9 @@ EXT_OPEN_MIN = 4 * 60               # 04:00 ET: the pre-market's first bar (row 
 EXT_CLOSE_MIN = 20 * 60             # 20:00 ET: after hours end (the last bar starts before this)
 EXT_1M_DAYS = 7                     # yfinance serves 1-minute bars for the last 7 days only ...
 EXT_5M_DAYS = 59                    # ... and 5-minute bars for the last 60
-MAX_STOP_STEPS = 12                 # a trade's stop ladder is capped here (doc size)
+MAX_STOP_STEPS = 60                 # a trade's stop / target ladder is capped here (doc size; thinned evenly past it)
+MAX_MOVED_LINES = 3                 # flat "stop moved HH:MM" lines kept per trade (the newest; a trail moves dozens of times)
+WHY_MAX = 40                        # a ladder step's shortened reason
 LEVELS_NOTE = "stop and target are not recorded yet"
 LEVELS_NOTE_SOME = ("stop and target lines: ORB only (from its signal file, with the stop's "
                     "breakeven moves); other legs not recorded yet")
@@ -733,42 +743,98 @@ def _bar_end_et(ref_time, tf):
 def stop_ladder(ent, levels_rows, entry_t, tf):
     """[{t, px}, ...] oldest first (row 59): the ENTRY row's stop, live from the book's
     entry fill `entry_t`, then each LEVELS row's moved stop, live from the end of the bar
-    whose close armed it. Rows without a stop are skipped; capped at MAX_STOP_STEPS."""
+    whose close armed it. Rows without a stop, and rows that leave the stop where it was,
+    are skipped; a moved step carries `why` (short_why of the row's reason) when it has one.
+    Past MAX_STOP_STEPS the ladder is thinned evenly (thin_steps)."""
+    return thin_steps(level_ladder(ent, levels_rows, entry_t, tf, "stop_px"))
+
+
+def short_why(reason):
+    """A LEVELS row's reason in a word or two for the chart: 'breakeven armed at the close
+    of 13:10 (...); stop X from the next bar' -> 'breakeven'; any other reason -> its first
+    clause, cut to WHY_MAX. '' when there is none."""
+    s = str(reason or "").strip()
+    if not s:
+        return ""
+    low = s.lower()
+    for word in ("breakeven", "trail", "target"):
+        if low.startswith(word):
+            return word
+    return s.split(";")[0].split(" armed")[0].strip()[:WHY_MAX]
+
+
+def level_ladder(ent, levels_rows, entry_t, tf, key):
+    """[{t, px[, why]}, ...] oldest first for one level (`key` = "stop_px" / "target_px"):
+    the ENTRY row's value from `entry_t`, then each LEVELS row that CHANGED it, live from
+    the end of the bar whose close armed it. Not capped (stop_ladder / target_ladder thin)."""
     steps = []
-    px = _level_px(ent, "stop_px")
+    px = _level_px(ent, key)
     if px is not None:
         steps.append({"t": entry_t, "px": px})
     for r in levels_rows or []:
-        px = _level_px(r, "stop_px")
-        if px is not None:
-            steps.append({"t": _bar_end_et(r.get("ref_time"), tf), "px": px})
-    return steps[:MAX_STOP_STEPS]
+        px = _level_px(r, key)
+        if px is None or (steps and steps[-1]["px"] == px):
+            continue
+        step = {"t": _bar_end_et(r.get("ref_time"), tf), "px": px}
+        why = short_why(r.get("reason"))
+        if why:
+            step["why"] = why
+        steps.append(step)
+    return steps
+
+
+def thin_steps(steps, cap=None):
+    """`steps` cut to `cap` (MAX_STOP_STEPS) by keeping evenly spaced ones -- the first and
+    the last always kept, so the drawing starts and ends where the trade's level did."""
+    cap = cap or MAX_STOP_STEPS
+    n = len(steps)
+    if n <= cap:
+        return steps
+    idx = sorted({round(i * (n - 1) / (cap - 1)) for i in range(cap)})
+    return [steps[i] for i in idx]
+
+
+def target_ladder(ent, levels_rows, entry_t, tf):
+    """The target's ladder (see level_ladder), thinned like the stop's. One step = it never moved."""
+    return thin_steps(level_ladder(ent, levels_rows, entry_t, tf, "target_px"))
 
 
 def moved_stop_lines(levels_rows, tf):
-    """One dashed chart line per LEVELS row: 'stop moved HH:MM' (the bar end it took)."""
-    out = []
+    """A dashed chart line per LEVELS row that moved the stop: 'stop moved HH:MM' (the bar
+    end it took) -- the newest MAX_MOVED_LINES only (a trailing stop moves dozens of times;
+    the levels ladder holds every step)."""
+    out, last = [], None
     for r in levels_rows or []:
         px = _level_px(r, "stop_px")
         t = _bar_end_et(r.get("ref_time"), tf)
-        if px is not None:
+        if px is not None and px != last:
             out.append({"price": px, "label": "stop moved" + (f" {t[11:16]}" if t else ""), "dash": True})
-    return out
+            last = px
+    return out[-MAX_MOVED_LINES:]
 
 
 def trade_levels(mark, ent, levels_rows, tf):
     """The per-trade levels record (see the module docstring, marks[].levels), or None
     when the signal file logged neither a stop nor a target for this trade."""
     entry_t = (mark.get("book_in") or {}).get("t")
-    stops = stop_ladder(ent, levels_rows, entry_t, tf)
+    all_stops = level_ladder(ent, levels_rows, entry_t, tf, "stop_px")
+    all_targets = level_ladder(ent, levels_rows, entry_t, tf, "target_px")
+    stops = thin_steps(all_stops)
     target = _level_px(ent, "target_px")
     if not stops and target is None:
         return None
-    return {"trade_id": mark["trade_id"], "side": mark.get("side"),
-            "entry_px": (mark.get("book_in") or {}).get("px"), "entry_t": entry_t,
-            "exit_px": (mark.get("book_out") or {}).get("px"),
-            "exit_t": (mark.get("book_out") or {}).get("t"),
-            "target_px": target, "stops": stops}
+    out = {"trade_id": mark["trade_id"], "side": mark.get("side"),
+           "entry_px": (mark.get("book_in") or {}).get("px"), "entry_t": entry_t,
+           "exit_px": (mark.get("book_out") or {}).get("px"),
+           "exit_t": (mark.get("book_out") or {}).get("t"),
+           "target_px": target, "stops": stops}
+    if len(all_targets) > 1:                       # the target moved: its ladder too
+        out["targets"] = thin_steps(all_targets)
+    thinned = {k: len(v) for k, v in (("stops", all_stops), ("targets", all_targets))
+               if len(v) > MAX_STOP_STEPS}
+    if thinned:
+        out["thinned"] = thinned
+    return out
 
 
 def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):

@@ -880,7 +880,7 @@ def test_mark_levels_and_moved_stop_lines_row59(tmp_path):
         "target_px": 718.9,
         # initial stop from the entry fill, then the moved stop from the END of the 13:05 bar
         "stops": [{"t": "2026-09-28 10:50:06", "px": 735.01},
-                  {"t": "2026-09-28 13:10:00", "px": 732.33}]}
+                  {"t": "2026-09-28 13:10:00", "px": 732.33, "why": "breakeven"}]}
     # legs whose signal file logs no level get neither key -- never a guess
     for tid in (NOISE_ID, ENGU_ID, BOOKONLY_ID):
         assert "levels" not in _mark(doc, tid) and "lines" not in _mark(doc, tid)
@@ -896,8 +896,10 @@ def test_stop_ladder_rules():
         {"t": None, "px": 702.0}]
     # a 1-minute leg's step is live one minute after the bar start
     assert qb.stop_ladder({}, lv[:1], None, "1m") == [{"t": "2026-09-28 13:06:00", "px": 701.0}]
-    many = [{"ref_time": "2026-09-28T13:05:00-04:00", "stop_px": str(700 + i)} for i in range(30)]
-    assert len(qb.stop_ladder(ent, many, "t0", "5m")) == qb.MAX_STOP_STEPS
+    many = [{"ref_time": "2026-09-28T13:05:00-04:00", "stop_px": str(701 + i)} for i in range(150)]
+    thin = qb.stop_ladder(ent, many, "t0", "5m")
+    assert len(thin) == qb.MAX_STOP_STEPS
+    assert thin[0] == {"t": "t0", "px": 700.5} and thin[-1]["px"] == 850.0   # first and last kept
     assert qb.trade_levels({"trade_id": "x", "side": "long", "book_in": {}, "book_out": {}},
                            {"stop_px": "", "target_px": ""}, [], "5m") is None
     assert qb.signals_by_trade([{"trade_id": "a", "event": "LEVELS", "stop_px": "1"},
@@ -1026,3 +1028,43 @@ def test_open_lots_become_entry_only_rows(tmp_path):
     assert qb.open_trade_rows(str(tmp_path / "missing.json")) == []
     m = qb.build_mark(rows[0], {}, {}, {}, wb_from=False)
     assert m["open"] is True and m["book_in"]["px"] == 697.2 and "book_out" not in m
+
+
+# ── owner 11-26: moving levels (trailing stops, targets that change while the trade is open) ──
+def test_short_why():
+    assert qb.short_why("breakeven armed at the close of 13:10 (the 13:05 bar); stop 732.33 from the next bar") == "breakeven"
+    assert qb.short_why("trail 2xATR; stop 701.2 from the next bar") == "trail"
+    assert qb.short_why("chandelier armed at 11:00; stop 700") == "chandelier"
+    assert qb.short_why("") == "" and qb.short_why(None) == ""
+    assert len(qb.short_why("x" * 200)) == qb.WHY_MAX
+
+
+def test_moving_levels_ladders():
+    ent = {"stop_px": "98", "target_px": "104"}
+    rows = [{"ref_time": "2026-11-24T10:20:00-05:00", "stop_px": "99", "target_px": "104", "reason": "trail; stop 99"},
+            {"ref_time": "2026-11-24T10:40:00-05:00", "stop_px": "100", "target_px": "104",
+             "reason": "breakeven armed at the close of 10:45 (the 10:40 bar); stop 100 from the next bar"},
+            {"ref_time": "2026-11-24T11:00:00-05:00", "stop_px": "100", "target_px": "105", "reason": "target raised"},
+            {"ref_time": "2026-11-24T11:20:00-05:00", "stop_px": "101", "target_px": "105", "reason": "trail; stop 101"}]
+    mark = {"trade_id": "T", "side": "long", "book_in": {"t": "2026-11-24 10:00:01", "px": 100.0},
+            "book_out": {"t": "2026-11-24 12:40:00", "px": 101.0}}
+    lv = qb.trade_levels(mark, ent, rows, "5m")
+    # the row that only raised the target adds no stop step; each moved step says why
+    assert lv["stops"] == [{"t": "2026-11-24 10:00:01", "px": 98.0},
+                           {"t": "2026-11-24 10:25:00", "px": 99.0, "why": "trail"},
+                           {"t": "2026-11-24 10:45:00", "px": 100.0, "why": "breakeven"},
+                           {"t": "2026-11-24 11:25:00", "px": 101.0, "why": "trail"}]
+    assert lv["target_px"] == 104.0
+    assert lv["targets"] == [{"t": "2026-11-24 10:00:01", "px": 104.0},
+                             {"t": "2026-11-24 11:05:00", "px": 105.0, "why": "target"}]
+    assert "thinned" not in lv
+    # a target that never moved writes no targets ladder (the doc keeps its old shape)
+    flat = [dict(r, target_px="104") for r in rows]
+    assert "targets" not in qb.trade_levels(mark, ent, flat, "5m")
+    # a trail that moved every bar: thinned to the cap, the true count kept
+    trail = [{"ref_time": "2026-11-24T10:00:00-05:00", "stop_px": str(98 + i / 100), "reason": "trail"} for i in range(1, 301)]
+    lv2 = qb.trade_levels(mark, ent, trail, "1m")
+    assert len(lv2["stops"]) == qb.MAX_STOP_STEPS and lv2["thinned"] == {"stops": 301}
+    assert lv2["stops"][-1]["px"] == 101.0
+    # ... and only the newest flat 'stop moved' lines (the ladder holds every step)
+    assert len(qb.moved_stop_lines(trail, "1m")) == qb.MAX_MOVED_LINES
