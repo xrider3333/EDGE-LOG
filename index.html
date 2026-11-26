@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.86';
+const VERSION='92.87';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.87',date:'2026-11-26',notes:['RESULTS, TEARSHEET report, three additions (owner 11-26). (1) A new ML tab: one table that answers whether ML earns its keep - the plain strategy, the picked gate, the best sizing tilt, the best gate plus sizing, and KEEL, each with trades kept, average size, net over max DD, net, PF and Sortino before LB, plus WF + LB and LB net; then the ten best gate models tried; then the full ML readout that used to sit at the bottom of Robustness. The summary line now says in one sentence whether a gate beat the plain strategy. (2) Books now open in the TEARSHEET too: headline numbers for the whole book, equity and drawdown with LB shaded, IS / LB / whole book table with the marked-daily drawdown, net by slice, the worst fall split by leg, a Legs tab, the checks, and a Setup tab. (3) The older panels shown inside the tabs (config search, 3-D surface, MAE / MFE, distributions) now use the report typeface and flat cards so they match the rest.']},
 {v:'92.85',date:'2026-11-26',notes:['WEBULL and NT8 trade charts: a NOISE trade draws the VWAP bold from entry to exit, the line it closes on, and the VWAP legend says bold = exit line.']},
 {v:'92.84',date:'2026-11-26',notes:['RESULTS: the run list has a new look, the RUN RAIL (owner 11-26). It is a slim list down the left of the report: one status dot (green pass, amber weak, red fail), the run number and family, the file, market and date beneath, and one number on the right - ROC at $30k, or whatever you sort by. Above it: search, a family picker, a sort picker (newest, ROC at $30k, WF Sortino, WF DD pct, WF DD5, net, score), a new All / Pass / Weak / Fail filter, and links for champions, starred, archived and clear filters. It uses the same filters, search and paging as before, so the same runs are listed. The rail comes on by itself with the TEARSHEET report; click table view on the rail to get the full table with every column back, and the RAIL button on the table to return.']},
 {v:'92.83',date:'2026-11-26',notes:['RESULTS has a new report layout, TEARSHEET (owner 11-26). Pick it on the layout rail at the top right of any run report; CLASSIC and the others are unchanged and one click away. One page per run: the verdict and gates passed, a two-line plain summary, then the four numbers on the walk-forward stretch (ROC at $30k, DD5, DD pct from the high, Sortino) with LB and IS beneath each. Five tabs replace the long scroll. OVERVIEW: equity and drawdown with IS, WF and LB marked, a by-stretch table, the walk-forward folds, net by year and a monthly grid. TRADES: where the money comes from by hour, day, side, hold time, volatility, trend, session, month or year, then the distribution and MAE / MFE charts. CONFIGS: the config matrix, the funnel, the 3-D surface, knob importance, neighbours and the config spread, all brought over as they are. ROBUSTNESS: every check in one table, flags and cautions first, click a row for its full readout. SETUP: settings, windows, data and the strategy code. A book still opens in CLASSIC.']},
@@ -32355,13 +32356,19 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       +'.tear .tst{display:inline-flex;align-items:center;gap:6px;font-weight:600}'
       +'.tear dl.tdl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0}.tear dl.tdl dt{color:var(--text4)}.tear dl.tdl dd{margin:0;overflow-wrap:anywhere}'
       +'.tear .tsec{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text4);margin:18px 0 8px}'
-      +'.tear .tlg{font-family:"JetBrains Mono",monospace;font-size:var(--fs);line-height:normal;margin:0 0 14px}'
+      +'.tear .tlg{font-size:var(--fs);line-height:normal;margin:0 0 14px;font-variant-numeric:tabular-nums}'
+      // the brought-over panels wear the report's own type and card: one typeface, no letter-spacing, flat 10px cards
+      +'.tear .tlg,.tear .tlg *{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important;letter-spacing:0!important}'
+      +'.tear .tlg .lbl{letter-spacing:.05em!important;font-weight:600;color:var(--text4)!important}'
+      +'.tear .tlg .hero-card{border-radius:10px!important;border:1px solid var(--border)!important;background:var(--bg2)!important;box-shadow:none!important}'
+      +'.tear .tlg table{font-variant-numeric:tabular-nums}'
+      +'.tear .tnote{font-size:12px;color:var(--text3);margin:0 0 14px;max-width:96ch}'
       +'.tear .tlgrow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}.tear .tlgrow>.tlg{flex:1 1 380px;min-width:0}'
       +'@container (max-width:1000px){.tear .tkpis{grid-template-columns:repeat(4,minmax(0,1fr))}.tear .tkpi:nth-child(4){border-right:0}.tear .tkpi:nth-child(-n+4){border-bottom:1px solid var(--border)}.tear .tg2,.tear .tg11{grid-template-columns:minmax(0,1fr)}}'
       +'@container (max-width:560px){.tear .tkpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tear .tkpi{border-bottom:1px solid var(--border)}.tear .tkpi:nth-child(2n){border-right:0}}'
       +'</style>';
     const tearsheetHtml=(d,mlt,X)=>{
-      if(!d||d.book)return null;
+      if(!d)return null;
       const V=d.validate||{},G=V.gate_bakeoff||d.gate_validate||{},W=V.wf_oos||null,LBX=V.lockbox||null,win=V.windows||{},R=d.regime||{};
       const n=x=>(x!=null&&x!==''&&isFinite(+x))?+x:null;
       const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -32374,6 +32381,97 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const mYr=s=>{const m=/^(\d{4})-(\d{2})/.exec(String(s||''));return m?(MON[+m[2]-1]+' '+m[1]):'';};
       const yb=(a,b)=>{const x=Date.parse(a),y=Date.parse(b);return (isFinite(x)&&isFinite(y)&&y>x)?(y-x)/31557600000:null;};
+      // ---- BOOK (several legs pooled, already in dollars): the same shell, with legs where a single run has configs
+      if(d.book){const B=d.book;if(!Array.isArray(B.legs)||!B.whole)return null;
+        const V=d.validate||{},MT=B.mtm||{},dF=String(d.date_from||B.date_from||'').slice(0,10),dT=String(d.date_to||B.date_to||'').slice(0,10),lbF=String(B.lockbox_from||'').slice(0,10);
+        const plain=h=>String(h==null?'':h).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+        const blk=(k,a,z,M)=>{if(!k||n(k.total_pnl)==null)return null;const yrs=yb(a,z),net=k.total_pnl*mlt,dd=n(k.max_drawdown)!=null?Math.abs(k.max_drawdown)*mlt:null,mar=(yrs&&dd)?(net/yrs)/dd:null,T=n(k.num_trades),Wn=n(k.wins),Ln=n(k.losses);
+          return {net:net,dd:dd,yrs:yrs,mar:mar,roc:mar!=null?30*mar:null,pf:n(k.profit_factor),wr:n(k.win_rate),n:T,avg:T?net/T:null,aw:(n(k.gross_win)!=null&&Wn)?k.gross_win*mlt/Wn:null,al:(n(k.gross_loss)!=null&&Ln)?-Math.abs(k.gross_loss)*mlt/Ln:null,mdd:(M&&n(M.max_drawdown)!=null)?Math.abs(M.max_drawdown)*mlt:null};};
+        const S={is:blk(B.pre_lockbox,dF,lbF,MT.pre_lockbox),lb:blk(B.lockbox,lbF,dT,MT.lockbox),all:blk(B.whole,dF,dT,MT.whole)};
+        if(!S.all)return null;
+        const eq=(Array.isArray(V.equity)&&V.equity.length>1)?V.equity.map(v=>+v*mlt):null;
+        let dd5=null,ddp=null,so=null;
+        try{if(eq){const D5=_dd5Of(eq,5);if(D5&&D5.n)dd5=D5.dd5;const p=_ddPctPeakOf(eq,1,DD_PCT_START_USD);if(p&&isFinite(p.pct))ddp=p.pct;}}catch(e){}
+        try{const O=_wfOosOf(d,mlt);if(O&&n(O.sortino)!=null)so=+O.sortino;}catch(e){}
+        const tab=({overview:1,legs:1,robust:1,setup:1}[APREF.tearTab])?APREF.tearTab:'overview';
+        const chips=(X.chips||[]),nWarn=chips.filter(c=>c.st==='warn').length,nBad=chips.filter(c=>c.st==='bad').length;
+        const vd=String(V.verdict||'').toUpperCase(),vdCls=vd==='PASS'?'ok':(vd==='WEAK'?'warn':(vd==='FAIL'?'bad':''));
+        const nm=String(B.name||d.strategy||'Book').replace(/[^\x20-\x7e]/g,'').trim();
+        const head='<div id="res-head" class="thead">'
+          +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span>'
+          +'<h2><span class="tid">#'+E(d.id)+'</span><span>'+E(nm)+'</span></h2>'
+          +(vd?('<span class="tverd"><span class="tdot '+vdCls+'"></span>'+E(vd)+'</span>'):'')
+          +'<span id="res-pills" style="display:none"></span>'
+          +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-family:\'JetBrains Mono\',monospace">'+(X.lay||'')+(X.act||'')+'</span></div>';
+        const meta='<div class="tmeta">'+['Book of '+B.legs.length+' legs',(dF&&dT)?(mYr(dF)+' to '+mYr(dT)):'',lbF?('LB from '+mYr(lbF)):'',n(B.trading_days)!=null?(fi(B.trading_days)+' trading days'):'',d.timestamp?('run '+E(String(d.timestamp).slice(0,10))):'']
+          .filter(x=>x&&x.trim()).map(x=>'<span>'+x+'</span>').join('')+'</div>';
+        const WS=B.worst_stretch||null;
+        const sum='The whole book made <b>'+fk(S.all.net)+(S.all.yrs?(' in '+S.all.yrs.toFixed(1)+' years'):'')+'</b>'+(S.all.dd!=null?(' with a worst fall of <b>'+fk(S.all.dd)+'</b>'+((WS&&WS.from&&WS.to)?(' ('+mYr(WS.from)+(mYr(WS.from)===mYr(WS.to)?'':(' to '+mYr(WS.to)))+')'):'')):'')+'.'
+          +(S.lb?(' LB (the sealed last stretch) '+(S.lb.net>=0?'held at':'lost')+' <b class="'+cl(S.lb.net)+'">'+fk(S.lb.net)+'</b>'+(S.lb.pf!=null?(' at PF '+fn(S.lb.pf)):'')+'.'):'')
+          +(n(B.slices_n)?(' '+B.slices_held+' of '+B.slices_n+' equal slices of the run were green.'):'')
+          +' A book tunes nothing, so it has no WF stretch.';
+        const sub=f=>{const a=[];if(S.lb&&f(S.lb)!=null)a.push('LB '+f(S.lb));if(S.is&&f(S.is)!=null)a.push('IS '+f(S.is));return a.join(' · ');};
+        const kpi=(l,v,s,c,sm)=>'<div class="tkpi'+(sm?' sm':'')+'"><div class="tl">'+l+'</div><div class="v '+(c||'')+'">'+v+'</div><div class="s">'+(s||'&nbsp;')+'</div></div>';
+        const kpis='<div class="tkpis" title="Read on the whole book.">'
+          +kpi('ROC at $30k',S.all.roc!=null?fp(S.all.roc):'&ndash;',sub(x=>x.roc!=null?fp(x.roc):null),cl(S.all.roc))
+          +kpi('DD5',dd5!=null?('~$'+(dd5/1e3).toFixed(1)+'k'):'&ndash;',dd5!=null?'avg of 5 deepest falls':'no saved curve')
+          +kpi('DD % from high',ddp!=null?('~'+fp(ddp)):'&ndash;',ddp!=null?'off the saved curve':'no saved curve')
+          +(so!=null?kpi('Sortino',fn(so),'whole book'):kpi('Max drawdown',S.all.dd!=null?fk(S.all.dd):'&ndash;',S.all.mdd!=null?('marked daily '+fk(S.all.mdd)):'by closed trade'))
+          +kpi('Net',fk(S.all.net),S.all.yrs?(S.all.yrs.toFixed(1)+' years'):'',cl(S.all.net),1)
+          +kpi('Profit factor',fn(S.all.pf),sub(x=>x.pf!=null?fn(x.pf):null),'',1)
+          +kpi('Trades',fi(S.all.n),(S.all.n&&S.all.yrs)?(fi(S.all.n/S.all.yrs)+' a year'):'','',1)
+          +kpi('LB net',S.lb?fk(S.lb.net):'&ndash;',S.lb?(S.lb.pf!=null?('PF '+fn(S.lb.pf)):''):'not run',S.lb?cl(S.lb.net):'',1)
+          +'</div>';
+        const tabsDef=[['overview','Overview'],['legs','Legs',String(B.legs.length)],['robust','Robustness',chips.length?((nBad?(nBad+' flag'+(nBad>1?'s':'')+' · '):'')+nWarn+' caution'+(nWarn===1?'':'s')):''],['setup','Setup']];
+        const tabs='<div class="ttabs">'+tabsDef.map(t=>'<span class="ttab'+(tab===t[0]?' on':'')+'" data-teartab="'+t[0]+'">'+t[1]+(t[2]?('<small>'+t[2]+'</small>'):'')+'</span>').join('')+'</div>';
+        const card=(title,note,body,pad)=>'<section class="tc"><header><h3>'+title+'</h3>'+(note?('<p>'+note+'</p>'):'')+'</header>'+(pad===false?('<div class="tw">'+body+'</div>'):('<div class="tb">'+body+'</div>'))+'</section>';
+        const legNm=l=>E(String(l.strategy||l.leg||'').replace(/\.py$/,''));
+        const TD={};window._tearD=TD;
+        let body='';
+        if(tab==='overview'){
+          let eqCard='';
+          if(eq){const nD=n(B.trading_days)||eq.length,li=n(V.lb_idx),cut=(li!=null&&li>0&&li<eq.length)?Math.round(li/(eq.length-1)*nD):null;
+            TD.eq={e:eq,nTr:nD,cuts:cut!=null?[cut,cut]:null,bn:['IS','','LB'],unit:'Day',d0:mYr(dF),d1:mYr(lbF),d2:'',d3:mYr(dT)};
+            eqCard=card('Equity and drawdown','whole book, by day &middot; saved curve, so the drawdown pane reads a touch shallow','<div class="tchart" data-tearc="eq"></div>');}
+          const cols=[['is','IS',S.is,dF,lbF],['lb','LB',S.lb,lbF,dT],['all','Whole book',S.all,dF,dT]].filter(c=>c[2]);
+          const rows=[['Net',x=>fk(x.net),x=>cl(x.net)],['Max drawdown',x=>x.dd!=null?fk(-x.dd):'&ndash;',x=>'tneg'],['Max drawdown, marked daily',x=>x.mdd!=null?fk(-x.mdd):'&ndash;',x=>'tneg'],['ROC at $30k',x=>fp(x.roc)],['MAR',x=>fn(x.mar)],['Profit factor',x=>fn(x.pf)],['Win %',x=>x.wr!=null?fp(x.wr,0):'&ndash;'],['Avg trade',x=>f$(x.avg),x=>cl(x.avg)],['Avg win',x=>f$(x.aw)],['Avg loss',x=>f$(x.al)],['Trades',x=>fi(x.n)],['Years',x=>x.yrs!=null?x.yrs.toFixed(1):'&ndash;']];
+          const stage='<table class="tt"><thead><tr><th>Metric</th>'+cols.map(c=>'<th class="'+(c[0]==='all'?'wf':'')+'">'+c[1]+((c[3]&&c[4])?('<small>'+c[3].slice(0,4)+'&ndash;'+c[4].slice(0,4)+'</small>'):'')+'</th>').join('')+'</tr></thead><tbody>'
+            +rows.map(r=>'<tr><td>'+r[0]+'</td>'+cols.map(c=>'<td class="'+(c[0]==='all'?'wf ':'')+(r[2]?r[2](c[2]):'')+'">'+r[1](c[2])+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+          body+='<div class="tgrid '+(eqCard?'tg2':'')+'">'+eqCard+card('By stretch','IS = before the sealed LB &middot; a book has no WF',stage,false)+'</div>';
+          let sCard='',wCard='';
+          if(Array.isArray(B.slices)&&B.slices.length){TD.slices=B.slices.map((v,i)=>({v:(+v||0)*mlt,l:String(i+1),s:'',tip:'Slice '+(i+1)+' of '+B.slices.length+'\n'+plain(f$((+v||0)*mlt))}));
+            sCard=card('Net by slice','the run cut into '+B.slices.length+' equal slices &middot; '+B.slices.filter(v=>v>0).length+' green','<div class="tchart" data-tearc="slices"></div>');}
+          if(WS&&Array.isArray(WS.legs)){const mxw=Math.max.apply(null,WS.legs.map(l=>Math.abs(+l.usd||0)))||1;
+            wCard=card('Worst fall',E(WS.from||'')+' to '+E(WS.to||'')+' &middot; '+fk(-(Math.abs(+WS.depth||0)*mlt))+(n(WS.trading_days)!=null?(' over '+WS.trading_days+' days'):''),
+              '<table class="tt"><thead><tr><th>Leg</th><th>Market</th><th>Size</th><th>Days</th><th>Net</th><th class="l" style="width:120px">Share</th></tr></thead><tbody>'
+              +WS.legs.slice().sort((a,c)=>(+a.usd||0)-(+c.usd||0)).map(l=>{const u=(+l.usd||0)*mlt;return '<tr><td>'+legNm(l)+'</td><td>'+E((l.instrument||'')+' '+(l.timeframe||''))+'</td><td>'+(n(l.weight)!=null?('x'+(+l.weight)):'')+'</td><td>'+fi(n(l.days))+'</td><td class="'+cl(u)+'" style="font-weight:600">'+f$(u)+'</td><td class="l"><span class="tbar" style="width:'+Math.max(2,Math.abs(u)/(mxw*mlt)*100).toFixed(0)+'px;background:var(--'+(u<0?'red':'green')+')"></span></td></tr>';}).join('')
+              +'</tbody></table>',false);}
+          if(sCard||wCard)body+='<div class="tgrid '+((sCard&&wCard)?'tg11':'')+'">'+sCard+wCard+'</div>';
+          if(MT.note)body+='<p class="tnote">'+E(MT.note)+'</p>';
+        }else if(tab==='legs'){
+          const tot=B.legs.reduce((s,l)=>s+Math.abs(+l.net||0),0)||1,mxl=Math.max.apply(null,B.legs.map(l=>Math.abs(+l.net||0)))||1;
+          body+='<div class="tgrid">'+card('Legs','each leg at the size it holds in this book &middot; largest first',
+            '<table class="tt"><thead><tr><th>Leg</th><th>Market</th><th>Size</th><th>Trades</th><th>Net</th><th>% of book</th><th class="l" style="width:130px">Share</th><th>Cost pts</th><th class="l">Data</th></tr></thead><tbody>'
+            +B.legs.slice().sort((a,c)=>(+c.net||0)-(+a.net||0)).map(l=>{const u=(+l.net||0)*mlt;return '<tr><td>'+legNm(l)+'</td><td>'+E((l.instrument||'')+' '+(l.timeframe||''))+'</td><td>'+(n(l.weight)!=null?('x'+(+l.weight)):'')+'</td><td>'+fi(n(l.trades))+'</td><td class="'+cl(u)+'" style="font-weight:600">'+f$(u)+'</td><td>'+fp(Math.abs(+l.net||0)/tot*100,0)+'</td><td class="l"><span class="tbar" style="width:'+Math.max(2,Math.abs(+l.net||0)/mxl*110).toFixed(0)+'px;background:var(--'+(u<0?'red':'green')+')"></span></td><td>'+(n(l.cost_pts)!=null?l.cost_pts:'&ndash;')+'</td><td class="l tmut">'+E(l.master||l.source||'')+'</td></tr>';}).join('')
+            +'</tbody></table>',false)+'</div>';
+          if(Array.isArray(B.inert_legs)&&B.inert_legs.length)body+='<p class="tnote">Legs that made no trades in this book: '+E(B.inert_legs.map(l=>typeof l==='string'?l:(l.strategy||l.leg||'')).join(', '))+'.</p>';
+        }else if(tab==='robust'){
+          const ord={bad:0,warn:1,info:2,ok:3},lab={ok:'Pass',warn:'Caution',bad:'Flag',info:'Note'},openK=window._diagOpenKey;
+          if(chips.length)body+='<div class="tgrid"><section class="tc" style="'+(X.semVars||'')+'"><header><h3>Checks</h3><p>flags and cautions first &middot; click a row for its full readout</p></header><div class="tw"><table class="tt"><thead><tr><th>Check</th><th class="l">Status</th><th class="l">Reading</th><th class="l">What it asks</th></tr></thead><tbody>'
+            +chips.slice().sort((a,c)=>(ord[a.st]==null?9:ord[a.st])-(ord[c.st]==null?9:ord[c.st])).map(c=>'<tr class="clk" data-diagchip="'+E(c.k)+'"><td>'+E(plain(c.nm))+'</td><td class="l"><span class="tst"><span class="tdot '+(c.st==='ok'?'ok':(c.st==='warn'?'warn':(c.st==='bad'?'bad':'')))+'"></span>'+(lab[c.st]||'Note')+'</span></td><td class="l" style="font-weight:600">'+E(plain(c.chip))+'</td><td class="why">'+E(plain(c.q))+'</td></tr>'
+              +((openK===c.k&&c.html)?('<tr><td colspan="4" style="white-space:normal;padding:0 14px 12px"><div class="tlg" style="margin:0">'+c.html+'</div></td></tr>'):'')).join('')
+            +'</tbody></table></div></section></div>';
+          else body='<div class="tmut">This book saved no robustness checks.</div>';
+        }else{
+          const dl=rows=>'<dl class="tdl">'+rows.filter(r=>r[1]!=null&&r[1]!=='').map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>';
+          const DR=B.day_rule||{};
+          body+='<div class="tgrid tg11">'
+            +card('Book','',dl([['Name',E(nm)],['Legs',String(B.legs.length)],['Window',(dF&&dT)?(E(dF)+' to '+E(dT)):''],['LB from',E(lbF)],['Trading days',n(B.trading_days)!=null?fi(B.trading_days):''],['Run finished',E(d.timestamp)]]))
+            +card('How days are counted','',dl([['Day rule',E(String(DR.used||'').replace(/_/g,' '))],['Net differs',DR.net_differs==null?'':(DR.net_differs?'yes':'no')],['Drawdown differs',DR.drawdown_differs==null?'':(DR.drawdown_differs?'yes':'no')],['Note',E(DR.note||'')],['Marked daily',E(MT.note||'')]]))
+            +'</div>'+((X.banner&&String(X.banner).replace(/\s/g,''))?('<div class="tlg">'+X.banner+'</div>'):'')+'<div class="tlg">'+(X.code||'')+'</div>';
+        }
+        return _tearCss+'<div class="tear">'+head+meta+'<p class="tsum">'+sum+'</p>'+kpis+tabs+body+'</div>';
+      }
       // one shape for every stretch, whatever block it was saved in (figures in POINTS until st() prices them)
       const fromU=u=>(u&&n(u.total_pnl)!=null)?{net:+u.total_pnl,dd:n(u.max_drawdown)!=null?Math.abs(+u.max_drawdown):null,sh:n(u.sharpe),so:n(u.sortino),pf:n(u.profit_factor),wr:n(u.win_rate),n:n(u.num_trades),aw:n(u.avg_win),al:n(u.avg_loss)}:null;
       const fromW=w=>(w&&n(w.net)!=null)?{net:+w.net,dd:n(w.max_drawdown)!=null?Math.abs(+w.max_drawdown):null,sh:n(w.sharpe),so:n(w.sortino),pf:n(w.profit_factor),wr:n(w.win_rate),n:n(w.trades),aw:n(w.avg_win),al:n(w.avg_loss)}:null;
@@ -32396,7 +32494,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(S.wf&&O&&n(O.mar)!=null){S.wf.mar=+O.mar;S.wf.roc=30*O.mar;}
       let dd5=null;try{if(O&&O.curve&&O.curve.length>1){const D5=_dd5Of(O.curve,5);if(D5&&D5.n)dd5=D5.dd5;}}catch(e){}
       const H=S.wf||S.all||{},hName=S.wf?'walk-forward':'whole run';
-      const tab=({overview:1,trades:1,configs:1,robust:1,setup:1}[APREF.tearTab])?APREF.tearTab:'overview';
+      const tab=({overview:1,trades:1,configs:1,ml:1,robust:1,setup:1}[APREF.tearTab])?APREF.tearTab:'overview';
       const chips=(X.chips||[]),nWarn=chips.filter(c=>c.st==='warn').length,nBad=chips.filter(c=>c.st==='bad').length;
       const plain=h=>String(h==null?'':h).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
       // ---- header
@@ -32416,6 +32514,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(S.wf){sum='Walk-forward made <b>'+fk(S.wf.net)+(S.wf.yrs?(' in '+S.wf.yrs.toFixed(1)+' years'):'')+'</b>'+(S.wf.ddp!=null?(' with a <b>'+fp(S.wf.ddp)+'</b> worst fall from the high'):'')+(folds.length?(', and '+fGreen+' of '+folds.length+' re-tuned folds were green'):'')+'.'
           +(S.lb?(' LB (the unseen stretch) '+(S.lb.net>=0?'held at':'lost')+' <b class="'+cl(S.lb.net)+'">'+fk(S.lb.net)+'</b>'+(S.lb.pf!=null?(' at PF '+fn(S.lb.pf)):'')+'.'):'');}
       else if(S.all)sum='Whole run <b>'+fk(S.all.net)+'</b>'+(S.all.pf!=null?(' at PF '+fn(S.all.pf)):'')+'. This run has no walk-forward stretch, so it is not scored on unseen data.';
+      const hasML=!!(G&&(G.ungated_pre||G.chosen||G.keel))||!!d.ml_gate;
+      if(hasML&&G&&G.gate_earns_pre!=null)sum+=G.gate_earns_pre?' ML: a gate beat the plain strategy before LB.':' ML: no gate beat the plain strategy before LB.';
       if(cautions.length)sum+=' '+(cautions.length===1?'One caution':(cautions.length+' cautions'))+': '+E(cautions.join(', '))+'.';
       // ---- the four numbers, then four supporting ones
       const sub=(f)=>{const a=[];if(S.wf){if(S.lb&&f(S.lb)!=null)a.push('LB '+f(S.lb));if(S.is&&f(S.is)!=null)a.push('IS '+f(S.is));}return a.join(' · ')||(S.wf?'':'whole run');};
@@ -32430,7 +32530,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +kpi('Trades',fi(H.n),(H.n&&H.yrs)?(fi(H.n/H.yrs)+' a year'):'','',1)
         +kpi('LB net',S.lb?fk(S.lb.net):'&ndash;',S.lb?(S.lb.pf!=null?('PF '+fn(S.lb.pf)):''):'not run',S.lb?cl(S.lb.net):'',1)
         +'</div>';
-      const tabsDef=[['overview','Overview'],['trades','Trades'],['configs','Configs',n(d.n_evaluated)!=null?fi(d.n_evaluated):''],['robust','Robustness',chips.length?((nBad?(nBad+' flag'+(nBad>1?'s':'')+' · '):'')+nWarn+' caution'+(nWarn===1?'':'s')):''],['setup','Setup']];
+      const tabsDef=[['overview','Overview'],['trades','Trades'],['configs','Configs',n(d.n_evaluated)!=null?fi(d.n_evaluated):''],['ml','ML',hasML?((G&&G.gate_earns_pre===true)?'gate earns':((G&&G.gate_earns_pre===false)?'no lift':'')):'none'],['robust','Robustness',chips.length?((nBad?(nBad+' flag'+(nBad>1?'s':'')+' · '):'')+nWarn+' caution'+(nWarn===1?'':'s')):''],['setup','Setup']];
       const tabs='<div class="ttabs">'+tabsDef.map(t=>'<span class="ttab'+(tab===t[0]?' on':'')+'" data-teartab="'+t[0]+'">'+t[1]+(t[2]?('<small>'+t[2]+'</small>'):'')+'</span>').join('')+'</div>';
       const card=(title,note,body,pad)=>'<section class="tc"><header><h3>'+title+'</h3>'+(note?('<p>'+note+'</p>'):'')+'</header>'+(pad===false?('<div class="tw">'+body+'</div>'):('<div class="tb">'+body+'</div>'))+'</section>';
       const lg=h=>(h&&String(h).replace(/\s/g,''))?('<div class="tlg"><div style="'+X.colStyle+'">'+h+'</div></div>'):'';
@@ -32475,6 +32575,36 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       }else if(tab==='configs'){
         body+=lgRaw(X.P.matrix)+lgRow([X.P.funnel,X.P.corr])+lgRow([X.P.p3,X.P.surr])+lg(X.P.top)+lgRow([X.P.nb,X.P.dist]);
         if(!body)body='<div class="tmut">This run saved no config search.</div>';
+      }else if(tab==='ml'){
+        // ML: does a trade filter or a sizing model beat the plain strategy? every row is the SAME trades, filtered or re-sized
+        if(!hasML)body='<div class="tmut">This run has no ML test. A validate run adds one: gate models that skip trades, and sizing models that lean on the better ones.</div>';
+        else{
+          const gs=o=>(o&&typeof o==='object')?{net:n(o.total_pnl!=null?o.total_pnl:(o.pnl!=null?o.pnl:o.net)),pf:n(o.profit_factor!=null?o.profit_factor:o.pf),so:n(o.sortino),n:n(o.num_trades!=null?o.num_trades:o.trades)}:{net:null,pf:null,so:null,n:null};
+          const bestOf=a=>(Array.isArray(a)&&a.length)?a.slice().sort((x,y)=>(n(y.pre_rec)||-1e9)-(n(x.pre_rec)||-1e9))[0]:null;
+          const CH=G.chosen||null,cand=Array.isArray(G.candidates)?G.candidates:[];
+          const chC=CH?cand.filter(c=>c.model===CH.model&&c.threshold===CH.threshold)[0]:null;
+          const TL=bestOf(G.tilts),HY=bestOf(G.hybrids),K=G.keel||null,U=gs(G.ungated_pre),uRec=n(G.ungated_pre_rec);
+          const vars=[];
+          if(G.ungated_pre)vars.push({nm:'No ML',note:'the plain strategy, every trade at one size',pre:U,wl:gs(G.ungated_wf_lb),lb:gs(G.ungated_lockbox),rec:uRec,kept:U.n,size:1,base:1});
+          if(CH)vars.push({nm:'Gate',note:E(CH.model)+' model, skips trades scored under '+CH.threshold,pre:gs(CH.pre),wl:gs(chC&&chC.wf_lb),lb:gs(chC&&chC.lockbox),rec:n(chC&&chC.pre_rec),kept:n(chC&&chC.kept_pre)||gs(CH.pre).n,size:1});
+          if(TL)vars.push({nm:'Sizing tilt',note:E(TL.model)+' &middot; '+E(TL.rule||TL.scheme||''),pre:gs(TL.pre),wl:gs(TL.wf_lb),lb:gs(TL.lockbox),rec:n(TL.pre_rec),kept:n(TL.kept_pre),size:n(TL.avg_size)});
+          if(HY)vars.push({nm:'Gate + sizing',note:E(HY.model)+' &middot; '+E(HY.rule||HY.scheme||''),pre:gs(HY.pre),wl:gs(HY.wf_lb),lb:gs(HY.lockbox),rec:n(HY.pre_rec),kept:n(HY.kept_pre),size:n(HY.avg_size)});
+          if(K)vars.push({nm:'KEEL'+(K.version?(' '+E(K.version)):''),note:E(K.scheme||'sizing model')+(n(K.trust_mean)!=null?(' &middot; trust '+fn(K.trust_mean)):''),pre:gs(K.pre),wl:gs(K.wf_lb),lb:gs(K.lockbox),rec:n(K.pre_rec),kept:n(K.kept_pre),size:n(K.avg_size)});
+          const dlt=(v,u)=>(v==null||u==null)?'':(' <span class="'+(v>=u?'tpos':'tneg')+'" style="font-weight:400;font-size:11px">'+(v>=u?'+':'')+(v-u).toFixed(2)+'</span>');
+          const vdTxt=String(G.verdict||'').replace(/[^\x20-\x7e]+/g,' - ').replace(/\s+/g,' ').trim();
+          if(vars.length)body+='<div class="tgrid">'+card('Does ML earn its keep?',(G.gate_earns_pre===false?'<span class="tst"><span class="tdot warn"></span>No lift</span>':(G.gate_earns_pre===true?'<span class="tst"><span class="tdot ok"></span>Gate earns</span>':'')),
+            '<table class="tt"><thead><tr><th>Version</th><th class="l">What it does</th><th>Trades kept</th><th>Avg size</th><th class="wf">Net / max DD<small>IS + WF</small></th><th>Net<small>IS + WF</small></th><th>PF</th><th>Sortino</th><th>Net<small>WF + LB</small></th><th>Net<small>LB</small></th></tr></thead><tbody>'
+            +vars.map(v=>'<tr><td style="font-weight:600">'+v.nm+'</td><td class="why" style="min-width:180px">'+v.note+'</td><td>'+fi(v.kept)+((v.kept!=null&&U.n&&!v.base)?(' <span class="tmut">'+Math.round(v.kept/U.n*100)+'%</span>'):'')+'</td><td>'+(v.size!=null?('x'+fn(v.size)):'&ndash;')+'</td><td class="wf">'+fn(v.rec)+(v.base?'':dlt(v.rec,uRec))+'</td><td class="'+cl(v.pre.net)+'">'+fk(v.pre.net!=null?v.pre.net*mlt:null)+'</td><td>'+fn(v.pre.pf)+'</td><td>'+fn(v.pre.so)+'</td><td class="'+cl(v.wl.net)+'">'+fk(v.wl.net!=null?v.wl.net*mlt:null)+'</td><td class="'+cl(v.lb.net)+'">'+fk(v.lb.net!=null?v.lb.net*mlt:null)+'</td></tr>').join('')
+            +'</tbody></table>',false)+'</div>'
+            +'<p class="tnote">'+(vdTxt?('<b style="color:var(--text)">'+E(vdTxt)+'.</b> '):'')+'Judge a version on net / max DD, not on net: the sizing versions trade more than one contract, so their net is bigger for the same edge. Each sizing row is the best of its kind before LB'+(G.selection_rule?('; the gate is picked by the rule '+E(String(G.selection_rule).replace(/_/g,' '))):'')+'.</p>';
+          if(cand.length){const top=cand.slice().sort((x,y)=>(n(y.pre_rec)||-1e9)-(n(x.pre_rec)||-1e9)).slice(0,10);
+            body+='<div class="tgrid">'+card('Gate models tried',cand.length+' model and cutoff pairs &middot; best 10 by net / max DD before LB',
+              '<table class="tt"><thead><tr><th>Model</th><th>Cutoff</th><th>Trades kept</th><th class="wf">Net / max DD</th><th>Net</th><th>PF</th><th>Sortino</th><th class="l">Allowed</th></tr></thead><tbody>'
+              +top.map(c=>'<tr><td>'+E(c.model)+((CH&&c.model===CH.model&&c.threshold===CH.threshold)?' <span class="tmut">picked</span>':'')+'</td><td>'+fn(n(c.threshold))+'</td><td>'+fi(n(c.kept_pre))+'</td><td class="wf">'+fn(n(c.pre_rec))+dlt(n(c.pre_rec),uRec)+'</td><td class="'+cl(n(c.pre_pnl))+'">'+fk(n(c.pre_pnl)!=null?c.pre_pnl*mlt:null)+'</td><td>'+fn(n(c.pre_pf))+'</td><td>'+fn(n(c.pre_sortino))+'</td><td class="l">'+(c.eligible===false?'<span class="tmut">no, keeps too few</span>':'yes')+'</td></tr>').join('')
+              +'</tbody></table>',false)+'</div>';}
+          const full=lgRaw(X.P.gate);
+          if(full)body+='<div class="tsec">Full ML readout: every model, cutoff sweep and curves</div>'+full;
+        }
       }else if(tab==='robust'){
         const ord={bad:0,warn:1,info:2,ok:3},lab={ok:'Pass',warn:'Caution',bad:'Flag',info:'Note'};
         const openK=window._diagOpenKey;
@@ -32482,7 +32612,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +chips.slice().sort((a,b)=>(ord[a.st]==null?9:ord[a.st])-(ord[b.st]==null?9:ord[b.st])).map(c=>'<tr class="clk" data-diagchip="'+E(c.k)+'"><td>'+E(plain(c.nm))+'</td><td class="l"><span class="tst"><span class="tdot '+(c.st==='ok'?'ok':(c.st==='warn'?'warn':(c.st==='bad'?'bad':'')))+'"></span>'+(lab[c.st]||'Note')+'</span></td><td class="l" style="font-weight:600">'+E(plain(c.chip))+'</td><td class="why">'+E(plain(c.q))+'</td></tr>'
               +((openK===c.k&&c.html)?('<tr><td colspan="4" style="white-space:normal;padding:0 14px 12px"><div class="tlg" style="margin:0">'+c.html+'</div></td></tr>'):'')).join('')
             +'</tbody></table></div></section></div>';}
-        body+=lgRaw(X.P.gate)+lg(X.P.dsr);
+        body+=lg(X.P.dsr);
         if(!body)body='<div class="tmut">This run saved no robustness checks.</div>';
       }else{
         const dl=rows=>'<dl class="tdl">'+rows.filter(r=>r[1]!=null&&r[1]!=='').map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>';
@@ -32517,12 +32647,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const mx=Math.max.apply(null,e),mn=Math.min.apply(null,[0].concat(e)),stp=nice(mx-mn,4),top=Math.ceil(mx/stp)*stp||stp,bot=mn<-stp*.2?Math.floor(mn/stp)*stp:mn;
         const x=i=>pL+i/(N-1)*iw,y=v=>pT+(top-v)/((top-bot)||1)*eh,dmin=Math.min.apply(null,dd)||-1,yd=v=>pT+eh+gap+(v/dmin)*dh,xt=t=>pL+t/Q.nTr*iw;
         let g='';const c=Q.cuts;
-        if(c){[[0,c[0],'IS'],[c[0],c[1],'WF'],[c[1],Q.nTr,'LB']].forEach((b,i)=>{const x0=xt(b[0]),x1=xt(Math.min(b[1],Q.nTr));
+        const bn=Q.bn||['IS','WF','LB'];
+        if(c){[[0,c[0],bn[0]],[c[0],c[1],bn[1]],[c[1],Q.nTr,bn[2]]].forEach((b,i)=>{const x0=xt(b[0]),x1=xt(Math.min(b[1],Q.nTr));
           if(i)g+='<rect x="'+x0+'" y="'+pT+'" width="'+Math.max(0,x1-x0)+'" height="'+(eh+gap+dh)+'" fill="var(--text)" opacity="'+(i===2?.085:.04)+'"/>';
           if(x1-x0>26)g+='<text x="'+((x0+x1)/2)+'" y="'+(pT-9)+'" text-anchor="middle" style="font-weight:600;letter-spacing:.05em">'+b[2]+'</text>';});}
         for(let v=Math.ceil(bot/stp)*stp;v<=top+1e-9;v+=stp)g+='<line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--border)" stroke-width="'+(Math.abs(v)<1e-9?1.2:.6)+'"/><text x="'+(pL-8)+'" y="'+(y(v)+4)+'" text-anchor="end">'+fk(v)+'</text>';
         g+='<text x="'+(pL-8)+'" y="'+(yd(0)+4)+'" text-anchor="end">$0</text><text x="'+(pL-8)+'" y="'+(yd(dmin)+4)+'" text-anchor="end">'+fk(dmin)+'</text><line x1="'+pL+'" x2="'+(Wd-pR)+'" y1="'+yd(0)+'" y2="'+yd(0)+'" stroke="var(--border)"/>';
-        const xl=[[0,Q.d0,'start']];if(c){xl.push([c[0],Q.d1,'middle']);if(xt(Q.nTr)-xt(c[1])>70)xl.push([c[1],Q.d2,'middle']);}xl.push([Q.nTr,Q.d3,'end']);
+        const xl=[[0,Q.d0,'start']];if(c){if(xt(Q.nTr)-xt(c[0])>70&&xt(c[0])-xt(0)>70)xl.push([c[0],Q.d1,'middle']);if(xt(Q.nTr)-xt(c[1])>70)xl.push([c[1],Q.d2,'middle']);}xl.push([Q.nTr,Q.d3,'end']);
         xl.forEach(a=>{if(a[1])g+='<text x="'+xt(a[0])+'" y="'+(H-6)+'" text-anchor="'+a[2]+'">'+esc(a[1])+'</text>';});
         const line=e.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join('');
         const area='M'+x(0)+' '+yd(0)+dd.map((v,i)=>'L'+x(i).toFixed(1)+' '+yd(v).toFixed(1)).join('')+'L'+x(N-1)+' '+yd(0)+'Z';
@@ -32532,11 +32663,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const hit=el.querySelector('[data-hit]'),xh=el.querySelector('[data-xh]'),xd=el.querySelector('[data-xd]'),tp=el.querySelector('.ttip');
         hit.onmousemove=ev=>{const r=hit.getBoundingClientRect(),i=Math.max(0,Math.min(N-1,Math.round((ev.clientX-r.left)/r.width*(N-1)))),t=Math.round(i/(N-1)*Q.nTr),er=el.getBoundingClientRect();
           xh.style.display='';xd.style.display='';xh.setAttribute('x1',x(i));xh.setAttribute('x2',x(i));xd.setAttribute('cx',x(i));xd.setAttribute('cy',y(e[i]));
-          tp.textContent='Trade '+t.toLocaleString('en-US')+(c?(' - '+(t<c[0]?'IS':(t<c[1]?'WF':'LB'))):'')+'\nEquity '+f$(e[i])+'\nBelow high '+f$(dd[i]);
+          tp.textContent=(Q.unit||'Trade')+' '+t.toLocaleString('en-US')+(c?(' - '+(t<c[0]?bn[0]:(t<c[1]?bn[1]:bn[2]))):'')+'\nEquity '+f$(e[i])+'\nBelow high '+f$(dd[i]);
           tp.style.display='';const px=ev.clientX-er.left,py=ev.clientY-er.top;tp.style.left=Math.max(0,Math.min(er.width-tp.offsetWidth-4,px+14))+'px';tp.style.top=Math.max(0,py-tp.offsetHeight-10)+'px';};
         hit.onmouseleave=()=>{xh.style.display='none';xd.style.display='none';tp.style.display='none';};};
       root.querySelectorAll('[data-tearc]').forEach(el=>{try{const k=el.getAttribute('data-tearc');
-        if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,210);else if(k==='years'&&TD.years)bars(el,TD.years,210);}catch(e){console.error('tearsheet chart failed',e);}});
+        if(k==='eq'&&TD.eq)equity(el,TD.eq);else if(k==='folds'&&TD.folds)bars(el,TD.folds,210);else if(Array.isArray(TD[k])&&TD[k].length)bars(el,TD[k],210);}catch(e){console.error('tearsheet chart failed',e);}});
     };
     if(!window._tearRz){window._tearRz=1;let _tz;window.addEventListener('resize',()=>{clearTimeout(_tz);_tz=setTimeout(()=>{if(document.querySelector('[data-tearc]'))window._tearDraw(document);},150);});}
     const runDetail=(d)=>{
@@ -34108,7 +34239,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         _dense='<div data-dense>'+_d1+_d2+_d3+_d4+'</div>';
       }
       // TEARSHEET (owner 11-26): its own shell, the existing panels brought over under tabs. A run it cannot lay out
-      //   (a book) or any throw falls through to CLASSIC, so this layout can never blank a report.
+      //   or any throw falls through to CLASSIC, so this layout can never blank a report.
       if(_repLay==='tear'){try{const _tearOut=tearsheetHtml(d,mlt,{lay:_laySel,act:_actSelHtml(),chips:_chips,semVars:_semVars,colStyle:_colStyle,banner:valBannerHtml(d),code:runCodeHtml(d),
         P:{equity:_panelEquity,matrix:_panelMatrix,distInner:_distTile,funnel:_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):'')]),corr:_corr,p3:_p3inner,surr:_surrInner,top:_topInner,nb:_nbInner,dist:_dist,gate:_gateCard,dsr:_dsrInner}});
         if(_tearOut)return _tearOut;}catch(_te){console.error('tearsheet layout failed, showing CLASSIC',_te);}}
