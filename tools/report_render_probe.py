@@ -210,7 +210,7 @@ CASES = [
     # the owner's layout (2026-09-28): classic report, equity tab on the 1A funnel - a different chart
     # builder with its own lockbox hover, which v73.940 missed; the three cases above never draw it
     ('funnel-1a', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
-                             'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0}, 'win': {}}),
+                             'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2legacy': 1, 'a2top3': 0}, 'win': {}}),
     # COST AND LIMITS card (2026-10-07, the web half of the runner's get_blotter readings): the same report with the COST AND LIMITS chip opened and the
     # PC runner STUBBED - window._runCmd is replaced before renderApp, so no live runner is ever needed. 'ok' resolves a canned reply carrying `readings`;
     # 'old' resolves a reply WITHOUT the key (an old runner ignores readings:true); 'down' rejects (the runner is not there). 'wait' makes the poll hold
@@ -246,7 +246,11 @@ CASES = [
     # and changes nothing - so the assertions below read the chip's state AND count the factor
     # labels the resize is supposed to print.
     ('funnel-eqr', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
-                              'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2eqr': 1}, 'win': {}}),
+                              'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2legacy': 1, 'a2top3': 0, 'a2eqr': 1}, 'win': {}}),
+    # the funnel everyone sees since v92.78 (owner 11-26 "Yes, ship it"): TOP 3 only, one ACTUAL $ / EQUAL RISK switch.
+    #   With EQUAL RISK on the switch must read on, the chart must say which dollars it shows, the lines must carry their
+    #   size factor, and none of the old view tabs or budget chips may come back.
+    ('funnel-top3', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2eqr': 1}, 'win': {}}),
     # 1E CONFIG LABELS (board 169, owner 11-22: every ML row of run 525 read '525.1 ...', raw rows 'R2 . #11'). The 1E matrix on
     # its ALL tab, TABLE view: every CONFIG cell reads '#306.<set> <mode> . <detail>', <set> = the row's own base config's place in
     # the saved grid by in-sample net. cfg-labels: the fixture as saved (its gate was handed the crowned champion, set 6);
@@ -298,7 +302,7 @@ CASES = [
     ('a1-expand-cfg-usd', {'prefs': {'repCols': '3', 'dd1a': 'usd', 'cfg1a': {'306': 'gate:0'}}, 'win': {}, 'a1': 1, 'expand': 1}),
     # FUNNEL on run 482 with EQUAL RISK on: nothing drawn outside the plot, off-scale lines marked, the key folded, family DD faint
     ('funnel-eqr-482', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
-                                  'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2eqr': 1}, 'win': {}, 'fix': 'run_482', 'funGeo': 1}),
+                                  'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2legacy': 1, 'a2top3': 0, 'a2eqr': 1}, 'win': {}, 'fix': 'run_482', 'funGeo': 1}),
     # NEVER '.0' (owner 11-23: the NT8 ledger read 'ENGU-Q #335.0 raw'): every paper leg and book leg label the page builds
     ('leg-labels', {'prefs': {'repCols': '3'}, 'win': {}, 'legLabels': 1}),
     ('a1-daily', {'prefs': {'repCols': '3'}, 'win': {}, 'a1': 1, 'wait': 'rect[data-1abar]',
@@ -428,6 +432,11 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__, FIXX=__FIXX__;
         r.eqrBudgetChip=det?!!det.querySelector('[data-a2eqrb]'):false;
         r.eqrFactorLabels=(txt.match(/\u00d7[0-9]+[.][0-9]+/g)||[]).length;
         r.eqrNoDD=(txt.indexOf('no IS drawdown')>=0);
+        // TOP 3 (v92.78): the one switch, the which-dollars label, the factor pills, and no old view tabs
+        r.t3EqrOn=det?!!det.querySelector('[data-a2eqron="1"]'):false;
+        r.t3OldTabs=det?!!det.querySelector('[data-a2doors],[data-a2top3],[data-a2eqrb]'):false;
+        r.t3Tag=(txt.indexOf('EQUAL RISK · every line sized')>=0);
+        r.t3Factors=(txt.match(/×[0-9]/g)||[]).length;
         // THE HOVER (#582). The sentence is the only place a reader learns what the factor was
         //   computed OFF and that DD5 here comes off a thinned curve of a known length, so it is
         //   checked separately from the factor label: a build that dropped it would satisfy both
@@ -1534,6 +1543,16 @@ def _attempt(chrome, root, alt_index, fixture):
         if nm in ('funnel-1a', 'funnel-eqr'):
             if not r.get('eqrChip'):
                 fails.append('%s: the EQUAL RISK chip is not on the funnel header' % nm)
+        if nm == 'funnel-top3':
+            if not r.get('t3EqrOn'):
+                fails.append('%s: EQUAL RISK was set in prefs but the TOP 3 switch did not read as on' % nm)
+            if r.get('t3OldTabs'):
+                fails.append('%s: an old funnel view tab (TOP 3 / ONE CURVE / DOORS) or budget chip is back on the header' % nm)
+            if not r.get('t3Tag'):
+                fails.append('%s: the chart does not say which dollars it shows (EQUAL RISK label missing) - '
+                             'TOP 3 may have thrown and fallen back to ONE CURVE' % nm)
+            if not (r.get('t3Factors') or 0):
+                fails.append('%s: EQUAL RISK is on but no TOP 3 pill carries a size factor' % nm)
         if nm == 'funnel-eqr':
             if not r.get('eqrOn'):
                 fails.append('%s: EQUAL RISK was set in prefs but the chip did not read as on' % nm)
@@ -1615,10 +1634,10 @@ def _attempt(chrome, root, alt_index, fixture):
             else:
                 if G.get('out'):
                     fails.append('%s: %d of %d funnel points are drawn outside the plot' % (nm, G['out'], G['n']))
-                if not G.get('offMarks'):
-                    fails.append('%s: EQUAL RISK pushes lines past the plot on run 482 but no key row says "off scale"' % nm)
-                if G.get('keyOpen') != '0' or G.get('keyBodyDisp') != 'none' or 'off scale' not in (G.get('keyTogText') or ''):
-                    fails.append('%s: the key should be folded by default and say "off scale" (open %r, body %r, %r)' % (nm, G.get('keyOpen'), G.get('keyBodyDisp'), G.get('keyTogText')))
+                # v92.71 (owner 11-26 "Yes, fit the axis"): the $ axis now fits every EQUAL RISK line, so none runs past the
+                #   plot (the G.out check above) and there is no "off scale" mark left to print. The key still opens folded.
+                if G.get('keyOpen') != '0' or G.get('keyBodyDisp') != 'none':
+                    fails.append('%s: the key should be folded by default (open %r, body %r, %r)' % (nm, G.get('keyOpen'), G.get('keyBodyDisp'), G.get('keyTogText')))
                 if not G.get('ddFam') or max(G.get('ddFamOp') or [1]) > 0.3:
                     fails.append('%s: the family drawdown lines should be faint (%s lines, opacity %r)' % (nm, G.get('ddFam'), (G.get('ddFamOp') or [])[:3]))
         if nm == 'funnel-1a' and (r.get('eqrTips') or 0):

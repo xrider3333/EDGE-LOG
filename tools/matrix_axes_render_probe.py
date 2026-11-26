@@ -724,9 +724,9 @@ CASES = [
     ('funnel-ft-tilt-hyb', 921, {'repCols': '3', 'eqTab': 'funnel'}),
     ('funnel-ft-recycle', 922, {'repCols': '3', 'eqTab': 'funnel'}),
 ]
-# TOP 3 (2026-11-26) became the 1A funnel default; these cases test ONE CURVE / DOORS, so they pin it off
-#   unless a case asks for it.
-CASES = [(_n, _r, dict({'a2top3': 0}, **_p)) for (_n, _r, _p) in CASES]
+# TOP 3 (2026-11-26) is the only 1A funnel view now (v92.78); ONE CURVE / DOORS have no buttons and are reached only
+#   through the hidden a2legacy pref. These cases test them, so they set it (and pin TOP 3 off) unless a case asks.
+CASES = [(_n, _r, dict({'a2legacy': 1, 'a2top3': 0}, **_p)) for (_n, _r, _p) in CASES]
 
 PROBE_HTML = r"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>1E axes probe</title></head>

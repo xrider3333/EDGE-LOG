@@ -2386,7 +2386,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.81';
+const VERSION='92.82';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2407,6 +2407,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_545":{"cell":1,"grid":270,"how":"grid","run":545,"variant":"keel"},"NOISE_555":{"cell":1,"grid":27,"how":"grid","run":555,"variant":"keel"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'92.82',date:'2026-11-26',notes:['1A CONFIG FUNNEL is one view now (owner 11-26): the top 3 lines of every family, start to finish, with one switch - ACTUAL $ or EQUAL RISK. EQUAL RISK keeps the same lines and resizes each so its worst drawdown before the lockbox is $30k, kept through the lockbox; pills show the size (x2.5), the drawdown strip gets a dotted -$30k budget line, and a label on the chart always says which dollars you are looking at. ONE CURVE, DOORS, the configs slider and the $30k / MATCH ML chips are gone.']},
 {v:'92.80',date:'2026-11-26',notes:['CHART GALLERY: the VWAP exit is named in the card header (bold line = VWAP exit) instead of a label on the chart, which sat on the stop and exit labels in narrow trades.']},
 {v:'92.79',date:'2026-11-26',notes:['CHART GALLERY: the VWAP exit label is left off trades only a few bars long, where it sat on top of the stop label. The bold line stays.']},
 {v:'92.78',date:'2026-11-26',notes:['CHART GALLERY and the trade chart: a NOISE trade now shows its exit line - the VWAP drawn bold from entry to exit, since the trade closes when a bar closes across it.']},
@@ -25116,7 +25117,13 @@ function renderApp(){
               hind:_eqrHind(cfg,budget,mult)};};
     // TOP 3 (owner 2026-11-26): the funnel's default view - the three highest-ending lines of every family, raw $.
     //   DOORS still wins when picked; EQUAL RISK does not apply inside TOP 3 (its strip is hidden there).
-    const _a2T3On=()=>(APREF.a2top3==null?1:+APREF.a2top3)===1&&+(APREF.a2doors||0)!==1;
+    // ONE VIEW (owner 11-26: "start from the beggining ... a normal funnel with the top 3 of each family ... theres redundancys and
+    //   many buttons" -> "Yes, ship it"): TOP 3 is the only 1A funnel view, with one ACTUAL $ / EQUAL RISK switch. ONE CURVE and
+    //   DOORS have no buttons any more; they stay reachable only through the hidden a2legacy pref, which the render probes set to
+    //   keep testing them (ONE CURVE is still what draws if TOP 3 throws).
+    const _a2Leg=()=>+(APREF.a2legacy||0)===1;
+    const _a2T3On=()=>_a2Leg()?((APREF.a2top3==null?1:+APREF.a2top3)===1&&+(APREF.a2doors||0)!==1):true;
+    const _a2DzOn=()=>_a2Leg()&&+(APREF.a2doors||0)===1;
     const _eqrOn=()=>+(APREF.a2eqr||0)===1&&!_a2T3On();
     // The budget: $30k by default, or matched to the crowned ML line's own in-sample drawdown so
     //   every line is read at the risk that line actually ran.
@@ -26337,7 +26344,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
       // DOORS is not a timeline - every line restarts at $0 in its own panel on its own scale - so its
       //   lockbox panel keeps a quarter of the width (the v73.756 rule) instead of the ~6% calendar
       //   sliver ONE CURVE draws (owner, 2026-09-15: "why do the doors have the compressed LB").
-      const _lbFracX=(+(APREF.a2doors||0)===1)?(_timeOk?Math.max(0.02,Math.min(0.75,(_oE-_oS)/(_lE-_oS))):0.75):_lbFrac;
+      const _lbFracX=(_a2DzOn())?(_timeOk?Math.max(0.02,Math.min(0.75,(_oE-_oS)/(_lE-_oS))):0.75):_lbFrac;
       const xFull=(selMode&&hasLB)?(xL+(xR-xL)*_lbFracX):xR;   // optimize-window end = lockbox door
       const xIS=xL+(xFull-xL)*fIS;                          // in-sample door
       // round 3 (owner 11-23, run 482 with EQUAL RISK on: hybrid x8.46 ran to $5,288k off the top of a plot fitted to the raw
@@ -27250,7 +27257,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult*_eqrMul(_eqrGateCfg):null;
         // DOORS drops the $ from the key rows: they are whole-run finishes, and no panel draws one,
         //   so the row keeps its name and carries the figure in its hover text - half the width.
-        const _kDz=+(APREF.a2doors||0)===1;
+        const _kDz=_a2DzOn();
         const _kr=(k,txt,val,col,xt,off)=>'<div data-a2k="'+k+'" title="'+(xt?(xt+' · '):'')+((_kDz&&val!=null)?('ends the run at '+_kUsd(val)+' · '):'')+'click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+(off?';opacity:.4':'')+'"><b>▬</b> '+txt+((val!=null&&!_kDz)?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
         // v71.15: the HYBRID ♻ row shows on every run that has a hybrid. When the top hybrid
         //   refuses no trades there is nothing to recycle, so the row prints the same figure and
@@ -27367,7 +27374,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   The in-sample panel starts from the run's own $0 (a curve's first point is already one
         //   trade in, so subtracting it would shift the whole panel).
         let _dzLayer=null;
-        if(+(APREF.a2doors||0)===1){try{
+        if(_a2DzOn()){try{
           const _twoP=!(hasLB&&xFull<xR-0.5);                  // no lockbox: in-sample + walk-forward only
           const xEnd=_twoP?xR:xFull;
           const PX=_twoP?[[xL,xIS],[xIS,xR]]:[[xL,xIS],[xIS,xFull],[xFull,xR]];
@@ -27531,9 +27538,19 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const pick={};FAM.forEach(F=>{pick[F[0]]=[];});
           S.forEach(s=>{const fam=famOf(s);if(!fam)return;const e=+s.eq[s.eq.length-1];if(!isFinite(e))return;
             const sp=spOf(s,fam);pick[fam].push({s:s,end:e,sp:sp,full:(!hasLB||sp<1)});});
+          // EQUAL RISK inside TOP 3 (owner 11-26): the SAME three lines (picked by actual ending $), each resized so its worst
+          //   drawdown BEFORE its own lockbox door is $30k (the whole line when it has no lockbox piece), that size kept
+          //   unchanged through the lockbox. Capped at 25x; a line with no drawdown before the door stays at 1x.
+          const _t3E=+(APREF.a2eqr||0)===1,_t3B=30000;
           let mnT=0,mxT=0,nT=0;
           FAM.forEach(F=>{const a=pick[F[0]];a.sort((x,y)=>((y.full?1:0)-(x.full?1:0))||(y.end-x.end));pick[F[0]]=a.slice(0,3);
-            pick[F[0]].forEach(o=>{nT++;o.s.eq.forEach(v=>{if(v<mnT)mnT=v;if(v>mxT)mxT=v;});});});
+            pick[F[0]].forEach(o=>{nT++;
+              const A=o.s.eq,n=A.length,di=(o.sp>=1)?n-1:Math.max(1,Math.floor(o.sp*(n-1)));let pk=-Infinity,dd=0;
+              for(let k=0;k<=di;k++){if(A[k]>pk)pk=A[k];if(pk-A[k]>dd)dd=pk-A[k];}
+              o.preDD=dd;o.f=(_t3E&&dd>0)?Math.min(25,_t3B/dd):1;
+              o.v=(o.f===1)?A:A.map(x=>x*o.f);o.endV=+o.v[n-1];
+              o.v.forEach(v=>{if(v<mnT)mnT=v;if(v>mxT)mxT=v;});});});
+          const _fx=o=>(_t3E?(' &times;'+(o.f>=10?o.f.toFixed(0):o.f.toFixed(1))):'');
           if(!nT)throw new Error('no family lines');
           mxT+=(mxT-mnT)*0.03;const rgT=(mxT-mnT)||1;
           const YT=v=>eqB-(eqB-pt)*(v-mnT)/rgT;
@@ -27544,31 +27561,33 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           FAM.forEach(F=>{const a=pick[F[0]];if(!a.length)return;
             let g='';
             a.slice().reverse().forEach(o=>{const rk=a.indexOf(o),n=o.s.eq.length,P=[];
-              for(let k=0;k<n;k++)P.push(xOf(k/Math.max(1,n-1),o.sp).toFixed(1)+' '+YT(o.s.eq[k]).toFixed(1));
-              g+='<polyline points="'+P.join(' ')+'" fill="none" stroke="'+F[2]+'" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round" opacity="'+_rkOp[rk]+'"><title>'+F[1]+' #'+(rk+1)+' &middot; '+_esc(o.s.label)+' &middot; ends '+_kUsd(o.end)+(o.full?'':' (no lockbox piece - ends at the door)')+'</title></polyline>';});
+              for(let k=0;k<n;k++)P.push(xOf(k/Math.max(1,n-1),o.sp).toFixed(1)+' '+YT(o.v[k]).toFixed(1));
+              g+='<polyline points="'+P.join(' ')+'" fill="none" stroke="'+F[2]+'" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round" opacity="'+_rkOp[rk]+'"><title>'+F[1]+' #'+(rk+1)+' &middot; '+_esc(o.s.label)+' &middot; ends '+_kUsd(o.endV)+(_t3E?(' at '+_fx(o).trim()+' (worst drawdown before the lockbox '+_kUsd(-o.preDD)+' at actual size; actual ending '+_kUsd(o.end)+')'):'')+(o.full?'':' (no lockbox piece - ends at the door)')+'</title></polyline>';});
             Ly+='<g data-kg="'+F[0]+'">'+g+'</g>';
-            pills.push({y:YT(a[0].end),col:F[2],kg:F[0],txt:_kUsd(a[0].end)});
+            pills.push({y:YT(a[0].endV),col:F[2],kg:F[0],txt:_kUsd(a[0].endV)+_fx(a[0])});
             rows.push(F.concat([a]));});
           // the drawdown strip (owner 11-26: "Yes, redo DD strip"): one thin underwater line per family's #1, on the same x as
           //   its equity line and in the same key group, so a key click hides both. The pane reaches the deepest of them; one
           //   dashed reference + pill marks that worst. The champion's filled area and the Monte-Carlo floor stay in ONE CURVE.
           const dT=eqB+3,dB=H-pd-1,ddL=[];
-          FAM.forEach(F=>{const o=pick[F[0]][0];if(!o)return;const A=o.s.eq,n=A.length,dv=new Array(n);let pk=-Infinity,w=0;
+          FAM.forEach(F=>{const o=pick[F[0]][0];if(!o)return;const A=o.v,n=A.length,dv=new Array(n);let pk=-Infinity,w=0;
             for(let j=0;j<n;j++){if(A[j]>pk)pk=A[j];dv[j]=A[j]-pk;if(dv[j]<w)w=dv[j];}
             ddL.push({F:F,o:o,dv:dv,worst:w});});
-          const ddFl=Math.min(-1,Math.min.apply(null,ddL.map(L=>L.worst)))*1.06;
+          const ddFl=Math.min(-1,_t3E?-_t3B:-1,Math.min.apply(null,ddL.map(L=>L.worst)))*1.06;
           const DY=v=>dT+(dB-dT)*Math.min(1,v/ddFl);
           const deep=ddL.reduce((m,L)=>(!m||L.worst<m.worst)?L:m,null);
           let dS='<g data-kg="dd"><rect x="0" y="'+(eqB+1).toFixed(1)+'" width="'+W+'" height="'+Math.max(0,dT-eqB-2).toFixed(1)+'" fill="var(--bg2)"/>'
             +'<line x1="'+xL.toFixed(1)+'" y1="'+dT.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+dT.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>'
             +(hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+dT.toFixed(1)+'" x2="'+xFull.toFixed(1)+'" y2="'+dB.toFixed(1)+'" stroke="#a78bfa" stroke-width="0.6" opacity="0.75"/>'):'')
-            +(deep?('<line x1="'+xL.toFixed(1)+'" y1="'+DY(deep.worst).toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+DY(deep.worst).toFixed(1)+'" stroke="'+deep.F[2]+'" stroke-width="0.6" stroke-dasharray="3,2" opacity="0.7"/>'):'')+'</g>';
+            +(deep?('<line x1="'+xL.toFixed(1)+'" y1="'+DY(deep.worst).toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+DY(deep.worst).toFixed(1)+'" stroke="'+deep.F[2]+'" stroke-width="0.6" stroke-dasharray="3,2" opacity="0.7"/>'):'')
+            +(_t3E?('<line x1="'+xL.toFixed(1)+'" y1="'+DY(-_t3B).toFixed(1)+'" x2="'+xFull.toFixed(1)+'" y2="'+DY(-_t3B).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="1.5,1.5" opacity="0.9"><title>the $30k risk budget every line is sized to before the lockbox</title></line>'):'')+'</g>';
           ddL.forEach(L=>{const n=L.dv.length,P=[];
             for(let j=0;j<n;j++)P.push((j?'L':'M')+xOf(j/Math.max(1,n-1),L.o.sp).toFixed(1)+' '+DY(L.dv[j]).toFixed(1));
             dS+='<g data-kg="'+L.F[0]+'"><path d="'+P.join('')+'" fill="none" stroke="'+L.F[2]+'" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linejoin="round"><title>'+L.F[1]+' #1 drawdown &middot; '+_esc(L.o.s.label)+' &middot; worst '+_kUsd(L.worst)+'</title></path></g>';});
-          if(deep)pills.push({y:DY(deep.worst),col:deep.F[2],kg:'dd',txt:_kUsd(deep.worst)});
+          if(deep&&!(_t3E&&Math.abs(deep.worst+_t3B)<_t3B*0.04))pills.push({y:DY(deep.worst),col:deep.F[2],kg:'dd',txt:_kUsd(deep.worst)});
+          if(_t3E)pills.push({y:DY(-_t3B),col:'#a78bfa',kg:'dd',txt:'-$30k'});
           const ddOf={};ddL.forEach(L=>{ddOf[L.F[0]]=L.worst;});
-          pills.sort((p,q)=>p.y-q.y);for(let i=1;i<pills.length;i++)if(pills[i].y-pills[i-1].y<5)pills[i].y=pills[i-1].y+5;
+          pills.sort((p,q)=>p.y-q.y);for(let i=1;i<pills.length;i++)if(pills[i].y-pills[i-1].y<6.5)pills[i].y=pills[i-1].y+6.5;
           const gs=_niceE((mxT-mnT)/5)||1,gls=[];for(let L=Math.ceil(mnT/gs)*gs;L<=mxT+1e-6;L+=gs)gls.push(L);
           _t3Gut='<div style="width:44px;min-width:44px;position:relative;overflow:visible;font-size:8px;color:var(--text5)">'
             +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
@@ -27578,14 +27597,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +'</div></div>';
           const kOpen=+(APREF.a2keyOpen||0)===1;
           _t3Key='<div data-a2krow data-a2keyopen="'+(kOpen?1:0)+'" style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
+            +'<div style="white-space:nowrap;font-weight:800;letter-spacing:.5px;color:'+(_t3E?'#a78bfa':'var(--blue)')+'">'+(_t3E?'EQUAL RISK &middot; every line sized to a $30k worst drawdown before the lockbox':'ACTUAL $ &middot; every line at the size it traded')+'</div>'
             +'<div data-a2keytog="1" title="'+(kOpen?'fold the key away from the lines':'open the key: each family, its three lines and where they end')+'" style="cursor:pointer;white-space:nowrap;font-weight:700;letter-spacing:.5px;color:var(--text3)">KEY '+(kOpen?'&#9662;':'&#9656;')
             +(kOpen?'':(' <span style="font-weight:400;color:var(--text5)">'+rows.length+' families &middot; top 3 each</span>'))+'</div>'
             +'<div data-a2keybody="1" style="display:'+(kOpen?'block':'none')+'">'
-            +rows.map(r=>'<div data-a2k="'+r[0]+'" title="'+r[3].map((o,i)=>'#'+(i+1)+' '+_esc(o.s.label)+' ends '+_kUsd(o.end)).join(' · ')+' · click: dim / hide / show · hover: spotlight" style="cursor:pointer;white-space:nowrap;color:'+r[2]+'">'
+            +rows.map(r=>'<div data-a2k="'+r[0]+'" title="'+r[3].map((o,i)=>'#'+(i+1)+' '+_esc(o.s.label)+' ends '+_kUsd(o.endV)+(_t3E?(' at'+_fx(o)+' (actual '+_kUsd(o.end)+')'):'')).join(' · ')+' · click: dim / hide / show · hover: spotlight" style="cursor:pointer;white-space:nowrap;color:'+r[2]+'">'
               +'<span style="display:inline-block;width:10px;height:0;border-top:1.5px solid '+r[2]+';vertical-align:middle;margin-right:4px"></span>'
-              +'<b>'+r[1]+'</b> <span style="color:var(--text3)">'+r[3].map(o=>_kUsd(o.end)).join(' &middot; ')+'</span>'
+              +'<b>'+r[1]+'</b> <span style="color:var(--text3)">'+r[3].map(o=>_kUsd(o.endV)).join(' &middot; ')+'</span>'
               +((ddOf[r[0]]!=null)?(' <span style="color:var(--text5)">&middot; DD '+_kUsd(ddOf[r[0]])+'</span>'):'')+'</div>').join('')
-            +'<div style="color:var(--text5);padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">ranked by ending $ &middot; fainter = #2, #3 &middot; DD = worst drawdown of #1 (lower strip)</div>'
+            +'<div style="color:var(--text5);padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">'+(_t3E?'same lines as ACTUAL $, picked by actual ending $ &middot; ':'ranked by ending $ &middot; ')+'fainter = #2, #3 &middot; DD = worst drawdown of #1 (lower strip)</div>'
             +'</div></div>';
           _t3Layer=Ly;_t3DD=dS;_t3Sc={mn:mnT,mx:mxT};
         }catch(_t3e){_t3Layer=null;_t3Gut=null;_t3Key=null;_t3DD=null;_t3Sc=null;console.warn('top 3 view skipped - showing one curve',_t3e);}}
@@ -27660,7 +27680,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   from the funnel header. The stretch picker still lives on the 1E MATRIX SAMPLE tabs
         //   (same saved setting), and the GATE line is switched from its own key row inside the
         //   plot since v71.20 — so neither chip was the only way to reach its setting.
-        ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider
+        ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')
+          // one switch - the same lines in both, only their $ size changes; the old view tabs only under a2legacy (probes)
+          +(_a2Leg()?(cfgSlider
           +_hdrRight(_tabStrip(_tabBtn('data-a2doors="0" data-a2top3="1"','TOP 3',_a2T3On(),'the three highest-ending lines of every family (raw, gate, tilt, keel, hybrid, hybrid recycled), each drawn whole from the first trade to the lockbox end as one thin line in its family colour, on one $ axis that fits them all','var(--blue)')
             +_tabBtn('data-a2doors="0" data-a2top3="0"','ONE CURVE',+(APREF.a2doors||0)!==1&&!_a2T3On(),'every line on one continuous $ scale across the whole run','var(--blue)')
             +_tabBtn('data-a2doors="1" data-a2top3="0"','DOORS',+(APREF.a2doors||0)===1,'in-sample, walk-forward and lockbox side by side - every line restarts at $0 at its own door and each panel has its own $ scale; the drawdown strip underneath stays one continuous account path','var(--blue)'),false,'var(--blue)')
@@ -27668,7 +27690,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             //   it composes with either of those, so making it exclusive with them would be wrong.
             +(_a2T3On()?'':_tabStrip(_tabBtn('data-a2eqr="'+(_eqrOn()?0:1)+'"','EQUAL RISK',_eqrOn(),'resize every family line so its IN-SAMPLE worst drawdown is the same risk budget, then apply that size unchanged to walk-forward and lockbox - so a raw config and an ML config are compared on edge rather than on how big they trade. The size comes from the in-sample stretch only, before the first walk-forward fold, so there is no hindsight in it. Each line is labelled with its factor and its equal-risk ending $; the hover also shows the hindsight factor the whole run would have allowed, marked as hindsight.','var(--violet)'),false,'var(--violet)'))
             +(_eqrOn()?_tabStrip(_tabBtn('data-a2eqrb="30k"','$30k',String(APREF.a2eqrb||'')!=='ml','size every line to a $30,000 worst in-sample drawdown - the house yardstick','var(--violet)')
-              +_tabBtn('data-a2eqrb="ml"','MATCH ML',String(APREF.a2eqrb||'')==='ml','size every line to the crowned ML line own in-sample drawdown, so each is read at the risk that line actually ran','var(--violet)'),false,'var(--violet)'):''))+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+              +_tabBtn('data-a2eqrb="ml"','MATCH ML',String(APREF.a2eqrb||'')==='ml','size every line to the crowned ML line own in-sample drawdown, so each is read at the risk that line actually ran','var(--violet)'),false,'var(--violet)'):'')))
+          :(_hdrRight(_tabStrip(_tabBtn('data-a2eqr="0"','ACTUAL $',+(APREF.a2eqr||0)!==1,'every line at the size it actually traded','var(--blue)')
+            +_tabBtn('data-a2eqr="1" data-a2eqron="'+(+(APREF.a2eqr||0)===1?1:0)+'"','EQUAL RISK',+(APREF.a2eqr||0)===1,'the same lines, each resized so its worst drawdown BEFORE the lockbox is $30,000; that size is kept unchanged through the lockbox. Compares edge, not how big a line traded.','var(--violet)'),false,'var(--blue)'))))+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' TOP CONFIGS PNL ')+selDrop+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
