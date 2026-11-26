@@ -27,6 +27,80 @@ import threading
 
 FLUSH_EVERY_SEC = 300
 
+# ---- quota breaker (MANAGER 11-26, after the second 429) ----------------------------------------
+# The free tier is 50,000 reads and 20,000 writes a Pacific day. On 11-26 bulk backfills took the day
+# to 31.5k reads and 18.2k writes with the market shut, and the runner went into back-off: the LIVE
+# box publish is what must never be starved. So every process that imports `api` now stops itself
+# before the day's last slice is gone, and only the live path may spend it.
+#
+# A caller is EXEMPT (may spend to the free-tier limit) when it is in CRITICAL_CALLERS or when it
+# sets EDGELOG_FS_CRITICAL=1. Everything else -- backfills, series rebuilds, research, reports --
+# raises FsQuotaBreaker once the day crosses the reserve. The day total is read from the SAME local
+# JSONL the tallies go to, so the check costs no Firestore reads and no network.
+FREE_READS, FREE_WRITES = 50000, 20000
+RESERVE_READS = int(os.environ.get("EDGELOG_FS_RESERVE_READS", "42000"))
+RESERVE_WRITES = int(os.environ.get("EDGELOG_FS_RESERVE_WRITES", "16000"))
+CRITICAL_CALLERS = {
+    "runner", "qqq_exec", "box_publish", "box_lease", "keel", "webull", "webull_exec",
+    "ownbar_shadow", "paper_publish", "chat_inbox", "fs_usage_report",
+}
+_day_cache = {"day": None, "reads": 0, "writes": 0, "at": 0.0, "pid_seen": 0}
+
+
+class FsQuotaBreaker(RuntimeError):
+    """This job was stopped so the live box publish keeps its slice of today's free tier."""
+
+
+def _exempt():
+    if os.environ.get("EDGELOG_FS_CRITICAL") == "1":
+        return True
+    if os.environ.get("EDGELOG_FS_BREAKER", "1") == "0":
+        return True
+    return caller_name() in CRITICAL_CALLERS
+
+
+def day_totals(max_age_sec=60):
+    """Today's counted reads / writes from the local JSONL, including this process. Never raises."""
+    import time
+    now = time.time()
+    day = _quota_day()
+    if _day_cache["day"] == day and now - _day_cache["at"] < max_age_sec:
+        base_r, base_w = _day_cache["reads"], _day_cache["writes"]
+    else:
+        base_r = base_w = 0
+        try:
+            with open(os.path.join(out_dir(), day + ".jsonl"), "r", encoding="utf-8") as f:
+                for ln in f:
+                    try:
+                        r = json.loads(ln)
+                    except Exception:
+                        continue
+                    if r.get("pid") == os.getpid():
+                        continue          # this process's own rows are added live below
+                    base_r += int(r.get("reads", 0) or 0) + int(r.get("listen_reads", 0) or 0)
+                    base_w += int(r.get("writes", 0) or 0)
+        except Exception:
+            pass
+        _day_cache.update({"day": day, "reads": base_r, "writes": base_w, "at": now})
+    with _lock:
+        mine_r = _tot.get("reads", 0) + _tot.get("listen_reads", 0)
+        mine_w = _tot.get("writes", 0)
+    return base_r + mine_r, base_w + mine_w
+
+
+def quota_check():
+    """Raise FsQuotaBreaker when a non-critical caller has reached the day's reserve."""
+    if _exempt():
+        return
+    reads, writes = day_totals()
+    if reads >= RESERVE_READS or writes >= RESERVE_WRITES:
+        flush()
+        raise FsQuotaBreaker(
+            "Firestore quota breaker: today is at %s reads / %s writes (reserve %s / %s, free tier "
+            "%s / %s). '%s' stopped so the live box publish keeps its slice. Re-run after the "
+            "Pacific midnight reset, or set EDGELOG_FS_CRITICAL=1 if this IS the live path."
+            % (reads, writes, RESERVE_READS, RESERVE_WRITES, FREE_READS, FREE_WRITES, caller_name()))
+
 _lock = threading.Lock()
 _tot = {"reads": 0, "writes": 0, "listen_reads": 0, "calls": 0}
 _flushed = {"reads": 0, "writes": 0, "listen_reads": 0, "calls": 0}
@@ -71,7 +145,11 @@ def count(kind, n=1):
     with _lock:
         _tot[kind] = _tot.get(kind, 0) + int(n)
         _tot["calls"] += 1
+        calls = _tot["calls"]
     _maybe_flush()
+    # the breaker reads a local file, so check it every 50 calls rather than on every one
+    if calls % 50 == 0:
+        quota_check()
 
 
 def snapshot():
