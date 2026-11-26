@@ -6,15 +6,19 @@ import re
 from pathlib import Path
 
 import api.blotter as B
+from api.cloud_signal import CROWN_LEGS
 from api.paper import PAPER_LEGS
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _legs():
-    items = PAPER_LEGS.items() if isinstance(PAPER_LEGS, dict) else \
-        [(c.get("key") or c.get("leg"), c) for c in PAPER_LEGS]
-    return [(str(k), c) for k, c in items if isinstance(c, dict) and c.get("strategy")]
+    """The NT8 / shadow legs (api.paper.PAPER_LEGS) and the Webull box's crown legs (api.cloud_signal.CROWN_LEGS)."""
+    out = []
+    for legs in (PAPER_LEGS, CROWN_LEGS):
+        items = legs.items() if isinstance(legs, dict) else [(c.get("key") or c.get("leg"), c) for c in legs]
+        out += [(str(k), c) for k, c in items if isinstance(c, dict) and c.get("strategy")]
+    return out
 
 
 def test_every_noise_leg_exits_on_the_vwap_and_no_other_does():
@@ -25,7 +29,8 @@ def test_every_noise_leg_exits_on_the_vwap_and_no_other_does():
         if got != want:
             wrong.append((k, c["strategy"], got))
     assert not wrong, f"index.html window._legXline would draw the wrong exit line for: {wrong}"
-    assert any(k.upper().startswith("NOISE") for k, _ in _legs())
+    keys = {k for k, _ in _legs()}
+    assert "NOISE_422" in keys and "NOISE_382" in keys          # both sources were read
 
 
 def test_the_web_rule_is_the_one_this_test_checks():
