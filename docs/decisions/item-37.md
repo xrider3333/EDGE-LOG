@@ -34,3 +34,4 @@ NinjaTrader died 11:56 with the demo NOISE short (11 MNQ) still open, protected 
 - 2026-11-21: board changed to [done] FLAT 1:31 PM; GUARD LIVE
 - 2026-11-22: board changed to [done] FLAT 1:31 PM; GUARD LIVE
 - 2026-11-23: board changed to [done] FLAT 1:31 PM; GUARD LIVE
+- 2026-11-25: board changed to [done] FLAT 1:31 PM; GUARD LIVE
