@@ -2379,7 +2379,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.50';
+const VERSION='92.51';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8828,7 +8828,8 @@ function lgvView(b){if(b==='qb'||b==='p2')return 'live';   // board 183 (owner 1
 // KPI table); WHAT-IF = all of it. Switching a shadow ON flips the board to WHAT-IF; switching the last one OFF in WHAT-IF returns to LIVE;
 // LIVE / WHAT-IF never clear the set. In LIVE a remembered switch is drawn dimmed; tapping it flips to WHAT-IF (it stays on).
 function lgvBoardOf(board){return board==='nt8'?'p2':board;}
-function lgvApplied(b){return lgvView(b)==='whatif';}
+function lgvApplied(b){if(b==='qb'||b==='p2')return true;   // board 183 (owner 11-25): no view switch on the paper ledgers - a switched-on leg is always applied
+  return lgvView(b)==='whatif';}
 // the as-if legs switched on AND applied (the view is WHAT-IF); bkaOn = the remembered set the switches draw
 function bkaOnA(board){return lgvApplied(lgvBoardOf(board))?bkaOn(board):[];}
 // how many shadows a board remembers (as-if legs that are not live here, plus Webull's box shadow switches)
@@ -48629,7 +48630,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return lgvShadowLegs('qb',from,null,id=>!!((BOOKS_LEG_CLASS[id]||{}).exec_leg||_lgvShKeyQb(id)),fwd);};
         // v91.89: _lgvShQbMem = the REMEMBERED shadows (enables WHAT-IF); _lgvShQbRaw = the APPLIED ones (empty in LIVE)
         const _lgvShQbMem=(()=>{try{return _lgvShSetQb(_lgvFromQb,qbShClosed);}catch(e){console.warn('ledger views shadows:',e);return [];}})();
-        const _lgvEffQb=(lgvView('qb')==='whatif'&&_lgvShQbMem.length)?'whatif':'live';
+        const _lgvEffQb=(lgvApplied('qb')&&_lgvShQbMem.length)?'whatif':'live';
         const _lgvShQbRaw=_lgvEffQb==='whatif'?_lgvShQbMem:[];
         // ledgerfix5 D: a box shadow leg's own closed trades as the shadow walk / sizer read them (r = |entry - stop| a share when the box
         // sends stop_px); a book leg reads its as-if doc (bkaShadowRaw, q.risk_usd a QQQ share)
@@ -51844,7 +51845,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _lgvFromP2=_pcwFrom||_allDates[0]||PAPER_START;
       // v91.89: _lgvShP2Mem = the REMEMBERED shadows (enables WHAT-IF); _lgvShP2Raw = the APPLIED ones (empty in LIVE)
       const _lgvShP2Mem=(()=>{try{return lgvShadowLegs('nt8',_lgvFromP2,null,id=>{const k=BKA_NT8_LIVE[id];return !!(k&&_bookSet.has(k));});}catch(e){return [];}})();
-      const _lgvEffP2=(lgvView('p2')==='whatif'&&_lgvShP2Mem.length)?'whatif':'live';
+      const _lgvEffP2=(lgvApplied('p2')&&_lgvShP2Mem.length)?'whatif':'live';
       const _lgvShP2Raw=_lgvEffP2==='whatif'?_lgvShP2Mem:[];
       const _lgvShP2=(()=>{if(!_lgvSizedP2||!_lgvShP2Raw.length)return _lgvShP2Raw;
         const lb={};_pt.forEach(t=>{if(!_bookSet.has(legOf(t))||t.open===true)return;const d=_closeDay(t);if(!d||(_lgvSizedP2.cut&&d<_lgvSizedP2.cut))return;lb[d]=(lb[d]||0)+(+t.pnl_usd||0);});
