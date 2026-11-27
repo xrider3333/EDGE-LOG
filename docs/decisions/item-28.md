@@ -35,3 +35,4 @@ Cause: the evening data refresh crashed on a locked file and pushed a half-day N
 - 2026-11-22: board changed to [done] FIXED
 - 2026-11-23: board changed to [done] FIXED
 - 2026-11-25: board changed to [done] FIXED
+- 2026-11-26: board changed to [done] FIXED
