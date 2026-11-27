@@ -846,6 +846,22 @@ def process_job(job: dict, progress_cb=None) -> dict:
 
     """Run one job through the engine; return a result patch to merge back.
     job['type']: 'backtest' (default, single config) or 'grid' (param sweep)."""
+    # MANAGER GO 11-26: a queued job is BULK work, not the live publish, so it is billed under its
+    # own caller ('runner_job') and the Firestore quota breaker may stop it at the day's reserve.
+    # The publish / lease loop around this call keeps the exempt 'runner' name.
+    try:
+        from api import fs_usage as _fsu
+        _tagged = _fsu.as_caller("runner_job")
+    except Exception:
+        _tagged = None
+    if _tagged is None:
+        return _process_job(job, progress_cb)
+    with _tagged:
+        return _process_job(job, progress_cb)
+
+
+def _process_job(job: dict, progress_cb=None) -> dict:
+    """The job body. process_job above only names the caller for the quota breaker."""
     jtype = job.get("type", "backtest")
     # optional date-range window (YYYY-MM-DD); blank/missing => full master.
     df_from = job.get("date_from") or None

@@ -40,9 +40,12 @@ FLUSH_EVERY_SEC = 300
 FREE_READS, FREE_WRITES = 50000, 20000
 RESERVE_READS = int(os.environ.get("EDGELOG_FS_RESERVE_READS", "42000"))
 RESERVE_WRITES = int(os.environ.get("EDGELOG_FS_RESERVE_WRITES", "16000"))
+# EXEMPT = the live path only: the runner's publish / lease loop, the box, the executors and the
+# counter's own reader. EVERYTHING ELSE IS NON-CRITICAL BY DEFAULT -- a job only has to be named
+# here (or set EDGELOG_FS_CRITICAL=1) to spend the reserve, never the other way round.
 CRITICAL_CALLERS = {
-    "runner", "qqq_exec", "box_publish", "box_lease", "keel", "webull", "webull_exec",
-    "ownbar_shadow", "paper_publish", "chat_inbox", "fs_usage_report",
+    "runner", "api.runner", "qqq_exec", "box_publish", "box_lease", "keel", "webull", "webull_exec",
+    "ownbar_shadow", "paper_publish", "fs_usage_report",
 }
 _day_cache = {"day": None, "reads": 0, "writes": 0, "at": 0.0, "pid_seen": 0}
 
@@ -139,6 +142,36 @@ def caller_name():
         n = base
     _state["caller"] = n
     return n
+
+
+def set_caller(name):
+    """Rename this process's caller from here on; returns the name it had (None if unset)."""
+    with _lock:
+        was = _state["caller"]
+        _state["caller"] = name or None
+    return was
+
+
+class as_caller(object):
+    """`with fs_usage.as_caller('runner_job'):` -- tag one stretch of work, restore after.
+
+    The runner is one long-lived process that both publishes live data and runs queued backtests
+    and series builds. Under the one label 'runner' the bulk work inherited the live path's
+    exemption, which is how 11-26 went to 22k reads with the market shut."""
+
+    def __init__(self, name):
+        self.name, self._was, self._had = name, None, False
+
+    def __enter__(self):
+        self._had = True
+        self._was = set_caller(self.name)
+        return self
+
+    def __exit__(self, *exc):
+        if self._had:
+            flush()                 # bill the tagged stretch under its own name before restoring
+            set_caller(self._was)
+        return False
 
 
 def count(kind, n=1):
