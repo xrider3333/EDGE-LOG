@@ -36,3 +36,4 @@ Ships now replay only new or changed bug-traps (70 min -> minutes)
 - 2026-11-23: board changed to [done] LIVE
 - 2026-11-25: board changed to [done] LIVE
 - 2026-11-26: board changed to [done] LIVE
+- 2026-11-27: board changed to [done] LIVE

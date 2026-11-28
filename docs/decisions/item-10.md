@@ -36,3 +36,4 @@ Both bad QQQ files retired (backup kept). No saved run used them
 - 2026-11-23: board changed to [done] RETIRED
 - 2026-11-25: board changed to [done] RETIRED
 - 2026-11-26: board changed to [done] RETIRED
+- 2026-11-27: board changed to [done] RETIRED
